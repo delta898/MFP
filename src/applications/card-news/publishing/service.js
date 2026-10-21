@@ -28,6 +28,9 @@ function normalizeChannel(item = {}) {
         id: String(item.id || '').trim(),
         name: String(item.display_name || item.displayName || item.name || '').trim(),
         service,
+        avatar: String(item.avatar || '').trim(),
+        limit: Number(SNS_SERVICE_POLICIES[service]?.limit) || 0,
+        image_required: SNS_SERVICE_POLICIES[service]?.imageRequired === true,
         max_assets: maxAssets,
         supported: maxAssets > 0,
         is_disconnected: item.is_disconnected === true || item.isDisconnected === true,
@@ -285,7 +288,7 @@ function createCardNewsPublishingService(options = {}) {
         const unsupportedAsset = assets.find((asset) => !['image/png', 'image/jpeg', 'image/webp'].includes(asset.mime_type));
         if (unsupportedAsset) throw createPublishingError(400, 'CARD_NEWS_ASSET_FORMAT_UNSUPPORTED', 'Buffer 발행은 PNG, JPG 또는 WebP 카드만 지원합니다.');
         if (String(generation.settings?.aspect_ratio || '') === '9:16' && channels.some((channel) => channel.service === 'instagram')) {
-            throw createPublishingError(400, 'CARD_NEWS_INSTAGRAM_ASPECT_UNSUPPORTED', 'Instagram 다중 이미지 피드에는 1:1 또는 4:5 비율을 사용해 주세요.');
+            throw createPublishingError(400, 'CARD_NEWS_INSTAGRAM_ASPECT_UNSUPPORTED', 'Instagram 피드에는 1:1 또는 3:4 비율을 사용해 주세요.');
         }
         const requestedText = String(input.text || '').trim() || buildDefaultPublishText(generation);
         if (!requestedText) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_REQUIRED', '발행 문구를 입력해 주세요.');
@@ -325,6 +328,7 @@ function createCardNewsPublishingService(options = {}) {
             results = await socialPublisher.publishMany(channels.map((channel) => ({
                 deliveryKey: channel.id,
                 channelId: channel.id,
+                service: channel.service,
                 text,
                 imageUrls
             })));

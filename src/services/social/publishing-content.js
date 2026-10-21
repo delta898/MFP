@@ -20,7 +20,7 @@ const SNS_SERVICE_ASSET_LIMITS = Object.freeze({
     mastodon: 4,
     googlebusiness: 1,
     threads: 10,
-    bluesky: 4
+    bluesky: 10
 });
 
 const SNS_DISABLED_SERVICES = Object.freeze(new Set([

@@ -57,6 +57,7 @@ function normalizePublishDelivery(item = {}, index = 0) {
     return {
         deliveryKey: String(item.deliveryKey || item.delivery_key || channelId).trim(),
         channelId,
+        service: String(item.service || '').trim().toLowerCase(),
         text,
         imageUrl: imageUrls[0] || '',
         imageUrls
@@ -367,6 +368,9 @@ class BufferClient {
                     channelId: delivery.channelId,
                     schedulingType: 'automatic',
                     mode: 'shareNow',
+                    ...(delivery.service === 'instagram'
+                        ? { metadata: { instagram: { type: 'post', shouldShareToFeed: true } } }
+                        : {}),
                     ...(delivery.imageUrls.length > 0
                         ? { assets: delivery.imageUrls.map((url) => ({ image: { url } })) }
                         : {})

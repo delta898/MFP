@@ -150,7 +150,11 @@
 }
 
 #manual-sns-publish-btn.is-published:disabled {
-  background: var(--ui-text-secondary);
+  cursor: default;
+  border-color: color-mix(in srgb, var(--ui-status-success) 30%, var(--ui-border-default));
+  background: color-mix(in srgb, var(--ui-status-success) 12%, var(--ui-surface));
+  color: var(--ui-status-success);
+  opacity: 1;
 }
 
 .social-local-image-grid {

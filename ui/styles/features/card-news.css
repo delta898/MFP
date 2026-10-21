@@ -601,7 +601,7 @@
 
 .card-news-generation-field-grid select {
   min-height: 46px;
-  padding: 0 var(--ui-space-10) 0 var(--ui-space-3);
+  padding: 0 calc(var(--ui-space-4) + 18px) 0 var(--ui-space-3);
 }
 
 .card-news-text-option {

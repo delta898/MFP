@@ -123,11 +123,13 @@ function syncCardNewsPublishButton() {
   if (!button) return;
   const outcome = cardNewsViewState.publishingOutcome;
   const finished = outcome === 'completed' || outcome === 'accepted';
+  const selectedCount = selectedCardNewsPublishingChannels().length;
+  const publishLabel = selectedCount > 0 ? `${selectedCount}개 채널에 지금 발행` : '지금 발행';
   button.textContent = cardNewsViewState.publishing
     ? '발행 중…'
     : (outcome === 'completed'
       ? '발행 완료'
-      : (outcome === 'accepted' ? '발행 요청 완료' : (outcome === 'partial' ? '실패 채널 다시 시도' : (outcome === 'failed' ? '다시 시도' : '지금 발행'))));
+      : (outcome === 'accepted' ? '발행 요청 완료' : publishLabel));
   button.hidden = finished;
   button.disabled = cardNewsViewState.publishing
     || finished
@@ -137,53 +139,35 @@ function syncCardNewsPublishButton() {
 
 function renderCardNewsPublishingConfig(config = {}) {
   cardNewsViewState.publishingConfig = config;
-  const workspaceSelect = document.getElementById('card-news-publishing-workspace');
-  const channels = document.getElementById('card-news-publishing-channels');
+  const pickerRoot = document.getElementById('card-news-buffer-publishing-picker');
   const text = document.getElementById('card-news-publishing-text');
-  if (!workspaceSelect || !channels || !text) return;
+  if (!pickerRoot || !text) return;
   const organizations = Array.isArray(config.organizations) ? config.organizations : [];
   const selectedOrganizationId = String(config.organization_id || '');
   if (selectedOrganizationId) persistCardNewsBufferOrganizationId(selectedOrganizationId);
-  workspaceSelect.replaceChildren(new Option('작업 공간을 선택해 주세요.', ''));
-  organizations.forEach((organization) => {
-    const option = new Option(String(organization.name || organization.id || 'Buffer 작업 공간'), String(organization.id || ''));
-    option.selected = option.value === selectedOrganizationId;
-    workspaceSelect.append(option);
+  BufferPublishingPicker.render(pickerRoot, {
+    ids: { workspace: 'card-news-publishing-workspace', refresh: 'card-news-publishing-workspaces-load', selectAll: 'card-news-publishing-select-all', channelLimit: 'card-news-publishing-channel-limit', channels: 'card-news-publishing-channels' },
+    organizations,
+    selectedOrganizationId,
+    selectedChannelIds: selectedCardNewsPublishingChannels(),
+    channels: config.channels || [],
+    configured: config.buffer_api_key_configured === true,
+    loaded: config.workspaces_loaded === true || organizations.length > 0,
+    loading: cardNewsViewState.publishingWorkspaceLoading,
+    disabled: cardNewsViewState.publishing,
+    maxChannels: config.max_channels || 1,
+    helpUrl: 'https://m.blog.naver.com/amadejjs/223940980574',
+    cardClassName: 'card-news-publishing-channel',
+    emptyClassName: 'ui-workflow-empty',
+    emptyMessage: selectedOrganizationId ? '이 작업 공간에 발행 가능한 채널이 없습니다.' : '먼저 작업 공간을 선택해 주세요.',
+    isSelectable: (channel) => Boolean(channel.compatible),
+    inputData: (channel) => ({ cardNewsPublishChannel: '', cardNewsPublishCompatible: Boolean(channel.compatible) }),
+    onWorkspaceChange: (id) => { persistCardNewsBufferOrganizationId(id); void loadCardNewsPublishingWorkspace(id); },
+    onRefresh: (id) => void loadCardNewsPublishingWorkspace(id),
+    onSelectionChange: () => syncCardNewsPublishButton(),
+    onLimitReached: () => { if (typeof showToast === 'function') showToast(`최대 ${Math.max(1, Number(config.max_channels || 1))}개 채널까지 선택할 수 있습니다.`); }
   });
-  workspaceSelect.disabled = cardNewsViewState.publishing || organizations.length === 0;
-  workspaceSelect.onchange = () => {
-    const nextOrganizationId = String(workspaceSelect.value || '').trim();
-    persistCardNewsBufferOrganizationId(nextOrganizationId);
-    void loadCardNewsPublishingWorkspace(nextOrganizationId);
-  };
-  const workspaceRefresh = document.getElementById('card-news-publishing-workspaces-load');
-  BufferPublishingControls.setWorkspaceRefresh(workspaceRefresh, () => {
-    void loadCardNewsPublishingWorkspace(String(workspaceSelect.value || '').trim());
-  });
-  const selectAll = document.getElementById('card-news-publishing-select-all');
-  if (selectAll) {
-    selectAll.onchange = () => {
-      BufferPublishingControls.applyChannelSelectAll({
-        master: selectAll,
-        controls: [...channels.querySelectorAll('[data-card-news-publish-channel]')],
-        isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true',
-        limit: Math.max(1, Number(config.max_channels || 1))
-      });
-      syncCardNewsPublishButton();
-    };
-  }
-  channels.innerHTML = (config.channels || []).map((channel) => {
-    const compatible = Boolean(channel.compatible);
-    return `
-    <label class="card-news-publishing-channel ui-selectable-card${compatible ? '' : ' is-disabled'}" title="${escapeHtml(channel.reason || '')}">
-      <input type="checkbox" value="${escapeHtml(channel.id)}" data-card-news-publish-channel data-card-news-publish-compatible="${compatible ? 'true' : 'false'}" ${compatible ? '' : 'disabled'}>
-      <span class="ui-selectable-card-copy"><strong>${escapeHtml(channel.name || channel.service)}</strong><small>${escapeHtml(channel.compatible ? `${channel.max_assets}장까지` : channel.reason)}</small></span>
-    </label>`;
-  }).join('') || `<p class="ui-workflow-empty">${selectedOrganizationId ? '이 작업 공간에 발행 가능한 채널이 없습니다.' : '먼저 작업 공간을 선택해 주세요.'}</p>`;
   if (!text.value.trim()) text.value = String(config.default_text || [config.title, config.source_url].filter(Boolean).join('\n\n'));
-  channels.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
-    input.addEventListener('change', syncCardNewsPublishButton);
-  });
   syncCardNewsPublishButton();
   syncCardNewsPublishingWorkspaceControl();
 }
@@ -367,12 +351,7 @@ async function publishCardNews() {
     });
     if (resultElement) {
       resultElement.hidden = false;
-      resultElement.innerHTML = (result.results || []).map((item) => `
-        <div class="card-news-publishing-result-item" data-state="${item.success ? 'ready' : 'error'}">
-          <strong>${escapeHtml(item.channel_name || item.service)}</strong>
-          <span class="ui-status-badge" data-state="${item.success ? 'ready' : 'error'}">${escapeHtml(item.success ? (item.status === 'sent' ? '발행 완료' : '요청 완료') : (item.message || '발행 실패'))}</span>
-          ${item.external_link ? `<a class="ui-text-action compact" href="${escapeHtml(item.external_link)}" target="_blank" rel="noopener noreferrer">게시물 열기 ↗</a>` : ''}
-        </div>`).join('');
+      renderBufferPublishingResults(resultElement, result.results);
     }
   } catch (error) {
     cardNewsViewState.publishingOutcome = 'failed';

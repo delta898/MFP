@@ -3,7 +3,7 @@ async function loadManualSnsWorkspaces({ background = false } = {}) {
   const select = document.getElementById('manual-sns-organization');
   const organizationId = String(select?.value || manualSnsConfig.organizationId || loadManualSnsOrganizationId()).trim();
   manualSnsWorkspaceLoading = true;
-  renderManualSnsWorkspaceControl();
+  renderManualSnsChannels();
   try {
     const data = await postJson('/api/v1/social/manual/workspaces', { organizationId });
     const channels = Array.isArray(data?.channels) ? data.channels : [];
@@ -72,7 +72,6 @@ async function loadManualSnsWorkspaces({ background = false } = {}) {
     }
   } finally {
     manualSnsWorkspaceLoading = false;
-    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
   }
 }

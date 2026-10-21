@@ -58,9 +58,16 @@
 .social-view .social-composer-actions {
   gap: var(--ui-density-field-gap);
   padding: var(--ui-density-action-padding);
+  padding-inline: 0;
   border-top: 1px solid var(--ui-border-default);
   background: var(--ui-surface);
 }
 
-.social-view .social-publish-result { margin: 0 var(--ui-space-6) var(--ui-space-5); }
+.social-view .social-publish-result {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
 .social-view .social-workspace-select { margin: 0 0 var(--ui-space-4); }

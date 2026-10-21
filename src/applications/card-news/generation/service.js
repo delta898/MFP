@@ -87,7 +87,8 @@ function cardPlanMaxTokens(slideCount) {
     const count = Number(slideCount);
     if (count <= 3) return 4096;
     if (count <= 5) return 6144;
-    return 8192;
+    if (count <= 7) return 8192;
+    return 10240;
 }
 
 function writeJsonAtomic(fileSystem, pathApi, filePath, payload) {
@@ -456,7 +457,7 @@ function createCardNewsGenerationService(options = {}) {
                     temporaryBase,
                     2,
                     {
-                        aspectRatio: generation.settings?.aspect_ratio || '4:5',
+                        aspectRatio: generation.settings?.aspect_ratio || '3:4',
                         imageSize: '1K',
                         useCase: 'card_news',
                         signal,
@@ -567,7 +568,7 @@ function createCardNewsGenerationService(options = {}) {
             status: 'completed',
             image_mode: 'imported',
             settings: {
-                aspect_ratio: String(parsed.metadata?.settings?.aspect_ratio || '4:5'),
+                aspect_ratio: String(parsed.metadata?.settings?.aspect_ratio || '3:4'),
                 slide_count: parsed.images.length,
                 style: String(parsed.metadata?.settings?.style || 'imported'),
                 include_korean_text: parsed.metadata?.settings?.include_korean_text === true,

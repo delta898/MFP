@@ -312,8 +312,8 @@ function markCardNewsPreviewStale() {
 
 function readCardNewsGenerationSettings() {
   return {
-    slide_count: Number.parseInt(document.getElementById('card-news-slide-count')?.value || '5', 10),
-    aspect_ratio: document.getElementById('card-news-aspect-ratio')?.value || '4:5',
+    slide_count: Number.parseInt(document.getElementById('card-news-slide-count')?.value || '3', 10),
+    aspect_ratio: document.getElementById('card-news-aspect-ratio')?.value || '3:4',
     style: document.getElementById('card-news-style')?.value || 'ai_recommended',
     include_korean_text: !Boolean(document.getElementById('card-news-exclude-korean-text')?.checked),
     additional_request: document.getElementById('card-news-additional-request')?.value?.trim() || ''

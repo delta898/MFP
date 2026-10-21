@@ -83,6 +83,13 @@ function getManualSnsChannelTextLimit(channel = {}) {
   return Number.isFinite(limit) && limit > 0 ? limit : 0;
 }
 
+function getManualSnsChannelLabel(channel = {}) {
+  const service = String(channel.service || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const platform = BufferChannelCards.serviceLabels[service] || String(channel.service || 'SNS').trim();
+  const account = String(channel.name || channel.display_name || '').trim();
+  return account ? `${platform} (${account})` : platform;
+}
+
 function getManualSnsAssetLimitExceededChannel(images = manualSnsLocalImages) {
   const imageCount = Array.isArray(images) ? images.length : 0;
   if (imageCount === 0) return null;
@@ -713,16 +720,16 @@ function syncManualSnsComposerState() {
   const exceeded = selectedChannels.find((channel) => getManualSnsChannelTextLimit(channel) > 0
     && characterCount > getManualSnsChannelTextLimit(channel));
   if (missingLimitChannel) {
-    errorMessage = `${missingLimitChannel.name || missingLimitChannel.service} 제한 정보를 확인할 수 없습니다. 작업 공간을 다시 불러오세요.`;
+    errorMessage = `${getManualSnsChannelLabel(missingLimitChannel)} 제한 정보를 확인할 수 없습니다. 작업 공간을 다시 불러오세요.`;
   } else if (exceeded) {
     const limit = getManualSnsChannelTextLimit(exceeded);
-    errorMessage = `${exceeded.name || exceeded.service} 글자 수 제한을 ${characterCount - limit}자 초과했습니다. (${characterCount}/${limit}자)`;
+    errorMessage = `${getManualSnsChannelLabel(exceeded)} 글자 수 제한을 ${characterCount - limit}자 초과했습니다. (${characterCount}/${limit}자)`;
   } else if (!image.valid) {
     errorMessage = image.message;
   } else {
     const imageRequired = selectedChannels.find((channel) => channel.image_required === true);
     if (imageRequired && !image.hasImage) {
-      errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지가 필요합니다.`;
+      errorMessage = `${getManualSnsChannelLabel(imageRequired)} 채널은 이미지가 필요합니다.`;
     }
   }
 
@@ -745,11 +752,15 @@ function syncManualSnsComposerState() {
     feedbackEl.classList.toggle('is-visible', Boolean(feedback));
   }
   if (summaryEl) {
-    summaryEl.textContent = selectedChannels.length > 0
+    summaryEl.textContent = manualSnsPublishingInFlight
+      ? (image.hasImage
+        ? '이미지를 준비해 SNS에 발행하고 있습니다.'
+        : 'SNS에 발행하고 있습니다.')
+      : (manualSnsPublishSummaryMessage || (selectedChannels.length > 0
       ? hasText
         ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ` · 이미지 ${image.files?.length || 1}장` : ''}.`
         : `${selectedChannels.length}개 채널 선택됨`
-      : '발행할 채널을 선택하세요.';
+      : '발행할 채널을 선택하세요.'));
   }
   if (newPostBtn) {
     newPostBtn.hidden = !manualSnsLastPublishedSignature;
@@ -760,7 +771,7 @@ function syncManualSnsComposerState() {
   publishActionGroup?.classList.toggle('has-new-post-primary', alreadyPublished);
   if (publishBtn) {
     publishBtn.textContent = manualSnsPublishingInFlight
-      ? '발행 중...'
+      ? '발행 중…'
       : alreadyPublished
         ? '발행 완료'
         : selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
@@ -795,16 +806,20 @@ function syncManualSnsComposerState() {
     undoBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight;
   }
 
+  const selectedCount = selectedChannels.length;
   document.querySelectorAll('.social-channel-option').forEach((label) => {
     const input = label.querySelector('[data-manual-sns-channel]');
     label.classList.toggle('is-selected', Boolean(input?.checked));
-    if (input) input.disabled = input.dataset.manualSnsUnavailable === 'true' || manualSnsPublishingInFlight;
+    if (input) input.disabled = input.dataset.manualSnsUnavailable === 'true'
+      || manualSnsPublishingInFlight
+      || (!input.checked && selectedCount >= 3);
     label.classList.toggle('is-locked', manualSnsPublishingInFlight);
   });
   BufferPublishingControls.syncChannelSelectAll({
     master: selectAllEl,
     controls: Array.from(document.querySelectorAll('[data-manual-sns-channel]')),
-    isEligible: (input) => !input.disabled,
+    isEligible: (input) => input.dataset.bufferPickerSelectable === 'true',
+    limit: 3,
     disabled: manualSnsPublishingInFlight
   });
   const channelLimitEl = document.getElementById('manual-sns-channel-limit');
@@ -813,75 +828,56 @@ function syncManualSnsComposerState() {
 }
 
 function renderManualSnsChannels() {
-  const listEl = document.getElementById('manual-sns-channel-list');
-  const selectAllEl = document.getElementById('manual-sns-select-all');
-  if (!listEl) return;
-  listEl.replaceChildren();
-
+  const pickerRoot = document.getElementById('manual-sns-buffer-publishing-picker');
+  if (!pickerRoot) return;
   const channels = Array.isArray(manualSnsConfig.channels) ? manualSnsConfig.channels : [];
-  if (!manualSnsConfig.configured || channels.length === 0) {
-    const emptyEl = document.createElement('div');
-    emptyEl.className = 'social-channel-empty ui-empty-state';
-    const messageEl = document.createElement('span');
-    messageEl.textContent = manualSnsConfig.workspaceLoadMessage
-      || (!manualSnsConfig.configured
-        ? '설정에서 Buffer 연결을 확인하고 다시 연결해 주세요.'
+  const savedChannelIds = loadManualSnsSelectedChannelIds();
+  const emptyMessage = manualSnsConfig.workspaceLoadMessage
+    || (!manualSnsConfig.configured
+      ? '설정에서 Buffer 연결을 확인하고 다시 연결해 주세요.'
       : (!manualSnsConfig.workspacesLoaded
         ? '작업 공간 불러오기를 눌러 SNS 채널을 확인해 주세요.'
         : (!manualSnsConfig.organizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.')));
-    const linksEl = document.createElement('div');
-    linksEl.className = 'buffer-resource-links social-channel-help-links';
-    linksEl.setAttribute('aria-label', 'Buffer 관련 링크');
-    if (!manualSnsConfig.configured || manualSnsConfig.workspaceReconnectRequired) {
-      const settingsButton = document.createElement('button');
-      settingsButton.type = 'button';
-      settingsButton.className = 'text-btn social-inline-nav-link';
-      settingsButton.textContent = '설정 > SNS 배포';
-      settingsButton.addEventListener('click', async () => {
-        await navigateTo('settings-next', 'extras');
-        settingsNextActivateExtrasTab?.('social');
-      });
-      linksEl.append(settingsButton);
-    }
-    emptyEl.append(messageEl, linksEl);
-    listEl.appendChild(emptyEl);
-    if (selectAllEl) selectAllEl.disabled = true;
-    syncManualSnsComposerState();
-    return;
-  }
-
-  if (selectAllEl) selectAllEl.disabled = false;
-  const savedChannelIds = loadManualSnsSelectedChannelIds();
-  channels.forEach((channel) => {
-    const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
-    const label = document.createElement('label');
-    label.className = `social-channel-option ui-selectable-card${unavailable ? ' is-disabled' : ''}`;
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.value = channel.id;
-    input.dataset.manualSnsChannel = 'true';
-    input.dataset.manualSnsUnavailable = unavailable ? 'true' : 'false';
-    input.disabled = unavailable;
-    input.checked = !unavailable && savedChannelIds?.has(String(channel.id || '').trim()) === true;
-    input.addEventListener('change', () => {
+  BufferPublishingPicker.render(pickerRoot, {
+    ids: { workspace: 'manual-sns-organization', refresh: 'manual-sns-workspaces-load', selectAll: 'manual-sns-select-all', channelLimit: 'manual-sns-channel-limit', channels: 'manual-sns-channel-list' },
+    organizations: manualSnsConfig.organizations || [],
+    selectedOrganizationId: manualSnsConfig.organizationId,
+    selectedChannelIds: [...(savedChannelIds || [])],
+    channels,
+    configured: manualSnsConfig.configured,
+    loaded: manualSnsConfig.workspacesLoaded,
+    loading: manualSnsConfigLoading || manualSnsWorkspaceLoading,
+    maxChannels: 3,
+    helpUrl: 'https://m.blog.naver.com/amadejjs/223940980574',
+    cardClassName: 'social-channel-option',
+    emptyClassName: 'social-channel-empty ui-empty-state',
+    emptyMessage,
+    emptyAction: !manualSnsConfig.configured || manualSnsConfig.workspaceReconnectRequired
+      ? { label: '설정 > SNS 배포', onClick: async () => { await navigateTo('settings-next', 'extras'); settingsNextActivateExtrasTab?.('social'); } }
+      : undefined,
+    isSelectable: (channel) => channel.supported && !channel.disabled && !channel.is_disconnected && !channel.is_locked,
+    inputData: (channel) => ({ manualSnsChannel: true, manualSnsUnavailable: !(channel.supported && !channel.disabled && !channel.is_disconnected && !channel.is_locked) }),
+    onWorkspaceChange: (id) => { manualSnsConfig.organizationId = id; persistManualSnsOrganizationId(); void loadManualSnsWorkspaces(); },
+    onRefresh: () => void loadManualSnsWorkspaces(),
+    onSelectionChange: () => {
+      manualSnsPublishSummaryMessage = '';
       persistManualSnsSelectedChannels();
       syncManualSnsImagePreview();
       syncManualSnsComposerState();
-    });
-    const copy = document.createElement('span');
-    copy.className = 'social-channel-copy ui-selectable-card-copy';
-    const name = document.createElement('strong');
-    name.textContent = channel.name || channel.service || 'Buffer 채널';
-    const detail = document.createElement('span');
-    const textLimit = getManualSnsChannelTextLimit(channel);
-    detail.textContent = unavailable
-      ? '현재 수동 발행 미지원'
-      : `${channel.service} · ${textLimit > 0 ? `최대 ${textLimit.toLocaleString('ko-KR')}자` : '글자 수 제한 확인 필요'} · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 확인 필요'}${channel.image_required ? ' 필수' : ''}`;
-    copy.append(name, detail);
-    label.append(input, copy);
-    listEl.appendChild(label);
+    },
+    onLimitReached: () => { if (typeof showToast === 'function') showToast('최대 3개 채널까지 선택할 수 있습니다.'); }
   });
-  if (manualSnsConfig.workspaceLoadMessage) {
+  const listEl = document.getElementById('manual-sns-channel-list');
+  channels.forEach((channel) => {
+    const input = listEl?.querySelector(`[data-manual-sns-channel][value="${CSS.escape(String(channel.id || ''))}"]`);
+    const metadata = input?.closest('label')?.querySelector('.buffer-channel-metadata');
+    const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
+    const textLimit = getManualSnsChannelTextLimit(channel);
+    if (metadata && !unavailable && !(Number(channel.limit) > 0)) {
+      metadata.textContent = `${textLimit > 0 ? `최대 ${textLimit.toLocaleString('ko-KR')}자` : '글자 수 제한 확인 필요'} · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 확인 필요'}${channel.image_required ? ' · 이미지 필수' : ''}`;
+    } else if (unavailable && metadata) metadata.textContent = '현재 수동 발행 미지원';
+  });
+  if (manualSnsConfig.workspaceLoadMessage && listEl) {
     const statusEl = document.createElement('p');
     statusEl.className = 'muted social-channel-refresh-note';
     statusEl.textContent = manualSnsConfig.workspaceLoadMessage;
@@ -891,30 +887,10 @@ function renderManualSnsChannels() {
   syncManualSnsComposerState();
 }
 
-function renderManualSnsWorkspaceControl() {
-  const button = document.getElementById('manual-sns-workspaces-load');
-  const select = document.getElementById('manual-sns-organization');
-  if (!button || !select) return;
-  const organizations = Array.isArray(manualSnsConfig.organizations) ? manualSnsConfig.organizations : [];
-  select.replaceChildren(new Option(manualSnsConfig.configured ? '작업 공간을 선택해 주세요.' : 'Buffer 연결 후 선택할 수 있습니다.', ''));
-  (manualSnsConfig.workspacesLoaded ? organizations : []).forEach((organization) => {
-    const option = new Option(String(organization.name || organization.id || 'Buffer 작업 공간'), String(organization.id || ''));
-    option.selected = option.value === manualSnsConfig.organizationId;
-    select.append(option);
-  });
-  BufferPublishingControls.syncWorkspace({
-    button,
-    select,
-    configured: manualSnsConfig.configured,
-    loaded: manualSnsConfig.workspacesLoaded,
-    loading: manualSnsConfigLoading || manualSnsWorkspaceLoading
-  });
-}
 
 async function loadManualSnsComposer({ force = false } = {}) {
   if (manualSnsConfigLoading) return;
   if (!force && manualSnsConfig.configured) {
-    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
     if (manualSnsConfig.workspacesLoaded && !isManualSnsWorkspaceSnapshotFresh(manualSnsConfig.workspaceFetchedAt)) {
       void loadManualSnsWorkspaces({ background: true });
@@ -955,15 +931,12 @@ async function loadManualSnsComposer({ force = false } = {}) {
       clearManualSnsWorkspaceCache();
       manualSnsConfig = { ...connectionState, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, workspaceFetchedAt: 0 };
     }
-    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
   } catch (error) {
     manualSnsConfig = { configured: false, local_media_available: false, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, workspaceFetchedAt: 0, ai: { available: false, model_name: '' }, image_ai: { available: false, model_name: '' } };
-    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
   } finally {
     manualSnsConfigLoading = false;
-    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
     syncManualSnsImagePreview();
   }

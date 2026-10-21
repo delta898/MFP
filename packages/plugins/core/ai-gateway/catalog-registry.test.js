@@ -218,6 +218,18 @@ test('remote catalog can activate KIE GPT only through the trusted Responses tra
     assert.equal(model.transport, 'kie_responses');
 });
 
+test('remote catalog accepts the KIE OpenAI and Grok Responses transports', () => {
+    const catalog = validateRemoteCatalog({
+        schema_version: 1,
+        version: 'kie-responses-models',
+        models: [
+            { key: 'kie:kimi-k3', kind: 'text', provider: 'kie', transport: 'kie_openai_responses', model_id: 'kimi-k3', display_name: 'Kimi K3', status: 'active' },
+            { key: 'kie:grok-4-7', kind: 'text', provider: 'kie', transport: 'kie_grok_responses', model_id: 'grok-4-7', display_name: 'Grok 4.7', status: 'active' }
+        ]
+    }, { appVersion: '0.7.0' });
+    assert.deepEqual(catalog.models.map(({ transport }) => transport), ['kie_openai_responses', 'kie_grok_responses']);
+});
+
 test('remote catalog can activate KIE Claude only through the trusted Messages transport', () => {
     applyRemoteCatalog({
         schema_version: 1,

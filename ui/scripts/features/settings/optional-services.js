@@ -61,15 +61,24 @@ function settingsNextBufferChannel(channel = {}) {
     id: String(channel.id || channel.channelId || '').trim(),
     name: String(channel.name || channel.displayName || channel.display_name || '').trim(),
     displayName: String(channel.displayName || channel.display_name || channel.name || '').trim(),
-    service: String(channel.service || '').trim().toLowerCase()
+    service: String(channel.service || '').trim().toLowerCase(),
+    avatar: String(channel.avatar || '').trim(),
+    limit: Number(channel.limit) || 0,
+    max_assets: Number(channel.max_assets) || 0,
+    image_required: channel.image_required === true
   };
+}
+
+function settingsNextPersistedBufferChannel(channel = {}) {
+  const normalized = settingsNextBufferChannel(channel);
+  return { id: normalized.id, name: normalized.name, displayName: normalized.displayName, service: normalized.service };
 }
 
 function settingsNextSelectedBufferChannels() {
   if (!settingsNextOptionalState.bufferConnection.workspacesLoaded) {
     return (Array.isArray(settingsNextOptionalState.fields.BUFFER_CHANNELS)
       ? settingsNextOptionalState.fields.BUFFER_CHANNELS
-      : []).map(settingsNextBufferChannel).filter((channel) => channel.id);
+      : []).map(settingsNextPersistedBufferChannel).filter((channel) => channel.id);
   }
   const candidates = Array.isArray(settingsNextOptionalState.bufferConnection.channels) && settingsNextOptionalState.bufferConnection.channels.length
     ? settingsNextOptionalState.bufferConnection.channels
@@ -80,7 +89,7 @@ function settingsNextSelectedBufferChannels() {
   ));
   return candidates
     .filter((channel) => selectedIds.has(String(channel.id || channel.channelId || '').trim()))
-    .map(settingsNextBufferChannel)
+    .map(settingsNextPersistedBufferChannel)
     .filter((channel) => channel.id);
 }
 
@@ -143,72 +152,50 @@ function settingsNextRenderSnsDistribution() {
   const form = document.getElementById('settings-next-sns-distribution-form');
   const enabledInput = document.getElementById('settings-next-sns-distribution-enabled');
   const fieldsRoot = document.getElementById('settings-next-sns-distribution-fields');
-  const organization = document.getElementById('settings-next-buffer-organization');
-  const workspaceLoad = document.getElementById('settings-next-buffer-workspaces-load');
-  const channelsRoot = document.getElementById('settings-next-buffer-channel-list');
-  if (!form || !enabledInput || !fieldsRoot || !organization || !workspaceLoad || !channelsRoot) return;
+  const pickerRoot = document.getElementById('settings-next-buffer-publishing-picker');
+  if (!form || !enabledInput || !fieldsRoot || !pickerRoot) return;
 
   const organizations = Array.isArray(settingsNextOptionalState.bufferConnection.organizations)
     ? settingsNextOptionalState.bufferConnection.organizations
     : [];
   const selectedOrganizationId = String(fields.BUFFER_ORGANIZATION_ID || settingsNextOptionalState.bufferConnection.organizationId || '').trim();
-  organization.replaceChildren();
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = connected ? '작업 공간을 선택해 주세요.' : 'Buffer 연결 후 선택할 수 있습니다.';
-  organization.append(placeholder);
-  const organizationOptions = settingsNextOptionalState.bufferConnection.workspacesLoaded && organizations.length
-    ? organizations
-    : [];
-  organizationOptions.forEach((item) => {
-    const option = document.createElement('option');
-    option.value = String(item.id || '');
-    option.textContent = String(item.name || item.id || 'Buffer 작업 공간');
-    option.selected = option.value === selectedOrganizationId;
-    organization.append(option);
-  });
-
   const availableChannels = settingsNextOptionalState.bufferConnection.workspacesLoaded
     ? (Array.isArray(settingsNextOptionalState.bufferConnection.channels) ? settingsNextOptionalState.bufferConnection.channels : [])
     : [];
   const saving = settingsNextOptionalState.busy.has('sns-distribution');
-  workspaceLoad.disabled = !connected || saving;
-  workspaceLoad.textContent = settingsNextOptionalState.bufferConnection.workspacesLoaded ? '다시 불러오기' : '작업 공간 불러오기';
   const selectedIds = new Set((Array.isArray(fields.BUFFER_CHANNELS) ? fields.BUFFER_CHANNELS : []).map((channel) => String(channel?.id || channel?.channelId || '').trim()));
-  channelsRoot.replaceChildren();
-  if (!availableChannels.length) {
-    const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.textContent = !connected
+  const normalized = availableChannels.map(settingsNextBufferChannel).filter((channel) => channel.id);
+  BufferPublishingPicker.render(pickerRoot, {
+    ids: { workspace: 'settings-next-buffer-organization', refresh: 'settings-next-buffer-workspaces-load', selectAll: 'settings-next-buffer-select-all', channelLimit: 'settings-next-buffer-channel-limit', channels: 'settings-next-buffer-channel-list' },
+    organizations: settingsNextOptionalState.bufferConnection.workspacesLoaded ? organizations : [],
+    selectedOrganizationId,
+    selectedChannelIds: [...selectedIds],
+    channels: normalized,
+    configured: connected,
+    loaded: settingsNextOptionalState.bufferConnection.workspacesLoaded,
+    loading: settingsNextOptionalState.busy.has('buffer-workspaces'),
+    disabled: saving,
+    maxChannels: 3,
+    helpUrl: 'https://m.blog.naver.com/amadejjs/223940980574',
+    cardClassName: 'settings-next-sns-channel-option',
+    emptyClassName: 'muted',
+    emptyMessage: !connected
       ? 'Buffer 연결 후 채널을 불러와 선택할 수 있습니다.'
       : (!settingsNextOptionalState.bufferConnection.workspacesLoaded
         ? '작업 공간 불러오기를 눌러 SNS 채널을 확인해 주세요.'
-        : (organizations.length > 1 && !selectedOrganizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.'));
-    channelsRoot.append(empty);
-  } else {
-    availableChannels.map(settingsNextBufferChannel).filter((channel) => channel.id).forEach((channel) => {
-      const label = document.createElement('label');
-      label.className = 'ui-selectable-card settings-next-sns-channel-option';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.id = `settings-next-buffer-channel-${channel.id}`;
-      input.dataset.channelId = channel.id;
-      input.checked = selectedIds.has(channel.id);
-      input.disabled = !connected || saving;
-      const copy = document.createElement('span');
-      copy.className = 'ui-selectable-card-copy';
-      const title = document.createElement('strong');
-      title.textContent = channel.displayName || channel.name || channel.id;
-      const detail = document.createElement('small');
-      detail.textContent = channel.service || 'SNS 채널';
-      copy.append(title, detail);
-      label.append(input, copy);
-      channelsRoot.append(label);
-    });
-  }
+        : (organizations.length > 1 && !selectedOrganizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.')),
+    inputData: (channel) => ({ channelId: channel.id }),
+    onWorkspaceChange: () => void settingsNextLoadBufferWorkspaces(),
+    onRefresh: () => void settingsNextLoadBufferWorkspaces(),
+    onSelectionChange: (ids) => {
+      const selected = new Set(ids);
+      settingsNextOptionalState.fields.BUFFER_CHANNELS = normalized.filter((channel) => selected.has(channel.id)).map(settingsNextPersistedBufferChannel);
+      settingsNextSyncSnsDistributionSaveState();
+    },
+    onLimitReached: () => settingsNextSetFeedback('settings-next-sns-distribution-feedback', 'SNS 채널은 최대 3개까지 선택할 수 있습니다.', 'danger')
+  });
 
   enabledInput.disabled = !connected || saving;
-  organization.disabled = !connected || saving || !settingsNextOptionalState.bufferConnection.workspacesLoaded;
   document.querySelectorAll('#settings-next-sns-distribution-fields input').forEach((input) => { input.disabled = !connected || saving; });
   fieldsRoot.setAttribute('aria-disabled', connected ? 'false' : 'true');
   settingsNextRenderSnsDistributionSaveState();
@@ -269,14 +256,6 @@ async function settingsNextLoadBufferWorkspaces() {
     settingsNextOptionalState.busy.delete('buffer-workspaces');
     settingsNextRenderSnsDistribution();
   }
-}
-
-function settingsNextLimitBufferChannelSelection(input) {
-  if (!input.checked) return;
-  const checked = document.querySelectorAll('#settings-next-buffer-channel-list input:checked').length;
-  if (checked <= 3) return;
-  input.checked = false;
-  settingsNextSetFeedback('settings-next-sns-distribution-feedback', 'SNS 채널은 최대 3개까지 선택할 수 있습니다.', 'danger');
 }
 
 function settingsNextOptionalPayload(scope) {
@@ -682,11 +661,6 @@ function initSettingsNextOptionalServices() {
   });
   document.querySelectorAll('[data-settings-next-delivery-toggle]').forEach((input) => {
     input.addEventListener('change', () => void settingsNextOptionalToggleDelivery(input.dataset.settingsNextDeliveryToggle, input));
-  });
-  document.getElementById('settings-next-buffer-workspaces-load')?.addEventListener('click', () => void settingsNextLoadBufferWorkspaces());
-  document.getElementById('settings-next-buffer-organization')?.addEventListener('change', () => void settingsNextLoadBufferWorkspaces());
-  document.getElementById('settings-next-buffer-channel-list')?.addEventListener('change', (event) => {
-    if (event.target.matches('input[type="checkbox"]')) settingsNextLimitBufferChannelSelection(event.target);
   });
   document.getElementById('settings-next-telegram-verify')?.addEventListener('click', () => void settingsNextVerifyTelegramToken());
   document.getElementById('settings-next-telegram-pairing-code')?.addEventListener('input', (event) => {

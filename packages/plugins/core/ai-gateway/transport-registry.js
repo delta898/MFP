@@ -46,6 +46,14 @@ const TRANSPORTS = Object.freeze({
         base_url: KIE_BASE_URL,
         verification_scope: 'provider'
     }),
+    kie_openai_responses: Object.freeze({
+        id: 'kie_openai_responses', providers: Object.freeze(['kie']), kinds: Object.freeze(['text']),
+        base_url: KIE_BASE_URL, verification_scope: 'provider'
+    }),
+    kie_grok_responses: Object.freeze({
+        id: 'kie_grok_responses', providers: Object.freeze(['kie']), kinds: Object.freeze(['text']),
+        base_url: KIE_BASE_URL, verification_scope: 'provider'
+    }),
     kie_market_image_jobs: Object.freeze({
         id: 'kie_market_image_jobs',
         providers: Object.freeze(['kie']),

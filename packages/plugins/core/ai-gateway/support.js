@@ -11,6 +11,8 @@ const ROUTES = Object.freeze([
     { kind: 'text', provider: 'direct', transport: 'openai_chat_completions', jsonMode: false },
     { kind: 'text', provider: 'anthropic', transport: 'anthropic_openai_compat', jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_responses', jsonMode: false },
+    { kind: 'text', provider: 'kie', transport: 'kie_openai_responses', jsonMode: false },
+    { kind: 'text', provider: 'kie', transport: 'kie_grok_responses', jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_openai_chat', jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_claude_messages', jsonMode: false },
     {

@@ -451,30 +451,6 @@
   gap: var(--ui-space-3);
 }
 
-.settings-next-sns-channel-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ui-space-3);
-}
-
-.settings-next-sns-channel-list .muted {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
-.settings-next-sns-channel-option {
-  min-inline-size: 0;
-}
-
-.settings-next-sns-channel-option input {
-  flex: 0 0 auto;
-}
-
-.settings-next-sns-channel-option small {
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-}
-
 .settings-next-input-action {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -97,6 +97,47 @@ test('KIE image route accepts newly catalogued model IDs using the shared job pr
     assert.deepEqual(requests[0].body.input, { prompt: 'test', aspect_ratio: '4:3' });
 });
 
+test('KIE image task API body validation code 500 is not treated as an HTTP outage', async () => {
+    const plugin = createPlugin({ transport: { async request(input) {
+        assert.equal(input.path, '/api/v1/jobs/createTask');
+        return {
+            status: 200,
+            body: { code: 500, msg: 'This aspect_ratio is not within the range of allowed options' },
+            providerError: { code: '500', message: 'This aspect_ratio is not within the range of allowed options' }
+        };
+    } } });
+    await assert.rejects(plugin.operations['image.generate'].execute({
+        model: { provider: 'kie', modelId: 'grok-imagine-image-2-0/text-to-image', transport: 'kie_market_image_jobs' },
+        input: { prompt: 'scene' }, options: { aspectRatio: '4:5' }
+    }), (error) => error.code === 'AI_GATEWAY_PROVIDER_REJECTED_REQUEST'
+        && error.providerCode === '500'
+        && error.providerMessage === 'This aspect_ratio is not within the range of allowed options'
+        && error.status === undefined);
+});
+
+test('KIE FLUX 3, Grok Imagine 2.0 and Qwen 3 map unsupported card-news 4:5 to supported 3:4', async () => {
+    const requests = [];
+    let taskId = 0;
+    const plugin = createPlugin({ transport: {
+        async request(input) {
+            if (input.method === 'POST') {
+                requests.push(input);
+                taskId += 1;
+                return { status: 200, body: { data: { taskId: `ratio-task-${taskId}` } } };
+            }
+            return { status: 200, body: { data: { state: 'success', resultUrls: [`https://image.example/${taskId}.png`] } } };
+        },
+        async downloadUrl() { return { bytes: Buffer.from('image'), mimeType: 'image/png' }; }
+    }, sleep: async () => {} });
+    for (const modelId of ['flux-3/klein-text-to-image', 'grok-imagine-image-2-0/text-to-image', 'qwen3/text-to-image']) {
+        await plugin.operations['image.generate'].execute({
+            model: { provider: 'kie', modelId, transport: 'kie_market_image_jobs' },
+            input: { prompt: 'portrait card' }, options: { aspectRatio: '4:5', size: '1K' }
+        });
+    }
+    assert.deepEqual(requests.map(({ body }) => body.input.aspect_ratio || body.input.image_size), ['3:4', '3:4', '3:4']);
+});
+
 test('Anthropic OpenAI-compatible requests forward caller options for provider runtime validation', async () => {
     let request;
     const plugin = createPlugin({ transport: { async request(input) {
@@ -149,6 +190,92 @@ test('KIE Claude Messages models use the fixed Messages endpoint and normalize C
         system: 'Write clearly.',
         temperature: 0.3
     });
+});
+
+test('KIE Kimi and DeepSeek use non-streaming OpenAI Responses requests', async () => {
+    const requests = [];
+    const plugin = createPlugin({ transport: { async request(input) {
+        requests.push(input);
+        return { status: 200, headers: {}, body: { output_text: 'Responses result', usage: { input_tokens: 5, output_tokens: 3 } } };
+    } } });
+    for (const modelId of ['kimi-k3', 'deepseek-v4-1-flash']) {
+        const result = await plugin.operations['text.generate'].execute({
+            model: { provider: 'kie', modelId, transport: 'kie_openai_responses' },
+            messages: [{ role: 'system', content: 'Write carefully.' }, { role: 'user', content: 'Draft a post.' }]
+        });
+        assert.equal(result.content, 'Responses result');
+    }
+    assert.deepEqual(requests.map(({ path }) => path), ['/openai/v1/responses', '/openai/v1/responses']);
+    assert.deepEqual(requests[0].body, {
+        model: 'kimi-k3', stream: false,
+        input: [
+            { role: 'system', content: [{ type: 'input_text', text: 'Write carefully.' }] },
+            { role: 'user', content: [{ type: 'input_text', text: 'Draft a post.' }] }
+        ]
+    });
+});
+
+test('KIE Grok Responses requests use input_text messages and normalize the completed response', async () => {
+    let request;
+    const plugin = createPlugin({ transport: { async request(input) {
+        request = input;
+        return { status: 200, headers: {}, body: {
+            output: [{ type: 'message', content: [{ type: 'output_text', text: 'Grok result' }] }],
+            usage: { input_tokens: 8, output_tokens: 4 }
+        } };
+    } } });
+    const result = await plugin.operations['text.generate'].execute({
+        model: { provider: 'kie', modelId: 'grok-4-7', transport: 'kie_grok_responses' },
+        messages: [{ role: 'user', content: 'Hello Grok.' }], options: { reasoningEffort: 'high' }
+    });
+    assert.equal(result.content, 'Grok result');
+    assert.equal(request.path, '/grok/v1/responses');
+    assert.deepEqual(request.body, {
+        model: 'grok-4-7', stream: true,
+        input: [{ role: 'user', content: [{ type: 'input_text', text: 'Hello Grok.' }] }],
+        reasoning: { effort: 'high' }
+    });
+});
+
+test('KIE Responses errors carried in HTTP 200 envelopes do not become empty responses', async () => {
+    const plugin = createPlugin({ transport: { async request() {
+        return { status: 200, headers: {}, body: { code: 402, msg: 'insufficient credits' } };
+    } } });
+    await assert.rejects(plugin.operations['text.generate'].execute({
+        model: { provider: 'kie', modelId: 'kimi-k3', transport: 'kie_openai_responses' },
+        messages: [{ role: 'user', content: 'Hello' }]
+    }), (error) => error.code === 'AI_GATEWAY_PROVIDER_REJECTED_REQUEST' && error.status === 402);
+});
+
+test('KIE image adapters send each new model documented input fields', async () => {
+    const requests = [];
+    let taskNumber = 0;
+    const plugin = createPlugin({ transport: {
+        async request(input) {
+            if (input.method === 'POST') {
+                requests.push(input);
+                taskNumber += 1;
+                return { status: 200, body: { data: { taskId: `task-${taskNumber}` } } };
+            }
+            return { status: 200, body: { data: { state: 'success', resultUrls: [`https://image.example/${taskNumber}.png`] } } };
+        },
+        async downloadUrl() { return { bytes: Buffer.from('image'), mimeType: 'image/png' }; }
+    }, sleep: async () => {} });
+    const cases = [
+        ['flux-3/klein-text-to-image', { prompt: 'scene', aspect_ratio: '4:3', resolution: '2K', output_format: 'png', num_images: 1, enhance_prompt: true }],
+        ['qwen2-1/text-to-image', { prompt: 'scene', aspect_ratio: '4:3', resolution: '2K', background: 'opaque', output_format: 'png', enhance_prompt: true }],
+        ['qwen3/text-to-image', { prompt: 'scene', resolution: '2K', image_size: '4:3', output_format: 'png', prompt_extend: true, nsfw_checker: false }],
+        ['grok-imagine-image-2-0/text-to-image', { prompt: 'scene', aspect_ratio: '4:3' }],
+        ['wan/2-7-image', { prompt: 'scene', aspect_ratio: '4:3', n: 1, enable_sequential: false, resolution: '2K', thinking_mode: false, watermark: false }],
+        ['z-image', { prompt: 'scene', aspect_ratio: '4:3', nsfw_checker: true }]
+    ];
+    for (const [modelId] of cases) {
+        await plugin.operations['image.generate'].execute({
+            model: { provider: 'kie', modelId, transport: 'kie_market_image_jobs' },
+            input: { prompt: 'scene' }, options: { aspectRatio: '4:3', size: '2K' }
+        });
+    }
+    assert.deepEqual(requests.map(({ body }) => body.input), cases.map(([, input]) => input));
 });
 
 test('KIE Claude Messages route does not fall through to the first KIE text transport', async () => {

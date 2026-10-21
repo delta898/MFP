@@ -30,13 +30,19 @@ const modelSets = [
         ['claude-fable-5-1', 5], ['claude-opus-5', 10], ['claude-sonnet-5', 20], ['claude-haiku-4-5', 30]
     ]],
     ['text', 'kie', 'kie_responses', [
-        ['gpt-6-astra', 10], ['gpt-5-6-sol', 20], ['gpt-5-6-terra', 30], ['gpt-5-6-luna', 40], ['gemini-3.1-pro', 140]
+        ['gpt-6-1-sol', 310], ['gpt-6-astra', 320], ['gpt-5-6-sol', 330], ['gpt-5-6-terra', 340], ['gpt-5-6-luna', 350], ['gemini-3.1-pro', 240]
     ]],
     ['text', 'kie', 'kie_openai_chat', [
-        ['gemini-3-8-flash-openai', 110], ['gemini-3-6-flash-openai', 120]
+        ['gemini-4-argon-openai', 210], ['gemini-3-8-flash-openai', 220], ['gemini-3-6-flash-openai', 230]
     ]],
     ['text', 'kie', 'kie_claude_messages', [
-        ['claude-haiku-5-5', 200], ['claude-sonnet-5-5', 210], ['claude-opus-5-5', 220]
+        ['claude-opus-5-5', 10], ['claude-sonnet-5-5', 20], ['claude-haiku-5-5', 30]
+    ]],
+    ['text', 'kie', 'kie_openai_responses', [
+        ['deepseek-v4-1-flash', 110], ['kimi-k3', 510]
+    ]],
+    ['text', 'kie', 'kie_grok_responses', [
+        ['grok-4-7', 410]
     ]],
     ['image', 'google', 'gemini_generate_content', [
         ['gemini-nano-banana-2.1', 5], ['gemini-3.1-flash-image', 10], ['gemini-3.1-flash-lite-image', 20]
@@ -45,10 +51,11 @@ const modelSets = [
         ['gpt-image-2.5-sunburst', 5], ['gpt-image-2.5-flare', 10], ['gpt-image-2', 20]
     ]],
     ['image', 'kie', 'kie_market_image_jobs', [
-        ['gpt-image-2-5-sunburst-text-to-image', 10], ['gpt-image-2-5-flare-text-to-image', 20],
-        ['gpt-image-2-text-to-image', 30], ['nano-banana-2.1', 110], ['nano-banana-2', 120],
-        ['nano-banana-2-lite', 130], ['nano-banana-pro', 140], ['seedream/5-flash-text-to-image', 210],
-        ['seedream/5-pro-text-to-image', 220], ['seedream/4.5-text-to-image', 230]
+        ['flux-3/klein-text-to-image', 10], ['gpt-image-2-5-sunburst-text-to-image', 110], ['gpt-image-2-5-flare-text-to-image', 120],
+        ['gpt-image-2-text-to-image', 130], ['grok-imagine-image-2-0/text-to-image', 210], ['nano-banana-2.1', 310], ['nano-banana-2', 320],
+        ['nano-banana-2-lite', 330], ['nano-banana-pro', 340], ['qwen3/text-to-image', 410], ['qwen2-1/text-to-image', 420],
+        ['seedream/5-flash-text-to-image', 510], ['seedream/5-pro-text-to-image', 520], ['seedream/4.5-text-to-image', 530],
+        ['wan/2-7-image', 610], ['z-image', 710]
     ]]
 ];
 
@@ -65,7 +72,9 @@ function seedCatalog() {
         status: 'active', sort_order: sortOrder,
         ...(code === 'gpt-6.1-sol' || code.startsWith('gpt-6-') ? { capabilities: { reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max'] } } : {}),
         ...(provider === 'anthropic' && code === 'claude-sonnet-5' ? { capabilities: { temperature: false } } : {}),
-        ...(kind === 'image' && provider === 'kie' ? { capabilities: { image_size: ['1K', '2K'] } } : {})
+        ...(kind === 'image' && provider === 'kie' && !['grok-imagine-image-2-0/text-to-image', 'z-image'].includes(code)
+            ? { capabilities: { image_size: ['1K', '2K'], aspect_ratio: true } }
+            : {})
     })));
     applyRemoteCatalog({ schema_version: 1, version: 'test-catalog', providers, models }, { appVersion: '99.0.0' });
 }
@@ -165,31 +174,42 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
+            'claude-opus-5-5',
+            'claude-sonnet-5-5',
+            'claude-haiku-5-5',
+            'deepseek-v4-1-flash',
+            'gemini-4-argon-openai',
+            'gemini-3-8-flash-openai',
+            'gemini-3-6-flash-openai',
+            'gemini-3.1-pro',
+            'gpt-6-1-sol',
             'gpt-6-astra',
             'gpt-5-6-sol',
             'gpt-5-6-terra',
             'gpt-5-6-luna',
-            'gemini-3-8-flash-openai',
-            'gemini-3-6-flash-openai',
-            'gemini-3.1-pro',
-            'claude-haiku-5-5',
-            'claude-sonnet-5-5',
-            'claude-opus-5-5'
+            'grok-4-7',
+            'kimi-k3'
         ]
     );
     assert.deepEqual(
         catalog.image.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
+            'flux-3/klein-text-to-image',
             'gpt-image-2-5-sunburst-text-to-image',
             'gpt-image-2-5-flare-text-to-image',
             'gpt-image-2-text-to-image',
+            'grok-imagine-image-2-0/text-to-image',
             'nano-banana-2.1',
             'nano-banana-2',
             'nano-banana-2-lite',
             'nano-banana-pro',
+            'qwen3/text-to-image',
+            'qwen2-1/text-to-image',
             'seedream/5-flash-text-to-image',
             'seedream/5-pro-text-to-image',
-            'seedream/4.5-text-to-image'
+            'seedream/4.5-text-to-image',
+            'wan/2-7-image',
+            'z-image'
         ]
     );
 });

@@ -83,6 +83,7 @@
 /* @include styles/features/discovery-keyword-research.css */
 /* @include styles/features/discovery-responsive.css */
 /* @include styles/features/discovery-writing-assists.css */
+/* @include styles/patterns/buffer-channel-cards.css */
 }
 
 @layer bloggenius.utilities {

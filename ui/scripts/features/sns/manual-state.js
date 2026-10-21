@@ -8,6 +8,7 @@ let manualSnsAiStatusMessage = '';
 let manualSnsAiStatusIsError = false;
 let manualSnsPublishingInFlight = false;
 let manualSnsLastPublishedSignature = '';
+let manualSnsPublishSummaryMessage = '';
 let manualSnsLocalImages = [];
 let manualSnsPreviewImageIndex = 0;
 let manualSnsDraggedImageIndex = null;

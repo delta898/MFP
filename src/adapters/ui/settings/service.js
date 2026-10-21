@@ -51,6 +51,11 @@ const {
 } = require('../../../applications/settings/external-connections/application');
 const { createCardNewsSourceSettingsApplication } = require('../../../applications/card-news/source-settings/application');
 const {
+    SNS_SERVICE_POLICIES,
+    SNS_SERVICE_ASSET_LIMITS,
+    normalizeSnsService
+} = require('../../../services/social/publishing-content');
+const {
     normalizeCardNewsBuiltinSources,
     normalizeCardNewsRssSources
 } = require('../../../applications/card-news/sources/feed-sources');
@@ -933,7 +938,21 @@ function createSettingsService(deps = {}) {
             }
 
             try {
-                return await socialPublisher.inspectConnection(apiKey, organizationId);
+                const result = await socialPublisher.inspectConnection(apiKey, organizationId);
+                return {
+                    ...result,
+                    channels: (Array.isArray(result?.channels) ? result.channels : []).map((channel = {}) => {
+                        const service = normalizeSnsService(channel.service);
+                        const policy = SNS_SERVICE_POLICIES[service] || {};
+                        return {
+                            ...channel,
+                            service,
+                            limit: Number(policy.limit) || 0,
+                            max_assets: Number(SNS_SERVICE_ASSET_LIMITS[service]) || 0,
+                            image_required: policy.imageRequired === true
+                        };
+                    })
+                };
             } catch (error) {
                 throw createApiError(
                     error?.code === 'BUFFER_AUTH_INVALID' ? 401 : 400,

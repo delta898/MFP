@@ -13,6 +13,8 @@ Card News turns a public article or user-provided manuscript into an ordered set
 5. Download individual images or an ordered ZIP bundle, or import a compatible ZIP bundle back into the workflow.
 6. Optionally publish completed images manually through configured Buffer channels.
 
+Card composition supports 1–9 cards and square (1:1), portrait feed (3:4), or full-screen vertical (9:16) layouts. New sets default to three cards and 3:4. A one-card set combines the cover and summary; a two-card set uses the second card for the summary and next step.
+
 ## Sources and Management
 
 - Connected Naver and WordPress blogs are available as RSS sources.
@@ -35,7 +37,8 @@ Card News turns a public article or user-provided manuscript into an ordered set
 - Local download remains independent of publishing.
 - Manual Buffer publishing uses the configured Google Drive connection to temporarily provide public image URLs; WordPress is not required.
 - Images are uploaded in card order and passed to Buffer in that same order.
-- The app validates channel-specific image limits before upload. For example, Bluesky supports up to four and Threads up to ten images.
+- The app validates channel-specific image limits before upload. Bluesky and Threads support up to ten images per post.
+- Instagram multi-image feed publishing accepts 1:1 and 3:4 layouts; 9:16 is reserved for full-screen formats and is rejected for feed publishing.
 - Temporary Drive files are removed after terminal Buffer results. They are retained when delivery is ambiguous, so a potentially delivered post does not lose its media.
 
 ## Boundaries and Deferred Work

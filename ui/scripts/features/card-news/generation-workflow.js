@@ -1,5 +1,5 @@
 // Card News composition and image generation workflow.
-function renderCardNewsCompositionSkeleton(slideCount, aspectRatio = '4:5') {
+function renderCardNewsCompositionSkeleton(slideCount, aspectRatio = '3:4') {
   const panel = document.getElementById('card-news-result-panel');
   const grid = document.getElementById('card-news-result-grid');
   if (!panel || !grid) return;
@@ -305,7 +305,7 @@ function renderCardNewsGeneration(generation, options = {}) {
   const grid = document.getElementById('card-news-result-grid');
   if (!panel || !grid) return;
   panel.hidden = false;
-  panel.dataset.aspectRatio = generation.settings?.aspect_ratio || '4:5';
+  panel.dataset.aspectRatio = generation.settings?.aspect_ratio || '3:4';
   document.getElementById('card-news-result-title').textContent = generation.title || '만든 카드뉴스';
   const imageCount = (generation.cards || []).filter((card) => card.image_url).length;
   const importedGeneration = generation.image_mode === 'imported';

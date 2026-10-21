@@ -562,6 +562,7 @@ function createManualSnsService(deps = {}) {
             publishResults = await socialPublisher.publishMany(selectedChannels.map((channel) => ({
                 deliveryKey: channel.id,
                 channelId: channel.id,
+                service: channel.service,
                 text,
                 imageUrl: imageUrls[0] || '',
                 imageUrls

@@ -29,7 +29,7 @@ function isAllowedRoute({ provider, kind, modelId, method, path }) {
     if (provider === 'direct') return (kind === 'text' && verb === 'POST' && normalized === '/chat/completions')
         || (kind === 'image' && verb === 'POST' && normalized === '/images/generations');
     if (provider === 'anthropic') return kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions';
-    if (provider === 'kie') return (kind === 'text' && verb === 'POST' && normalized === '/codex/v1/responses')
+    if (provider === 'kie') return (kind === 'text' && verb === 'POST' && ['/codex/v1/responses', '/openai/v1/responses', '/grok/v1/responses'].includes(normalized))
         || (kind === 'text' && verb === 'POST' && normalized === `/${model}/v1/chat/completions`)
         || (kind === 'text' && verb === 'POST' && normalized === '/claude/v1/messages')
         || (kind === 'image' && verb === 'POST' && normalized === '/api/v1/jobs/createTask')
@@ -102,7 +102,7 @@ function extractProviderError(body, options = {}) {
     const error = body?.error && typeof body.error === 'object' ? body.error : body;
     const rawCode = error?.code || error?.type || body?.error_code || body?.code || '';
     const code = /^[A-Za-z0-9_.:-]{1,100}$/.test(String(rawCode)) ? String(rawCode) : '';
-    const message = sanitizeProviderDiagnostic(error?.message || error?.detail || body?.error_description || body?.message, options);
+    const message = sanitizeProviderDiagnostic(error?.message || error?.detail || body?.error_description || body?.message || body?.msg, options);
     return {
         ...(code ? { code } : {}),
         ...(message ? { message } : {})
@@ -137,7 +137,7 @@ function createProviderTransport(options = {}) {
         if (!profile || (provider !== 'direct' && !apiKey)) {
             throw Object.assign(new Error('No credential is configured.'), { code: 'AI_GATEWAY_CREDENTIALS_MISSING' });
         }
-        const headers = { Accept: 'application/json' };
+        const headers = { Accept: input.body?.stream === true ? 'text/event-stream, application/json' : 'application/json' };
         if (provider === 'google') headers['x-goog-api-key'] = apiKey;
         else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
         if (input.body !== undefined) headers['Content-Type'] = 'application/json';
@@ -157,8 +157,20 @@ function createProviderTransport(options = {}) {
         };
         const response = await fetchImpl(url, requestOptions);
         let body;
-        try { body = await response.json(); } catch (_) { body = null; }
-        const providerError = Number(response.status) >= 400
+        const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+        if (contentType.includes('text/event-stream')) {
+            let eventStream = '';
+            try { eventStream = await response.text(); } catch (_) { eventStream = ''; }
+            body = parseResponseEventStream(eventStream);
+        } else {
+            try { body = await response.json(); } catch (_) { body = null; }
+        }
+        const kieTaskApiError = provider === 'kie'
+            && kind === 'image'
+            && /^\/api\/v1\/jobs\/(?:createTask|recordInfo)$/.test(path)
+            && body?.code !== undefined
+            && Number(body.code) !== 200;
+        const providerError = Number(response.status) >= 400 || kieTaskApiError
             ? extractProviderError(body, { apiKey, requestBody: input.body })
             : null;
         return {
@@ -303,12 +315,37 @@ function isPrivateAddress(hostname) {
     return false;
 }
 
+function parseResponseEventStream(value) {
+    let completedResponse = null;
+    let outputText = '';
+    let failure = null;
+    let providerEnvelopeError = null;
+    for (const eventText of String(value || '').split(/\r?\n\r?\n/)) {
+        const data = eventText.split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n');
+        if (!data || data === '[DONE]') continue;
+        let event;
+        try { event = JSON.parse(data); } catch (_) { continue; }
+        if (Number(event?.code) !== 200 && event?.msg) providerEnvelopeError = event;
+        if (event?.type === 'response.output_text.delta' && typeof event.delta === 'string') outputText += event.delta;
+        if (event?.type === 'response.completed' && event.response && typeof event.response === 'object') completedResponse = event.response;
+        if (event?.type === 'error' || event?.type === 'response.failed') failure = event.error || event.response?.error || event;
+    }
+    if (providerEnvelopeError) return providerEnvelopeError;
+    if (failure) return { error: failure };
+    if (completedResponse) return completedResponse;
+    return outputText ? { output_text: outputText } : null;
+}
+
 module.exports = {
     PROVIDER_HOSTS: PROVIDER_ENDPOINTS,
     createProviderTransport,
     extractProviderError,
     isAllowedRoute,
     isPrivateAddress,
+    parseResponseEventStream,
     resolveDirectEndpoint,
     sanitizeProviderDiagnostic
 };

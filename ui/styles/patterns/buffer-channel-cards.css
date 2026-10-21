@@ -1,0 +1,163 @@
+.buffer-publishing-destination-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
+  align-items: stretch;
+  gap: var(--ui-space-4);
+}
+
+.buffer-publishing-destination-workspace,
+.buffer-publishing-destination-channels {
+  min-width: 0;
+  padding: var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.buffer-publishing-destination-workspace .ui-field-action {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.buffer-publishing-destination-workspace .ui-field-action > button {
+  width: 100%;
+}
+
+.buffer-publishing-destination-workspace > .ui-workflow-field,
+.buffer-publishing-destination-workspace > .ui-settings-field {
+  margin: 0;
+}
+
+.buffer-publishing-destination-workspace .settings-next-sns-source-group {
+  margin-top: var(--ui-space-4);
+}
+
+.buffer-publishing-destination-channels {
+  align-content: start;
+}
+
+.buffer-channel-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  align-items: stretch;
+}
+
+.buffer-channel-card {
+  align-items: center;
+  min-height: 78px;
+  gap: var(--ui-space-3);
+}
+
+.buffer-channel-card > input {
+  flex: 0 0 auto;
+}
+
+.buffer-channel-avatar {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid var(--ui-border-default);
+  border-radius: 50%;
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
+}
+
+.buffer-channel-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.buffer-channel-avatar-instagram { background: #fce8ed; color: #b83262; }
+.buffer-channel-avatar-threads,
+.buffer-channel-avatar-twitter { background: #e8ecec; color: #202929; }
+.buffer-channel-avatar-linkedin { background: #e2f0fa; color: #0a66c2; }
+.buffer-channel-avatar-facebook { background: #e5edff; color: #0866ff; }
+.buffer-channel-avatar-pinterest { background: #fae7e8; color: #bd081c; }
+.buffer-channel-avatar-bluesky { background: #e5f2ff; color: #087de2; }
+
+.buffer-channel-card-copy {
+  gap: 2px;
+}
+
+.buffer-channel-card-copy .buffer-channel-platform {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.buffer-channel-card-copy .buffer-channel-account {
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buffer-channel-card-copy .buffer-channel-metadata {
+  overflow: visible;
+  color: var(--ui-text-tertiary, var(--ui-text-secondary));
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.buffer-publishing-result-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
+.buffer-publishing-result-item strong {
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buffer-publishing-result-identity {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.buffer-publishing-result-account {
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buffer-publishing-result-item[data-state="error"] .ui-status-badge {
+  color: var(--ui-status-danger);
+}
+
+.buffer-publishing-result-notice {
+  margin: 0;
+  color: var(--ui-status-danger);
+  font-size: var(--ui-type-caption-size);
+}
+
+@media (max-width: 900px) {
+  .buffer-publishing-destination-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .buffer-publishing-result-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ui-space-1);
+  }
+}

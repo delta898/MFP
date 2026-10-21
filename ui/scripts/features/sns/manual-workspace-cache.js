@@ -1,5 +1,5 @@
 const MANUAL_SNS_WORKSPACE_CACHE_STORAGE_KEY = 'manual_sns_workspace_snapshot_v1';
-const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 4;
+const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 5;
 const MANUAL_SNS_WORKSPACE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function normalizeManualSnsCachedOrganization(item = {}) {
@@ -14,6 +14,7 @@ function normalizeManualSnsCachedChannel(item = {}) {
     id: String(item.id || '').trim(),
     name: String(item.name || item.display_name || '').trim(),
     display_name: String(item.display_name || item.name || '').trim(),
+    avatar: String(item.avatar || '').trim(),
     service: String(item.service || '').trim().toLowerCase(),
     limit: Math.max(0, Number(item.limit) || 0),
     max_assets: Math.max(0, Number(item.max_assets) || 0),

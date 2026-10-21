@@ -370,6 +370,7 @@ function createSnsDistributionRunner(options = {}) {
             deliveries.push({
                 deliveryKey: row.deliveryKey,
                 channelId: row.channelId,
+                service: row.service,
                 text: formatted.text,
                 imageUrl: row.imageUrl
             });

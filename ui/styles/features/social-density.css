@@ -67,26 +67,6 @@
   min-height: clamp(220px, 26vh, 340px);
 }
 
-.social-view .context-help-link {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ui-action-primary);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  box-shadow: none;
-}
-
-.social-view .context-help-link:hover,
-.social-view .context-help-link:focus-visible {
-  color: var(--ui-action-primary-hover);
-  background: transparent;
-  box-shadow: none;
-}
-
 .social-view .social-section-heading {
   gap: var(--ui-density-field-gap);
   margin-bottom: var(--ui-density-field-gap);
@@ -120,23 +100,6 @@
 .social-view .social-inline-nav-link:hover,
 .social-view .social-inline-nav-link:focus-visible {
   color: var(--ui-action-primary);
-}
-
-.social-view .social-channel-grid {
-  gap: var(--ui-density-field-gap);
-}
-
-.social-view .social-channel-option {
-  padding: var(--ui-density-field-gap) var(--ui-density-control-padding-inline);
-  border-color: var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface);
-}
-
-.social-view .social-channel-option:hover,
-.social-view .social-channel-option.is-selected {
-  border-color: var(--ui-action-primary);
-  background: var(--ui-action-primary-soft);
 }
 
 .social-view .social-editor,

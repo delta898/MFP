@@ -111,7 +111,26 @@ function normalizeProviderError(error, provider) {
 
 function assertResponse(response, provider) {
     const status = Number(response?.status || 0);
-    if (status >= 200 && status < 300) return response.body;
+    if (status >= 200 && status < 300) {
+        if (provider === 'kie' && response?.providerError && typeof response.providerError === 'object') {
+            const providerCode = String(response.providerError.code || '').slice(0, 100);
+            const providerStatus = Number(providerCode);
+            const providerDetails = {
+                ...(providerCode ? { providerCode } : {}),
+                ...(response.providerError.message ? { providerMessage: response.providerError.message } : {})
+            };
+            if (providerStatus === 401 || providerStatus === 403) {
+                throw new AiGatewayError('AI_GATEWAY_AUTHENTICATION_FAILED', 'The AI provider rejected the configured credential.', providerDetails);
+            }
+            if (providerStatus === 429) {
+                throw new AiGatewayError('AI_GATEWAY_RATE_LIMITED', 'The AI provider rate limit was reached.', { retryable: true, ...providerDetails });
+            }
+            // KIE reports task API errors in the JSON body while HTTP remains 200.
+            // Its numeric body code is not an HTTP status (and may be 500 for invalid input).
+            throw new AiGatewayError('AI_GATEWAY_PROVIDER_REJECTED_REQUEST', 'The AI provider rejected the generation request.', providerDetails);
+        }
+        return response.body;
+    }
     const error = new Error('Provider request failed.');
     error.status = status || 502;
     error.providerRequestId = getHeader(response?.headers, 'x-request-id')
@@ -215,6 +234,24 @@ function buildTextRequest(route, modelId, messages, options = {}) {
             }
         };
     }
+    if (route.transport === 'kie_openai_responses' || route.transport === 'kie_grok_responses') {
+        const grok = route.transport === 'kie_grok_responses';
+        const input = messages.map((message) => ({
+                role: message.role,
+                content: [{ type: 'input_text', text: String(message.content || '') }]
+            }));
+        return {
+            method: 'POST',
+            path: grok ? '/grok/v1/responses' : '/openai/v1/responses',
+            body: {
+                model: modelId,
+                stream: grok,
+                input,
+                ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+                ...(options.responseFormat === 'json' ? { text: { format: { type: 'json_object' } } } : {})
+            }
+        };
+    }
     const body = { model: modelId, messages };
     if (options.maxOutputTokens) {
         body[route.provider === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = options.maxOutputTokens;
@@ -252,9 +289,19 @@ async function generateText(input, context, transport) {
             ...request, timeoutMs: 120000, signal: context.signal
         });
         const body = assertResponse(response, route.provider);
+        if ((route.transport === 'kie_openai_responses' || route.transport === 'kie_grok_responses')
+            && body && typeof body === 'object'
+            && ((body.code !== undefined && Number(body.code) !== 200 && body.msg)
+                || (body.error && typeof body.error === 'object'))) {
+            const providerCode = body.code ?? body.error?.type ?? body.error?.code;
+            throw new AiGatewayError('AI_GATEWAY_PROVIDER_REJECTED_REQUEST', 'The AI provider rejected the generation request.', {
+                status: Number.isInteger(Number(providerCode)) ? Number(providerCode) : 400,
+                providerCode: /^[A-Za-z0-9_.:-]{1,100}$/.test(String(providerCode || '')) ? String(providerCode) : undefined
+            });
+        }
         const content = route.transport === 'gemini_generate_content'
             ? extractGeminiText(body)
-            : (route.transport === 'kie_responses'
+            : (['kie_responses', 'kie_openai_responses', 'kie_grok_responses'].includes(route.transport)
                 ? parseKieResponsesText(body)
                 : (route.transport === 'kie_claude_messages' ? extractKieClaudeText(body) : extractOpenAiText(body)));
         if (!content) throw new AiGatewayError('AI_GATEWAY_EMPTY_RESPONSE', 'The AI provider returned no text.');
@@ -276,10 +323,27 @@ async function generateText(input, context, transport) {
 
 function buildKieImageRequest(modelId, prompt, options = {}) {
     const aspectRatio = options.aspectRatio || '4:3';
+    const kieAspectRatio = ['flux-3/klein-text-to-image', 'grok-imagine-image-2-0/text-to-image', 'qwen3/text-to-image'].includes(modelId)
+        && aspectRatio === '4:5'
+        ? '3:4'
+        : aspectRatio;
     const size = String(options.size || '1K').toUpperCase();
     const high = size === '2K';
-    const input = { prompt, aspect_ratio: aspectRatio };
-    if (modelId === 'nano-banana-2' || modelId === 'nano-banana-pro') {
+    const input = { prompt, aspect_ratio: kieAspectRatio };
+    if (modelId === 'flux-3/klein-text-to-image') {
+        Object.assign(input, { resolution: size, output_format: 'png', num_images: 1, enhance_prompt: true });
+    } else if (modelId === 'qwen2-1/text-to-image') {
+        Object.assign(input, { resolution: size, background: 'opaque', output_format: 'png', enhance_prompt: true });
+    } else if (modelId === 'qwen3/text-to-image') {
+        delete input.aspect_ratio;
+        Object.assign(input, { resolution: size, image_size: kieAspectRatio, output_format: 'png', prompt_extend: true, nsfw_checker: false });
+    } else if (modelId === 'grok-imagine-image-2-0/text-to-image') {
+        // KIE documents only prompt and aspect_ratio for this model.
+    } else if (modelId === 'wan/2-7-image') {
+        Object.assign(input, { n: 1, enable_sequential: false, resolution: size, thinking_mode: false, watermark: false });
+    } else if (modelId === 'z-image') {
+        input.nsfw_checker = true;
+    } else if (modelId === 'nano-banana-2' || modelId === 'nano-banana-pro') {
         Object.assign(input, { image_input: [], resolution: size, output_format: 'png' });
     } else if (modelId === 'nano-banana-2-lite') {
         Object.assign(input, { image_input: [], resolution: String(options.size || '1K').toUpperCase(), output_format: 'png' });

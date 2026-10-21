@@ -2,7 +2,6 @@ function initManualSnsComposer() {
   const textEl = document.getElementById('manual-sns-text');
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const imageLocalPanelEl = document.getElementById('manual-sns-image-local-panel');
-  const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const newPostBtn = document.getElementById('manual-sns-new-post-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
@@ -10,9 +9,8 @@ function initManualSnsComposer() {
   const optimizeCancelBtn = document.getElementById('manual-sns-ai-cancel-btn');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const settingsLink = document.getElementById('manual-sns-settings-link');
-  const workspaceLoad = document.getElementById('manual-sns-workspaces-load');
-  const organization = document.getElementById('manual-sns-organization');
   textEl?.addEventListener('input', () => {
+    manualSnsPublishSummaryMessage = '';
     if (String(textEl.value || '').trim()) renderManualSnsImageGenerationStatus('');
     syncManualSnsComposerState();
   });
@@ -45,18 +43,6 @@ function initManualSnsComposer() {
     syncManualSnsImagePreview();
     syncManualSnsComposerState();
   });
-  selectAllEl?.addEventListener('change', () => {
-    BufferPublishingControls.applyChannelSelectAll({
-      master: selectAllEl,
-      controls: Array.from(document.querySelectorAll('[data-manual-sns-channel]')),
-      isEligible: (input) => !input.disabled
-    });
-    persistManualSnsSelectedChannels();
-    syncManualSnsImagePreview();
-    syncManualSnsComposerState();
-  });
-  BufferPublishingControls.setWorkspaceRefresh(workspaceLoad, () => void loadManualSnsWorkspaces());
-  organization?.addEventListener('change', () => void loadManualSnsWorkspaces());
   publishBtn?.addEventListener('click', () => void publishManualSns());
   newPostBtn?.addEventListener('click', () => void startNewManualSnsPost());
   optimizeBtn?.addEventListener('click', openManualSnsOptimizationConfirmation);

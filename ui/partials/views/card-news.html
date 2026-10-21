@@ -147,29 +147,41 @@
             <div class="card-news-generation-field-grid ui-workflow-field-grid">
               <label class="ui-workflow-field" for="card-news-slide-count">
                 <span>카드 수</span>
-                <select id="card-news-slide-count">
-                  <option value="3">3장</option>
-                  <option value="5" selected>5장</option>
-                  <option value="7">7장</option>
-                </select>
+                <span class="ui-select-shell">
+                  <select id="card-news-slide-count">
+                    <option value="1">1장</option>
+                    <option value="2">2장</option>
+                    <option value="3" selected>3장</option>
+                    <option value="4">4장</option>
+                    <option value="5">5장</option>
+                    <option value="6">6장</option>
+                    <option value="7">7장</option>
+                    <option value="8">8장</option>
+                    <option value="9">9장</option>
+                  </select>
+                </span>
               </label>
               <label class="ui-workflow-field" for="card-news-aspect-ratio">
                 <span>화면 비율</span>
-                <select id="card-news-aspect-ratio">
-                  <option value="1:1">1:1 · 정사각형</option>
-                  <option value="4:5" selected>4:5 · 피드</option>
-                  <option value="9:16">9:16 · 스토리</option>
-                </select>
+                <span class="ui-select-shell">
+                  <select id="card-news-aspect-ratio">
+                    <option value="1:1">1:1 · 정사각형</option>
+                    <option value="3:4" selected>3:4 · 세로 피드</option>
+                    <option value="9:16">9:16 · 스토리</option>
+                  </select>
+                </span>
               </label>
               <label class="ui-workflow-field" for="card-news-style">
                 <span>스타일</span>
-                <select id="card-news-style">
-                  <option value="ai_recommended" selected>AI 추천</option>
-                  <option value="informative">정보형</option>
-                  <option value="magazine">매거진형</option>
-                  <option value="emotional">감성형</option>
-                  <option value="impact">임팩트형</option>
-                </select>
+                <span class="ui-select-shell">
+                  <select id="card-news-style">
+                    <option value="ai_recommended" selected>AI 추천</option>
+                    <option value="informative">정보형</option>
+                    <option value="magazine">매거진형</option>
+                    <option value="emotional">감성형</option>
+                    <option value="impact">임팩트형</option>
+                  </select>
+                </span>
               </label>
             </div>
             <div class="card-news-generation-detail-grid ui-workflow-detail-grid">
@@ -273,34 +285,11 @@
                 <p>완성된 카드를 순서대로 선택한 채널에 바로 발행합니다.</p>
               </div>
             </div>
-            <label class="card-news-publishing-workspace buffer-publishing-workspace ui-workflow-field" for="card-news-publishing-workspace">
-              <span>작업 공간</span>
-              <span class="ui-field-action">
-                <span class="ui-select-shell"><select id="card-news-publishing-workspace" disabled>
-                  <option value="">작업 공간을 불러오는 중...</option>
-                </select></span>
-                <button id="card-news-publishing-workspaces-load" class="secondary" type="button" disabled>작업 공간을 불러오는 중...</button>
-              </span>
-              <small>선택한 작업 공간의 SNS 채널을 불러옵니다.</small>
-            </label>
-            <fieldset class="card-news-publishing-channel-group ui-selectable-card-group">
-              <legend class="visually-hidden">SNS 발행 채널 선택</legend>
-              <div class="buffer-publishing-channel-heading">
-                <div class="buffer-publishing-channel-heading-copy">
-                  <div class="buffer-publishing-channel-title-row">
-                    <input id="card-news-publishing-select-all" type="checkbox" disabled>
-                    <label for="card-news-publishing-select-all">발행 채널 <small id="card-news-publishing-channel-limit">최대 3개 · 0개 선택</small></label>
-                  </div>
-                  <p>이번 발행에 사용할 채널을 선택하세요.</p>
-                </div>
-                <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
-              </div>
-              <div id="card-news-publishing-channels" class="card-news-publishing-channels ui-selectable-card-grid"></div>
-            </fieldset>
             <label class="card-news-publishing-text ui-workflow-field" for="card-news-publishing-text">
               <span>발행 문구</span>
-              <textarea id="card-news-publishing-text" rows="4" maxlength="5000"></textarea>
+              <textarea id="card-news-publishing-text" rows="6" maxlength="5000"></textarea>
             </label>
+            <div id="card-news-buffer-publishing-picker"></div>
             <p id="card-news-drive-notice" class="card-news-drive-notice">카드 이미지는 Google Drive를 통해 임시 전달되며, 발행 완료 확인 후 자동 삭제됩니다.</p>
             <div id="card-news-publishing-result" class="card-news-publishing-result" aria-live="polite" hidden></div>
             <div class="card-news-publishing-actions ui-action-row">

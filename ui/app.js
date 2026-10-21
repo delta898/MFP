@@ -59,6 +59,9 @@
 // @include scripts/foundation/widget-slot-host.js
 // @include scripts/shell/global-publishing-status.js
 // @include scripts/shared/buffer-publishing-controls.js
+// @include scripts/shared/buffer-channel-cards.js
+// @include scripts/shared/buffer-publishing-picker.js
+// @include scripts/shared/buffer-publishing-results.js
 // @include scripts/features/sns/manual-state.js
 // @include scripts/features/sns/manual-workspace-cache.js
 // @include scripts/features/sns/manual-workspace-loading.js

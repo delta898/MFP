@@ -24,6 +24,7 @@
 
 .social-publish-result {
   display: none;
+  gap: var(--ui-space-2);
   margin: 0 20px 20px;
   padding: 12px 14px;
   border: 1px solid var(--ui-border-default);
@@ -49,16 +50,16 @@
   text-decoration: underline;
 }
 
-.social-publish-result.is-visible {
-  display: block;
-}
-
 .social-result-row.is-success {
   color: var(--ui-status-success);
 }
 
 .social-result-row.is-error {
   color: var(--ui-status-danger);
+}
+
+.social-publish-result.is-visible {
+  display: grid;
 }
 
 @media (max-width: 960px) {
@@ -89,6 +90,7 @@
   .social-publish-action-group.has-new-post-primary {
     flex-direction: column;
   }
+
 }
 
 .form-grid {

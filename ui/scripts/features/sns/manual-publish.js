@@ -7,6 +7,17 @@ function readManualSnsFileAsDataUrl(file) {
   });
 }
 
+function renderManualSnsPublishResult(data = {}) {
+  const notice = data.media_cleanup?.retained === true
+    ? '발행 상태를 확인하지 못해 임시 이미지가 Google Drive에 남아 있습니다.'
+    : '';
+  renderBufferPublishingResults(
+    document.getElementById('manual-sns-publish-result'),
+    data.results,
+    { notice }
+  );
+}
+
 async function startNewManualSnsPost() {
   if (!manualSnsLastPublishedSignature || manualSnsPublishingInFlight || manualSnsImageGenerationInFlight) return;
   if (getManualSnsPublishSignature() !== manualSnsLastPublishedSignature) {
@@ -35,6 +46,7 @@ async function startNewManualSnsPost() {
   manualSnsAiStatusMessage = '';
   manualSnsAiStatusIsError = false;
   manualSnsLastPublishedSignature = '';
+  manualSnsPublishSummaryMessage = '';
   manualSnsImagePromptOpen = false;
   manualSnsImageInstruction = '';
   manualSnsImagePromptTargetIndex = null;
@@ -84,15 +96,11 @@ async function publishManualSns() {
   if (!confirmed) return;
 
   const resultEl = document.getElementById('manual-sns-publish-result');
-  const publishSignature = getManualSnsPublishSignature();
+  manualSnsPublishSummaryMessage = '';
   manualSnsPublishingInFlight = true;
   syncManualSnsComposerState();
-  if (resultEl) {
-    resultEl.classList.add('is-visible');
-    resultEl.textContent = image.hasImage
-      ? 'Google Drive에 이미지를 임시 업로드하고 Buffer로 발행하고 있습니다.'
-      : 'Buffer로 즉시 발행하고 있습니다.';
-  }
+  resultEl?.replaceChildren();
+  resultEl?.classList.remove('is-visible');
   try {
     const localImages = image.hasImage
       ? await Promise.all((image.files || []).map(async (file) => ({
@@ -107,15 +115,26 @@ async function publishManualSns() {
       text,
       localImages
     });
-    if (data?.success === true) {
-      manualSnsLastPublishedSignature = publishSignature;
-    }
+    const successCount = Number(data?.success_count || 0);
+    const failureCount = Number(data?.failure_count || 0);
+    const successfulIds = new Set((Array.isArray(data?.results) ? data.results : [])
+      .filter((item) => item.success === true)
+      .map((item) => String(item.channel_id || '')));
+    document.querySelectorAll('[data-manual-sns-channel]').forEach((control) => {
+      if (!successfulIds.has(String(control.value || '')) || !control.checked) return;
+      control.checked = false;
+      control.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    manualSnsLastPublishedSignature = data?.success === true
+      ? getManualSnsPublishSignature()
+      : '';
+    manualSnsPublishSummaryMessage = failureCount > 0
+      ? `성공 ${successCount}개, 실패 ${failureCount}개입니다.`
+      : `${successCount}개 채널에 발행했습니다.`;
     renderManualSnsPublishResult(data);
   } catch (error) {
-    if (resultEl) {
-      resultEl.classList.add('is-visible');
-      resultEl.textContent = `❌ 발행 실패: ${error.message}`;
-    }
+    manualSnsPublishSummaryMessage = `발행하지 못했습니다: ${error.message}`;
+    renderManualSnsPublishResult({ results: [{ success: false, channel_name: '발행', message: error.message }] });
   } finally {
     manualSnsPublishingInFlight = false;
     syncManualSnsComposerState();

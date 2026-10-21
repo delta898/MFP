@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createProviderTransport, isAllowedRoute, isPrivateAddress, sanitizeProviderDiagnostic } = require('./provider-transport');
+const { createProviderTransport, isAllowedRoute, isPrivateAddress, parseResponseEventStream, sanitizeProviderDiagnostic } = require('./provider-transport');
 
 test('Gateway transport resolves the configured key internally and restricts provider routes', async () => {
     const calls = [];
@@ -30,6 +30,65 @@ test('Gateway transport resolves the configured key internally and restricts pro
     assert.equal(isAllowedRoute({ provider: 'kie', kind: 'image', modelId: 'nano-banana-pro', method: 'POST', path: '/api/v1/jobs/createTask' }), true);
     assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'claude-sonnet-5-5', method: 'POST', path: '/claude/v1/messages' }), true);
     assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'claude-sonnet-5-5', method: 'POST', path: '/claude/v1/models' }), false);
+    assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'kimi-k3', method: 'POST', path: '/openai/v1/responses' }), true);
+    assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'grok-4-7', method: 'POST', path: '/grok/v1/responses' }), true);
+});
+
+test('KIE image task API exposes sanitized body-level errors even when HTTP status is 200', async () => {
+    const transport = createProviderTransport({
+        getProviderProfile: async () => ({ api_key: 'kie-secret-key' }),
+        fetch: async (_url, init) => ({
+            status: 200,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            async json() {
+                const body = JSON.parse(init.body);
+                return { code: 422, msg: `Unsupported aspect ratio for ${body.input.prompt}` };
+            }
+        })
+    });
+    const response = await transport.request({
+        provider: 'kie', kind: 'image', modelId: 'grok-imagine-image-2-0/text-to-image',
+        method: 'POST', path: '/api/v1/jobs/createTask',
+        body: { model: 'grok-imagine-image-2-0/text-to-image', input: { prompt: 'a long private prompt that must not appear in error diagnostics', aspect_ratio: '4:5' } }
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.providerError.code, '422');
+    assert.equal(response.providerError.message, 'Provider error message redacted because it echoed request content.');
+    assert.equal(response.providerError.message.includes('a long private prompt'), false);
+});
+
+test('KIE Responses event streams normalize completion events and incremental text', () => {
+    const completed = parseResponseEventStream([
+        'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Hello "}',
+        'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"world"}',
+        'event: response.completed\ndata: {"type":"response.completed","response":{"output_text":"Hello world","usage":{"input_tokens":2,"output_tokens":2}}}'
+    ].join('\n\n'));
+    assert.deepEqual(completed, { output_text: 'Hello world', usage: { input_tokens: 2, output_tokens: 2 } });
+    assert.deepEqual(parseResponseEventStream('data: {"type":"response.output_text.delta","delta":"partial"}'), { output_text: 'partial' });
+});
+
+test('KIE Grok stream transport parses event-stream response bodies', async () => {
+    const calls = [];
+    const transport = createProviderTransport({
+        getProviderProfile: async () => ({ api_key: 'kie-secret' }),
+        fetch: async (url, init) => {
+            calls.push({ url: String(url), init });
+            return {
+                status: 200,
+                headers: new Headers({ 'content-type': 'text/event-stream' }),
+                async text() {
+                    return 'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"hello"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"output_text":"hello"}}\n\n';
+                }
+            };
+        }
+    });
+    const response = await transport.request({
+        provider: 'kie', kind: 'text', modelId: 'grok-4-7', method: 'POST', path: '/grok/v1/responses',
+        body: { model: 'grok-4-7', stream: true, input: [] }
+    });
+    assert.equal(calls[0].url, 'https://api.kie.ai/grok/v1/responses');
+    assert.equal(calls[0].init.headers.Accept, 'text/event-stream, application/json');
+    assert.deepEqual(response.body, { output_text: 'hello' });
 });
 
 test('KIE Claude Messages uses its fixed endpoint and Host-resolved bearer credential', async () => {
