@@ -251,6 +251,9 @@ test('quick flow keeps results independent from edited inputs and scopes duplica
   assert.match(execution, /function markBlogNextAiDraftSourceChanged[\s\S]*?already-created manuscript result/);
   assert.doesNotMatch(execution, /options\.sourceDirty !== true/);
   assert.match(execution, /function syncBlogNextDraftOperationControls[\s\S]*?beforeExecutionDisabled/);
+  assert.match(execution, /blogNextDraftState\[type\]\?\.editor\?\.setEditable\(!busy\)/);
+  assert.match(execution, /summary\.inert = true/);
+  assert.match(execution, /data-manuscript-image-continue/);
   assert.match(inputs, /function syncBlogNextImageAiReadiness\(\)[\s\S]*?state\.imageWorking/);
   assert.match(service, /function getContentVersion\([\s\S]*?readContentsMarkdown\(locations\)[\s\S]*?hash\.update\(fsImpl\.readFileSync\(imagePath\)\)/);
   assert.match(service, /entry\.content_version === contentVersion && entry\.target === target/);

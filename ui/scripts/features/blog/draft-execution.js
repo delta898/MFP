@@ -41,6 +41,25 @@ function syncBlogNextDraftOperationControls() {
     return state.publishing || state.generating || state.imageWorking || state.promptGenerating;
   }) || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
+  BLOG_NEXT_DRAFT_TYPES.forEach((type) => {
+    blogNextDraftState[type]?.editor?.setEditable(!busy);
+  });
+  document.querySelectorAll('[data-blog-next-mode-panel] summary').forEach((summary) => {
+    if (busy) {
+      if (!Object.prototype.hasOwnProperty.call(summary.dataset, 'beforeExecutionInert')) {
+        summary.dataset.beforeExecutionInert = String(summary.inert);
+        summary.dataset.beforeExecutionAriaDisabled = summary.getAttribute('aria-disabled') ?? '__none__';
+      }
+      summary.inert = true;
+      summary.setAttribute('aria-disabled', 'true');
+    } else if (Object.prototype.hasOwnProperty.call(summary.dataset, 'beforeExecutionInert')) {
+      summary.inert = summary.dataset.beforeExecutionInert === 'true';
+      if (summary.dataset.beforeExecutionAriaDisabled === '__none__') summary.removeAttribute('aria-disabled');
+      else summary.setAttribute('aria-disabled', summary.dataset.beforeExecutionAriaDisabled);
+      delete summary.dataset.beforeExecutionInert;
+      delete summary.dataset.beforeExecutionAriaDisabled;
+    }
+  });
   const controls = document.querySelectorAll('#blog-next-topic-form input, #blog-next-topic-form select, '
     + '#blog-next-topic-form textarea, #blog-next-topic-form button:not([data-blog-next-draft-publish]):not(#blog-next-publish-now):not(#blog-next-regenerate-draft), '
     + '[data-blog-next-mode-panel] input, [data-blog-next-mode-panel] select, '
