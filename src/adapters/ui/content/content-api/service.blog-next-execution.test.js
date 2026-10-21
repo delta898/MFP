@@ -534,7 +534,7 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
     assert.equal(draft.sourceMetadata.generationSource, 'configured-ai');
     assert.match(draft.markdownText, /^# 제주 산책/);
     assert.match(draft.markdownText, /#제주/);
-    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 시작 .*provider=/.test(message)));
+    assert.equal(Object.hasOwn(generation[2], 'logContext'), false);
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 완료 .*elapsed=/.test(message)));
     assertTerminalStatus(coordinator, {
         state: 'completed', source: 'manuscript_generation', subject: '제주 산책', resultStatus: '작업 완료'
@@ -585,6 +585,9 @@ test('AI manuscript generation uses AI Gateway for text and every requested imag
     assert.deepEqual(result, { draftId: 'gateway-images', revision: 1 });
     assert.equal(calls.filter(([type]) => type === 'text').length, 1);
     assert.equal(calls.filter(([type]) => type === 'image').length, 2);
+    assert.deepEqual(calls.find(([type]) => type === 'text')[2].logContext.imageModel, {
+        provider: 'google', modelId: 'gemini-nano-banana-2.1', name: 'Nano Banana', transport: 'gemini_generate_content'
+    });
     assert.deepEqual(calls.filter(([type]) => type === 'image').map(([, prompt, options]) => [prompt, options]), [
         ['a mountain, photorealistic, high quality, no text', { aspectRatio: '4:3', size: '1K', count: 1 }],
         ['a river, photorealistic, high quality, no text', { aspectRatio: '4:3', size: '1K', count: 1 }]
@@ -595,6 +598,7 @@ test('AI manuscript generation uses AI Gateway for text and every requested imag
     assert.deepEqual(draft.images.map(({ index, buffer }) => [index, buffer[8]]), [[0, 2], [1, 2]]);
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] image.generate 시작 \(1\/2, IMAGE_0, model=gemini-nano-banana-2\.1\)/.test(message)));
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] 생성 경로 준비 .*text\+image/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /requestedTargets=wordpress, draftTarget=wordpress, targetSource=request/.test(message)));
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] image.generate 완료 .*elapsed=/.test(message)));
     assert.ok(!calls.some(([type]) => type === 'error'));
 });

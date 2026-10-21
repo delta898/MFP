@@ -363,7 +363,7 @@ function createContentApiService(deps = {}) {
         if (typeof blogWritingApplication?.generateText !== 'function') {
             throw createApiError(503, 'AI_GATEWAY_UNAVAILABLE', 'AI Gateway Plugin을 사용할 수 없어 원고를 만들지 않았습니다.');
         }
-        Logger?.info?.(`[Blog Beta][AI] 생성 경로 준비 (text${generatesBlogImages(imageMode) ? '+image' : ''}, requestedTargets=${requestedTargets.join(',') || 'none'}, effectiveTargets=${targets.join(',')}, imageMode=${imageMode})`);
+        Logger?.info?.(`[Blog Beta][AI] 생성 경로 준비 (text${generatesBlogImages(imageMode) ? '+image' : ''}, requestedTargets=${requestedTargets.join(',') || 'none'}, draftTarget=${targets.join(',')}, targetSource=${requestedTargets.length === 1 ? 'request' : 'default'}, imageMode=${imageMode})`);
         const license = await License.checkLicenseStatus();
         if (!license?.success) throw createApiError(400, license?.code || 'LICENSE_STATUS_FAILED', license?.message || '라이선스 상태를 확인하지 못했습니다.');
         const title = String(requestBody.title || '').trim();
@@ -418,10 +418,15 @@ function createContentApiService(deps = {}) {
             + ` / model=${String(model.code || model.name || 'unknown')}`
             + ` / transport=${String(model.transport || 'unknown')}`;
         const textStartedAt = Date.now();
-        Logger?.info?.(`[Blog Beta][AI] text.generate 시작 (model: ${formatModel(selectedTextModel)}, imageMode=${imageMode})`);
         try {
             const raw = await blogWritingApplication.generateText(resolvedPrompt.prompt, {
                 signal: operation?.signal,
+                ...(generatesBlogImages(imageMode) ? { logContext: { imageModel: {
+                    provider: selectedImageModel.provider,
+                    modelId: selectedImageModel.code || selectedImageModel.name,
+                    name: selectedImageModel.name,
+                    transport: selectedImageModel.transport
+                } } } : {}),
                 ...(selectedTextModel.provider && (selectedTextModel.code || selectedTextModel.name) ? { modelSelection: {
                     provider: selectedTextModel.provider,
                     modelId: selectedTextModel.code || selectedTextModel.name

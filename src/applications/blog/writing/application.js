@@ -10,11 +10,12 @@ function createBlogWritingApplication(options = {}) {
         if (typeof prompt !== 'string' || !prompt.trim()) {
             throw new TypeError('Blog manuscript prompt must be a non-empty string.');
         }
-        const { generationOptions, ...gatewayContext } = executionContext;
+        const { generationOptions, logContext, ...gatewayContext } = executionContext;
         const selection = executionContext.modelSelection || fallbackSelection();
         const generated = await aiGeneration.generateText({
             modelSelection: selection,
             prompt: prompt.trim(),
+            ...(logContext ? { logContext } : {}),
             ...(generationOptions ? { options: generationOptions } : {}),
             ...(aiGeneration.supportsFeature?.('text', selection, 'jsonResponse') ? { responseFormat: 'json' } : {})
         }, gatewayContext);

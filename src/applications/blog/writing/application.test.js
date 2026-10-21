@@ -19,6 +19,7 @@ test('Blog Writing Application delegates text and image generation to shared AI 
     });
     const text = await application.generateText('  Write a post  ', {
         signal,
+        logContext: { imageModel: { provider: 'google', code: 'image-v1' } },
         generationOptions: { maxOutputTokens: 900, temperature: 0.4 }
     });
     const image = await application.generateImage(' tree \,', { aspectRatio: '4:3' }, { signal });
@@ -32,6 +33,7 @@ test('Blog Writing Application delegates text and image generation to shared AI 
     assert.equal(calls[0].request.prompt, 'Write a post');
     assert.equal(calls[0].request.responseFormat, 'json');
     assert.deepEqual(calls[0].request.options, { maxOutputTokens: 900, temperature: 0.4 });
+    assert.deepEqual(calls[0].request.logContext, { imageModel: { provider: 'google', code: 'image-v1' } });
     assert.equal(calls[0].context.signal, signal);
     assert.equal(calls[1].request.modelSelection.modelId, 'image-v1');
     assert.equal(calls[1].request.options.aspectRatio, '4:3');
