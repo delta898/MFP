@@ -667,6 +667,39 @@ function createImageBlock(onMove, options = {}) {
   });
 }
 
+function preparePastedManuscriptMarkdown(markdown, editor) {
+  const existingImageIndexes = new Set();
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === 'manuscriptImage') {
+      const index = Number(node.attrs.sourceKey);
+      if (Number.isInteger(index) && index >= 0) existingImageIndexes.add(index);
+    }
+  });
+
+  const pastedImageIndexes = Array.from(String(markdown || '').matchAll(/^\[\[IMAGE_(\d+)/gm), (match) => Number(match[1]));
+  const remappedImageIndexes = new Map();
+  const reservedIndexes = new Set(existingImageIndexes);
+  for (const index of pastedImageIndexes) {
+    if (!Number.isInteger(index) || index < 0 || remappedImageIndexes.has(index)) continue;
+    if (reservedIndexes.has(index)) {
+      let replacement = 0;
+      while (reservedIndexes.has(replacement)) replacement += 1;
+      remappedImageIndexes.set(index, replacement);
+      reservedIndexes.add(replacement);
+    } else {
+      reservedIndexes.add(index);
+    }
+  }
+
+  usedImageIndexes.clear();
+  existingImageIndexes.forEach((index) => usedImageIndexes.add(index));
+  nextMissingIndex = 0;
+  return String(markdown || '').replace(/^\[\[IMAGE_(\d+)/gm, (marker, sourceKey) => {
+    const replacement = remappedImageIndexes.get(Number(sourceKey));
+    return replacement === undefined ? marker : `[[IMAGE_${replacement}`;
+  });
+}
+
 function moveTopLevelNode(editor, getPos, direction) {
   const position = getPos();
   const node = editor.state.doc.nodeAt(position);
@@ -781,9 +814,8 @@ function mount(root, options = {}) {
         const markdown = event.clipboardData?.getData('text/plain') || '';
         if (!markdown || !/(^#|\[\[IMAGE|^[-*]\s|^\d+[.)]\s|^>\s)/m.test(markdown)) return false;
         event.preventDefault();
-        nextMissingIndex = 0;
-        usedImageIndexes.clear();
-        editor.commands.setContent(markdown, { contentType: 'markdown' });
+        const preparedMarkdown = preparePastedManuscriptMarkdown(markdown, editor);
+        editor.commands.insertContent(preparedMarkdown, { contentType: 'markdown' });
         return true;
       }
     },

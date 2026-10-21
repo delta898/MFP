@@ -81,6 +81,11 @@ test('manuscript editors add image blocks from clipboard and canvas drops throug
   assert.match(editor, /event\.target\.closest\?\.\('\.ProseMirror'\)[\s\S]*?editor\.view\.posAtCoords/);
   assert.match(editor, /editorPosition\?\.pos \?\? editor\.state\.doc\.content\.size/);
   assert.match(editor, /handlePaste\(_view, event\)[\s\S]*?editor\.state\.selection\.from/);
+  const manuscriptPasteHandler = editor.match(/handlePaste\(_view, event\) \{([\s\S]*?)\n      \}\n    \},/);
+  assert.ok(manuscriptPasteHandler, 'manuscript paste handler exists');
+  assert.match(manuscriptPasteHandler[1], /editor\.commands\.insertContent\(preparedMarkdown, \{ contentType: 'markdown' \}\)/);
+  assert.doesNotMatch(manuscriptPasteHandler[1], /editor\.commands\.setContent/);
+  assert.match(editor, /function preparePastedManuscriptMarkdown\(markdown, editor\)/);
   assert.match(images, /async function importBlogNextEditorImage\(type, file, blockId\)/);
   assert.match(images, /function readBlogNextFileAsDataUrl\(file\)[\s\S]*?reader\.readAsDataURL\(file\)/);
   assert.match(images, /async function importBlogNextManuscriptImage\(type, slotId, input\)[\s\S]*?catch \(error\)[\s\S]*?setBlogNextDraftValidation/);

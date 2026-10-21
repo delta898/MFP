@@ -77,6 +77,32 @@ async function run() {
         markdown = await page.evaluate(() => window.manuscriptEditorTestApi.getMarkdown());
         assert.match(markdown, /\[\[IMAGE_1/);
         assert.doesNotMatch(markdown, /^\/이미$/m);
+
+        await page.evaluate(() => {
+            window.manuscriptEditorTestApi.setMarkdown([
+                '# 기존 원고', '', 'alpha omega', '',
+                '[[IMAGE_0', 'id: mb-original', 'title: 기존 이미지', 'prompt: 기존 prompt', ']]', '', '기존 끝 문단'
+            ].join('\n'));
+        });
+        const manuscriptEditor = page.locator('#editor .ProseMirror');
+        await manuscriptEditor.locator(':scope > p').filter({ hasText: 'alpha omega' }).click();
+        await page.keyboard.press('Home');
+        for (let index = 0; index < 6; index += 1) await page.keyboard.press('ArrowRight');
+        await manuscriptEditor.evaluate((editor) => {
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', [
+                '## 붙여넣은 원고', '', '새로 붙인 내용', '',
+                '[[IMAGE_0', 'title: 붙여넣은 이미지', 'prompt: pasted image', ']]'
+            ].join('\n'));
+            const event = new Event('paste', { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+            editor.dispatchEvent(event);
+        });
+        await page.waitForFunction(() => window.manuscriptEditorTestApi.getMarkdown().includes('붙여넣은 원고'));
+        markdown = await page.evaluate(() => window.manuscriptEditorTestApi.getMarkdown());
+        assert.match(markdown, /alpha[\s\S]*붙여넣은 원고[\s\S]*omega[\s\S]*기존 끝 문단/);
+        assert.match(markdown, /\[\[IMAGE_0[\s\S]*\[\[IMAGE_1/);
+        assert.equal(await page.locator('#editor .manuscript-image-block').count(), 2);
         assert.deepEqual(pageErrors, []);
     } finally {
         await browser.close();
