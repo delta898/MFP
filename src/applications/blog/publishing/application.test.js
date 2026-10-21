@@ -194,6 +194,27 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
     assert.equal(result.success, true);
 });
 
+test('Naver publishing preserves related-post labels as distinct link blocks', async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-related-progress-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), [
+        '# Naver title', '', '본문입니다.', '', '## 함께 보면 좋은 글',
+        '- [녹차를 맛있게 우리는 방법](https://blog.naver.com/example/1)',
+        '- [녹차의 종류](https://blog.naver.com/example/2)'
+    ].join('\n'));
+    const { app, calls } = createApplication({
+        naverPublisher: { async publish(request) { calls.push({ operation: 'naver-plugin', request }); return { status: request.status, warnings: [] }; } },
+        Utils: { findImageByPrefix() { return null; } }
+    });
+
+    await app.publishNaver(directory, { postStatus: 'draft' });
+
+    assert.deepEqual(calls.find((call) => call.operation === 'naver-plugin').request.blocks.slice(-2), [
+        { type: 'related-link', text: 'https://blog.naver.com/example/1', label: '녹차를 맛있게 우리는 방법' },
+        { type: 'related-link', text: 'https://blog.naver.com/example/2', label: '녹차의 종류' }
+    ]);
+});
+
 test('Naver publishing uses one title transition and preserves additional authored newlines', async (t) => {
     const calls = [];
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-plugin-newlines-'));

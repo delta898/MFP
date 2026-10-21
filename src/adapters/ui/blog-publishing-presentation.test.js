@@ -15,11 +15,14 @@ test('publishing progress translates internal milestones into user-facing stages
     assert.deepEqual(presentPublishingProgress('네이버 블로그용 이미지 생성 중 (1/4)'), {
         stage: 'images', title: '이미지 준비 중', message: '네이버 블로그용 이미지 생성 중 (1/4)'
     });
-    assert.deepEqual(presentPublishingProgress('본문을 입력하고 있습니다. (2/14)', { postStatus: 'draft' }), {
-        stage: 'body', title: '본문 입력 중', message: '본문을 입력하고 있습니다. (2/14)'
+    assert.deepEqual(presentPublishingProgress('[소제목] 녹차의 효능 입력 중', { postStatus: 'draft' }), {
+        stage: 'body', title: '본문 입력 중', message: '[소제목] 녹차의 효능 입력 중'
     });
-    assert.deepEqual(presentPublishingProgress('이미지를 업로드하고 있습니다. (1/3)', { postStatus: 'draft' }), {
-        stage: 'image', title: '이미지 업로드 중', message: '이미지를 업로드하고 있습니다. (1/3)'
+    assert.deepEqual(presentPublishingProgress('[이미지] 녹차밭 업로드 중 (1/3)', { postStatus: 'draft' }), {
+        stage: 'image', title: '이미지 업로드 중', message: '[이미지] 녹차밭 업로드 중 (1/3)'
+    });
+    assert.deepEqual(presentPublishingProgress('[연관글] 녹차 가이드 링크 추가 중 (1/3)', { postStatus: 'draft' }), {
+        stage: 'link', title: '연관글 추가 중', message: '[연관글] 녹차 가이드 링크 추가 중 (1/3)'
     });
     assert.deepEqual(presentPublishingProgress('임시 저장 설정을 적용하고 있습니다.', { postStatus: 'draft' }), {
         stage: 'settings', title: '발행 설정 적용 중', message: '임시 저장 설정을 적용하고 있습니다.'

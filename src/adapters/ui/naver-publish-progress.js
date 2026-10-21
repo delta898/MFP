@@ -9,6 +9,10 @@ function countLabel(progress = {}, unit) {
     return `${current}/${total}${unit}`;
 }
 
+function excerpt(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 65);
+}
+
 function presentNaverPublishProgress(progress = {}, fallbackPostStatus = 'publish') {
     const stage = String(progress.stage || '');
     if (!NAVER_PUBLISH_STAGES.has(stage)) return null;
@@ -16,14 +20,19 @@ function presentNaverPublishProgress(progress = {}, fallbackPostStatus = 'publis
         ? progress.postStatus : fallbackPostStatus;
     const action = postStatus === 'draft' ? '임시 저장'
         : postStatus === 'schedule' ? '예약 등록' : '발행';
-    const bodyItems = countLabel(progress, '');
-    const images = countLabel(progress, '');
-    const links = countLabel(progress, '');
+    const label = excerpt(progress.label);
+    const bodyTypeLabels = {
+        heading: '소제목', paragraph: '본문', quote: '인용구', 'list-item': '목록'
+    };
+    const bodyType = bodyTypeLabels[progress.itemType] || '본문';
+    const body = label ? `[${bodyType}] ${label} 입력 중` : `[${bodyType}] 입력 중`;
+    const imageCount = countLabel(progress, '');
+    const linkCount = countLabel(progress, '');
     const messages = {
         editor: '네이버 글쓰기 화면에 연결하고 있습니다.',
-        body: bodyItems ? `본문을 입력하고 있습니다. (${bodyItems})` : '본문을 입력하고 있습니다.',
-        image: images ? `이미지를 업로드하고 있습니다. (${images})` : '이미지를 업로드하고 있습니다.',
-        link: links ? `관련 링크를 추가하고 있습니다. (${links})` : '관련 링크를 추가하고 있습니다.',
+        body,
+        image: `[이미지]${label ? ` ${label}` : ''} 업로드 중${imageCount ? ` (${imageCount})` : ''}`,
+        link: `[연관글]${label ? ` ${label}` : ''} 링크 추가 중${linkCount ? ` (${linkCount})` : ''}`,
         settings: `${action} 설정을 적용하고 있습니다.`,
         submitting: `네이버 블로그에 ${action}을 요청하고 있습니다.`,
         verifying: `네이버 블로그의 ${action} 결과를 확인하고 있습니다.`

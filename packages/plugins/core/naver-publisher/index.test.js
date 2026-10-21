@@ -361,6 +361,29 @@ test('Naver Publisher progress advances for each non-image body block', async ()
     assert.deepEqual(events.filter((event) => event.stage === 'body').map(({ current, total }) => [current, total]), [
         [1, 4], [2, 4], [3, 4], [4, 4]
     ]);
+    assert.deepEqual(events.filter((event) => event.stage === 'body').map(({ itemType, label }) => [itemType, label]), [
+        ['heading', 'One'], ['paragraph', 'First paragraph'], ['heading', 'Two'], ['paragraph', 'Second paragraph']
+    ]);
+});
+
+test('Naver Publisher reports related-link progress separately from body blocks', async () => {
+    const page = fakePage();
+    const events = [];
+    const plugin = createPlugin({
+        getSettings: () => ({ writeUrl: 'https://blog.naver.com/writer/postwrite', headless: true, safeSaveWaitMs: 0 }),
+        async createAuthenticatedNaverSession() { return { page, async close() {} }; },
+        sleep: async () => {}
+    });
+
+    await plugin.operations['posts.publish'].execute({
+        title: 'Related links',
+        blocks: [{ type: 'related-link', text: 'https://example.com/tea', label: 'Tea guide' }],
+        assets: [], status: 'draft'
+    }, { reportProgress: (event) => events.push(event) });
+
+    assert.deepEqual(events.filter((event) => event.stage === 'link').map(({ current, total, itemType, label }) => [current, total, itemType, label]), [
+        [1, 1, 'related-link', 'Tea guide']
+    ]);
 });
 
 test('Naver Publisher selects and verifies the requested category before saving a draft', async () => {

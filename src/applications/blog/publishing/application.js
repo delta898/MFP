@@ -77,7 +77,8 @@ function createBlogPublishingApplication(options = {}) {
         }
         const contentFile = path.join(directory, 'contents.md');
         if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
-        const markdown = formatNaverRelatedPosts(fs.readFileSync(contentFile, 'utf8'));
+        const relatedLinks = [];
+        const markdown = formatNaverRelatedPosts(fs.readFileSync(contentFile, 'utf8'), (link) => relatedLinks.push(link));
         const parsed = parseBlogManuscriptMarkdown(markdown, Logger);
         const title = String(parsed?.title || '').trim();
         if (!title) throw new Error('네이버 발행 원고에 제목이 없습니다.');
@@ -134,7 +135,15 @@ function createBlogPublishingApplication(options = {}) {
                     blocks.push({ type: 'newline' });
                 }
             } else if (item.type === 'paragraph' || item.type === 'quote' || item.type === 'list-item') {
-                blocks.push({ type: item.type, text: item.text || '', ...(item.listType ? { listType: item.listType } : {}), ...(item.boldRanges ? { boldRanges: item.boldRanges } : {}) });
+                const relatedLinkIndex = item.type === 'paragraph'
+                    ? relatedLinks.findIndex((link) => link.url === String(item.text || '').trim())
+                    : -1;
+                if (relatedLinkIndex >= 0) {
+                    const [link] = relatedLinks.splice(relatedLinkIndex, 1);
+                    blocks.push({ type: 'related-link', text: item.text || '', label: link.label });
+                } else {
+                    blocks.push({ type: item.type, text: item.text || '', ...(item.listType ? { listType: item.listType } : {}), ...(item.boldRanges ? { boldRanges: item.boldRanges } : {}) });
+                }
             } else if (item.type === 'separator' || item.type === 'newline') {
                 blocks.push({ type: item.type });
             }
@@ -157,6 +166,8 @@ function createBlogPublishingApplication(options = {}) {
                             stage: event.stage || event.phase,
                             current: event.current,
                             total: event.total,
+                            ...(event.itemType ? { itemType: event.itemType } : {}),
+                            ...(event.label ? { label: event.label } : {}),
                             postStatus: status
                         });
                     } catch (error) {

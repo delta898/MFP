@@ -32,8 +32,13 @@ function createPlugin(options = {}) {
         ? options.sleep
         : (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-    function report(context, phase, stage, current, total) {
-        context?.reportProgress?.({ phase, stage, current, total });
+    function report(context, phase, stage, current, total, details = {}) {
+        context?.reportProgress?.({ phase, stage, current, total, ...details });
+    }
+
+    function progressLabel(value) {
+        const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+        return normalized.length > 64 ? `${normalized.slice(0, 64).trimEnd()}…` : normalized;
     }
 
     async function editorPress(page, key, target = 'editor') {
@@ -371,7 +376,7 @@ function createPlugin(options = {}) {
             await editorPress(page, 'Enter', 'list-item');
             return;
         }
-        if (block.type === 'paragraph' && /^https?:\/\/\S+$/i.test(text.trim())) {
+        if (['paragraph', 'related-link'].includes(block.type) && /^https?:\/\/\S+$/i.test(text.trim())) {
             if (await insertOglinkCard(page, text.trim(), warnings)) return;
         }
         if (text) await typeWithBoldRanges(page, text, block.boldRanges, settings, block.type);
@@ -1201,8 +1206,10 @@ function createPlugin(options = {}) {
             const assets = new Map(input.assets.map((asset) => [asset.key, asset]));
             const warnings = [];
             let representativeImageSet = false;
-            const bodyTotal = input.blocks.filter((block) => !['image', 'newline'].includes(block.type)).length;
+            const bodyTotal = input.blocks.filter((block) => !['image', 'newline', 'separator', 'related-link'].includes(block.type)).length;
             let bodyDone = 0;
+            const linkIndexes = input.blocks.map((block, index) => block.type === 'related-link' ? index : -1).filter((index) => index >= 0);
+            let linkDone = 0;
             const imageIndexes = input.blocks.map((block, index) => block.type === 'image' ? index : -1).filter((index) => index >= 0);
             let imageDone = 0;
             for (let index = 0; index < input.blocks.length; index++) {
@@ -1212,7 +1219,9 @@ function createPlugin(options = {}) {
                     imageDone += 1;
                     const asset = assets.get(block.assetKey);
                     if (!asset) throw new NaverPublisherError(`이미지 자산을 찾지 못했습니다: ${block.assetKey}`, { code: 'NAVER_IMAGE_ASSET_NOT_FOUND' });
-                    report(context, 'uploading', 'image', imageDone, imageIndexes.length);
+                    report(context, 'uploading', 'image', imageDone, imageIndexes.length, {
+                        itemType: 'image', label: progressLabel(block.caption || asset.altText)
+                    });
                     await uploadImage(page, asset, context.signal, settings, {
                         caption: block.caption,
                         affiliateUrl: input.affiliateUrl,
@@ -1221,9 +1230,17 @@ function createPlugin(options = {}) {
                         onWarning(warning) { warnings.push(warning); }
                     });
                 } else {
-                    if (block.type !== 'newline') {
+                    if (block.type === 'related-link') {
+                        linkDone += 1;
+                        report(context, 'working', 'link', linkDone, linkIndexes.length, {
+                            itemType: 'related-link', label: progressLabel(block.label || block.text)
+                        });
+                    } else if (!['newline', 'separator'].includes(block.type)) {
                         bodyDone += 1;
-                        report(context, 'working', 'body', bodyDone, bodyTotal);
+                        report(context, 'working', 'body', bodyDone, bodyTotal, {
+                            itemType: block.type === 'heading' && block.level === 3 ? 'quote' : block.type,
+                            label: progressLabel(block.text)
+                        });
                     }
                     await enterTextBlock(page, block, context.signal, settings, warnings);
                 }

@@ -25,12 +25,13 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "type": { "enum": ["paragraph", "heading", "quote", "list-item", "separator", "newline", "image"] },
+                  "type": { "enum": ["paragraph", "heading", "quote", "list-item", "related-link", "separator", "newline", "image"] },
                   "text": { "type": "string", "maxLength": 20000 },
                   "level": { "enum": [2, 3] },
                   "listType": { "enum": ["ordered", "unordered"] },
                   "assetKey": { "type": "string", "maxLength": 100, "pattern": "\\S" },
                   "caption": { "type": "string", "maxLength": 500 },
+                  "label": { "type": "string", "maxLength": 500 },
                   "boldRanges": {
                     "type": "array",
                     "maxItems": 100,

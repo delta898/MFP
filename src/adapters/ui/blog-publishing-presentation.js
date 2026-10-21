@@ -14,7 +14,7 @@ const NAVER_PROGRESS_TITLES = Object.freeze({
     editor: '포스팅 준비 중',
     body: '본문 입력 중',
     image: '이미지 업로드 중',
-    link: '관련 링크 추가 중',
+    link: '연관글 추가 중',
     settings: '발행 설정 적용 중',
     submitting: '발행 요청 중',
     verifying: '발행 결과 확인 중'
@@ -38,9 +38,12 @@ function presentPublishingProgress(rawMessage, options = {}) {
     const action = getPostingAction(postStatus);
     const naverProgressMatches = [
         ['editor', /네이버 글쓰기 화면에 연결하고 있습니다\./],
-        ['body', /본문을 입력하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
-        ['image', /이미지를 업로드하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
-        ['link', /관련 링크를 추가하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
+        ['body', /\[(소제목|본문|인용구|목록)\](?: (.+?))? 입력 중/],
+        ['image', /\[이미지\](?: (.+?))? 업로드 중(?: \((\d+)\/(\d+)\))?/],
+        ['link', /\[연관글\](?: (.+?))? 링크 추가 중(?: \((\d+)\/(\d+)\))?/],
+        ['body_legacy', /본문을 입력하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
+        ['image_legacy', /이미지를 업로드하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
+        ['link_legacy', /관련 링크를 추가하고 있습니다\.(?: \((\d+)\/(\d+)\))?/],
         ['settings', /(?:발행|임시 저장|예약 등록) 설정을 적용하고 있습니다\./],
         ['submitting', /네이버 블로그에 (?:발행|임시 저장|예약 등록)을 요청하고 있습니다\./],
         ['verifying', /네이버 블로그의 (?:발행|임시 저장|예약 등록) 결과를 확인하고 있습니다\./]
@@ -48,12 +51,20 @@ function presentPublishingProgress(rawMessage, options = {}) {
     for (const [stage, pattern] of naverProgressMatches) {
         const match = message.match(pattern);
         if (!match) continue;
+        const legacy = stage.endsWith('_legacy');
+        const normalizedStage = legacy ? stage.replace('_legacy', '') : stage;
         const progress = presentNaverPublishProgress({
-            stage,
-            ...(match[1] && match[2] ? { current: Number(match[1]), total: Number(match[2]) } : {}),
+            stage: normalizedStage,
+            ...(normalizedStage === 'body' ? {
+                itemType: legacy ? 'paragraph' : ({ '소제목': 'heading', '본문': 'paragraph', '인용구': 'quote', '목록': 'list-item' })[match[1]],
+                ...(legacy ? {} : { label: match[2] || '' })
+            } : {}),
+            ...(normalizedStage !== 'body' && !legacy && match[1] ? { label: match[1] } : {}),
+            ...(legacy && match[1] && match[2] ? { current: Number(match[1]), total: Number(match[2]) } : {}),
+            ...(!legacy && normalizedStage !== 'body' && match[2] && match[3] ? { current: Number(match[2]), total: Number(match[3]) } : {}),
             postStatus
         }, postStatus);
-        if (progress) return { stage: progress.stage, title: NAVER_PROGRESS_TITLES[stage], message: progress.message };
+        if (progress) return { stage: progress.stage, title: NAVER_PROGRESS_TITLES[normalizedStage], message: progress.message };
     }
     if (/네이버 콘텐츠 생성/.test(message)) return { stage: 'writing', ...PROGRESS_PRESENTATIONS.writing_naver };
     if (/워드프레스 콘텐츠 생성/.test(message)) return { stage: 'writing', ...PROGRESS_PRESENTATIONS.writing_wordpress };

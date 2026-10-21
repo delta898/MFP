@@ -150,7 +150,7 @@ test('Host validates generic staged progress and forwards counters for long-runn
         operations: {
             run: {
                 async execute(_input, context) {
-                    context.reportProgress({ phase: 'uploading', stage: 'image', current: 2, total: 4, progress: 50 });
+                    context.reportProgress({ phase: 'uploading', stage: 'image', current: 2, total: 4, progress: 50, itemType: 'image', label: 'A short preview' });
                     return {};
                 }
             }
@@ -161,7 +161,7 @@ test('Host validates generic staged progress and forwards counters for long-runn
     await host.execute('sample-plugin', 'run', {}, { reportProgress: (event) => events.push(event) });
     assert.deepEqual(events, [{
         pluginId: 'sample-plugin', operationId: 'run', phase: 'uploading', progress: 50,
-        stage: 'image', current: 2, total: 4
+        stage: 'image', current: 2, total: 4, itemType: 'image', label: 'A short preview'
     }]);
 });
 

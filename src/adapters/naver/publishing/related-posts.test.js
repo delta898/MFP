@@ -30,6 +30,14 @@ test('Naver related-post section becomes unbulleted URL-only paragraphs', () => 
     ].join('\n'));
 });
 
+test('Naver related-post formatter reports linked titles for progress presentation', () => {
+    const links = [];
+    const result = formatRelatedPostsForNaver('## 함께 보면 좋은 글\n- [녹차 가이드](https://example.com/tea)', (link) => links.push(link));
+
+    assert.equal(result, '## 함께 보면 좋은 글\nhttps://example.com/tea');
+    assert.deepEqual(links, [{ label: '녹차 가이드', url: 'https://example.com/tea' }]);
+});
+
 test('only known generated related-post headings enable Naver conversion', () => {
     const source = [
         '## 참고 링크',

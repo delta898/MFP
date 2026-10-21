@@ -33,7 +33,7 @@ function normalizeProgressEvent(pluginId, operationId, event) {
         throw new TypeError('Plugin progress event must be an object.');
     }
     const keys = Object.keys(event);
-    if (keys.some((key) => !['phase', 'progress', 'stage', 'current', 'total'].includes(key))) {
+    if (keys.some((key) => !['phase', 'progress', 'stage', 'current', 'total', 'itemType', 'label'].includes(key))) {
         throw new TypeError('Plugin progress event contains an unsupported field.');
     }
     if (!PROGRESS_PHASES.has(event.phase)) {
@@ -46,6 +46,13 @@ function normalizeProgressEvent(pluginId, operationId, event) {
     if (event.stage !== undefined
         && (typeof event.stage !== 'string' || !/^[a-z][a-z0-9_]{0,39}$/.test(event.stage))) {
         throw new TypeError('Plugin progress stage must be a short lowercase identifier.');
+    }
+    if (event.itemType !== undefined
+        && (typeof event.itemType !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(event.itemType))) {
+        throw new TypeError('Plugin progress itemType must be a short lowercase identifier.');
+    }
+    if (event.label !== undefined && (typeof event.label !== 'string' || event.label.length > 80)) {
+        throw new TypeError('Plugin progress label must be a string of at most 80 characters.');
     }
     const hasCurrent = event.current !== undefined;
     const hasTotal = event.total !== undefined;
@@ -62,7 +69,9 @@ function normalizeProgressEvent(pluginId, operationId, event) {
         phase: event.phase,
         ...(event.progress === undefined ? {} : { progress: event.progress }),
         ...(event.stage === undefined ? {} : { stage: event.stage }),
-        ...(hasCurrent ? { current: event.current, total: event.total } : {})
+        ...(hasCurrent ? { current: event.current, total: event.total } : {}),
+        ...(event.itemType === undefined ? {} : { itemType: event.itemType }),
+        ...(event.label === undefined ? {} : { label: event.label })
     });
 }
 
