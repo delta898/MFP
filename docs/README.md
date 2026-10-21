@@ -121,6 +121,7 @@
 - `plans/archive/2026-10-14-wordpress-publisher-plugin-pilot-development.md` (첫 실제 WordPress Plugin 계약과 Kernel/Application 연결 검증; parent 통합 완료)
 - `plans/archive/2026-10-14-content-generation-plugin-pilot-development.md` (provider 주입형 콘텐츠 생성 Core Plugin pilot; parent 통합 완료)
 - `plans/active/2026-10-14-release-v0.6.1-development.md` (0.6.0 이후 사용자 변경사항 릴리스 준비)
+- `plans/active/2026-10-21-release-v0.7.0-development.md` (v0.7.0 사용자 변경사항 릴리스 준비)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
