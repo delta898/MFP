@@ -259,6 +259,34 @@
 
 .update-banner[data-update-state="downloading"] #update-cancel-btn {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--ui-text-inverse) 28%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-text-inverse) 8%, transparent);
+  color: var(--ui-text-inverse);
+  font-weight: var(--ui-weight-semibold);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ui-text-inverse) 10%, transparent);
+}
+
+.update-banner[data-update-state="downloading"] #update-cancel-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ui-text-inverse) 48%, transparent);
+  background: color-mix(in srgb, var(--ui-text-inverse) 16%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+.update-banner[data-update-state="downloading"] #update-cancel-btn:focus-visible {
+  outline: 2px solid var(--ui-text-inverse);
+  outline-offset: 3px;
+}
+
+.update-banner[data-update-state="downloading"] #update-cancel-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  transform: none;
 }
 
 .update-icon {

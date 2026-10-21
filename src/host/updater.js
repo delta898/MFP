@@ -16,7 +16,7 @@ class Updater {
         this.currentVersion = APP_VERSION;
         this.config = options.config || {};
         this.hasExplicitAppRootDir = Boolean(options.appRootDir);
-        this.appRootDir = options.appRootDir || this.config.APP_ROOT_DIR || process.cwd();
+        this.appRootDir = options.appRootDir || this.config.EXEC_DIR || this.config.APP_ROOT_DIR || process.cwd();
         this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || UpdateDefaults.UPDATE_TEMP_DIR);
         this.platform = options.platform || process.platform;
         this.arch = options.arch || process.arch;
@@ -63,7 +63,7 @@ class Updater {
     configure(config = {}) {
         this.config = config && typeof config === 'object' ? config : {};
         if (!this.hasExplicitAppRootDir) {
-            this.appRootDir = this.config.APP_ROOT_DIR || process.cwd();
+            this.appRootDir = this.config.EXEC_DIR || this.config.APP_ROOT_DIR || process.cwd();
             this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || UpdateDefaults.UPDATE_TEMP_DIR);
         }
         return this;
@@ -417,6 +417,7 @@ class Updater {
             operationId: crypto.randomUUID(),
             targetVersion: String(this.updateInfo.latestVersion || '').trim()
         };
+        Logger.info(`🔄 [Updater] 업데이트 경로 확인 (current=v${this.currentVersion}, target=v${updateOperation.targetVersion}, appRoot=${this.appRootDir}, executable=${this.executablePath})`);
         this.progress = { active: true, stage: 'downloading', message: '다운로드 준비 중...', percent: 0, totalSize: 0, downloadedSize: 0 };
         try {
             if (!fs.existsSync(this.tempDir)) fs.mkdirSync(this.tempDir, { recursive: true });

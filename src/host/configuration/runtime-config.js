@@ -222,6 +222,7 @@ const CONFIG = {
     CONFIG_SOURCE_TYPE: configSourceType,
     CONFIG_ERROR_MESSAGE: configErrorMessage,
     ROOT_DIR: ROOT_DIR,
+    EXEC_DIR: EXEC_DIR,
     RUNTIME_ENVIRONMENT: runtimeEnvironmentProfile.environment,
     RUNTIME_ENVIRONMENT_STATUS: runtimeEnvironmentProfile.status,
     RUNTIME_ENVIRONMENT_PROFILE: runtimeEnvironmentProfile,
