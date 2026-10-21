@@ -3,8 +3,10 @@ const Ajv2020 = require('ajv/dist/2020');
 const { createAgentPendingCapabilities } = require('./actions/pending');
 const { createAgentMetaCapabilities } = require('./actions/meta');
 const { createAgentPreferenceCapabilities } = require('./actions/preferences');
+const { createAgentActionPreferenceCapabilities } = require('./actions/action-preferences');
 const { createAgentUserRuleCapabilities } = require('./actions/user-rules');
 const { createAgentRecommendationCapabilities } = require('./actions/recommendations');
+const { getPersonalizableParameter } = require('../../../services/memory/user-action-preferences');
 
 const agentActionAjv = new Ajv2020({
     allErrors: true,
@@ -64,6 +66,16 @@ function validateAgentActionDescriptor(capability) {
             }
         }
     }
+    if (exposure.personalizableParameters !== undefined) {
+        if (!exposure.personalizableParameters || typeof exposure.personalizableParameters !== 'object' || Array.isArray(exposure.personalizableParameters)) {
+            throw new TypeError(`Agent action ${capability.id} personalizableParameters must be an object.`);
+        }
+        for (const [parameterPath, declaration] of Object.entries(exposure.personalizableParameters)) {
+            if (!declaration || declaration.allowUserDefault !== true || !getPersonalizableParameter(capability, parameterPath)) {
+                throw new TypeError(`Agent action ${capability.id} personalizable parameter ${parameterPath} must be optional and type-safe.`);
+            }
+        }
+    }
     if (!String(exposure.outputDescription || '').trim()) {
         throw new TypeError(`Agent action ${capability.id} must describe its result.`);
     }
@@ -113,6 +125,7 @@ function createCapabilityRegistry(deps = {}) {
     );
 
     allCapabilities.push(...createAgentUserRuleCapabilities(registryCapabilityDeps));
+    allCapabilities.push(...createAgentActionPreferenceCapabilities(registryCapabilityDeps));
 
     for (const [index, provider] of (Array.isArray(deps.agentActionProviders) ? deps.agentActionProviders : []).entries()) {
         const createActions = typeof provider === 'function'

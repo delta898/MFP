@@ -170,7 +170,6 @@ function createBlogBetaRuntimeComposition(options = {}) {
         resolvePlatformWorkspaceDir,
         referenceSearchGateway: createReferenceSearchGateway({ config: CONFIG, License: options.License })
     });
-
     const blogPublishingApplication = createBlogPublishingApplication({
         imageOptimizationService,
         naverPublisher: naverPublishingSystem.publisher,

@@ -58,10 +58,12 @@ application contract to a graph database engine.
 - `confirmations` and `confirmation_actions`
 - `recommendations` and immutable `recommendation_events`
 - `preferences`, `domain_knowledge`, and `owner_topic_affinity`
+- `user_action_preferences`, explicit user-authored defaults for declared optional Agent action inputs
 
 ## Current Roles
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
 - Preference memory: accumulated user tendencies from accepted actions and feedback.
+- Explicit action defaults: user-authored values scoped to one user, live Agent action, and capability-declared optional input path; these are never inferred from behavior.
 - Confirmation state: pending user decisions linked to planned actions.
 - Recommendation lifecycle: owner-scoped, actionable product opportunities with event-backed current state.
 - Domain knowledge: canonical values and learned aliases.
@@ -76,6 +78,7 @@ Typed retrieval currently builds a context packet with:
 - recent artifacts
 - pending confirmations
 - preference summary
+- explicit user action defaults relevant to Telegram action planning
 
 Context packet schema version 2 keeps those conversation-scoped fields and adds
 a separate `owner_memory` section. It contains owner activity signals, topic

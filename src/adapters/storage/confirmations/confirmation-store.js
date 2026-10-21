@@ -166,6 +166,18 @@ class ConfirmationStore {
         return { ...item };
     }
 
+    updatePlan(id, { plan, actions, previews } = {}) {
+        this._cleanupExpired();
+        const item = this.items.get(String(id || '').trim());
+        if (!item || item.status !== 'pending') return null;
+        if (plan && typeof plan === 'object') item.plan = plan;
+        if (Array.isArray(actions)) item.actions = actions;
+        if (Array.isArray(previews)) item.previews = previews;
+        this.items.set(item.id, item);
+        this._persist();
+        return { ...item };
+    }
+
     _updateStatus(id, nextStatus) {
         this._cleanupExpired();
         const key = String(id || '').trim();

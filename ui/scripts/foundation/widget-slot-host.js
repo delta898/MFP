@@ -95,7 +95,8 @@ function initWidgetSlotHost() {
         if (shell.parentElement) shell.remove();
         return;
       }
-      const width = Math.min(widget.width, Math.max(120, window.innerWidth - 32));
+      const availableWidth = Math.min(window.innerWidth - 32, target.clientWidth || widget.width);
+      const width = Math.min(widget.width, Math.max(120, availableWidth));
       shell.style.width = `${width}px`;
       shell.style.height = `${widget.height}px`;
       frame.style.width = `${width}px`;

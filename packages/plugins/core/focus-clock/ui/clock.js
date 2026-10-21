@@ -491,8 +491,21 @@ function initClockWidget() {
     if (event.key === 'Escape') closeStyleMenus();
   });
   window.addEventListener('message', (event) => {
-    if (event.source !== window.parent || event.data?.type !== 'widget:host-close-overlay') return;
-    closeStyleMenus();
+    if (event.source !== window.parent) return;
+    if (event.data?.type === 'widget:host-activity') {
+      const isSettling = event.data.state === 'settling';
+      const isActive = event.data.state === 'running' || isSettling;
+      const isFinalizing = event.data.state === 'running' && ['verifying', 'finalizing'].includes(event.data.stage);
+      widgetUnits.forEach(({ unit }) => {
+        unit.classList.toggle('is-agent-active', isActive);
+        unit.classList.toggle('is-agent-finalizing', isFinalizing);
+        unit.classList.toggle('is-agent-settling', isSettling);
+        if (isActive && event.data.activity) unit.dataset.agentActivity = event.data.activity;
+        else delete unit.dataset.agentActivity;
+      });
+      return;
+    }
+    if (event.data?.type === 'widget:host-close-overlay') closeStyleMenus();
   });
 
   function renderTimerFace(snapshot) {
@@ -608,14 +621,14 @@ function initClockWidget() {
       }
       let metaHtml = '';
       if (displayMode === 'timer') {
-        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.text}</span>`;
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span class="clock-ambient-primary">현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.text}</span>`;
       } else {
         const timerStatus = timerSnapshot.status === 'paused'
           ? ' · 일시정지'
           : timerSnapshot.status === 'completed'
             ? ' 완료!'
             : '';
-        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span class="clock-ambient-primary">${mood.text}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
       }
       const moodKey = `${displayMode}|${mood.season}|${metaHtml}`;
       if (metaCopy.dataset.clockMoodKey !== moodKey) {
@@ -680,9 +693,9 @@ function initClockWidget() {
       const minDeg = now.getMinutes() * 6 + now.getSeconds() * 0.1;
       const hourDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
       const html = `
-        <div style="position:relative; width:112px; height:102px; margin-right:6px;">
-          <div style="position:absolute; inset:0; clip-path:polygon(50% 100%, 8% 63%, 8% 26%, 26% 26%, 26% 8%, 40% 8%, 40% 0, 60% 0, 60% 8%, 74% 8%, 74% 26%, 92% 26%, 92% 63%); background:linear-gradient(180deg,#fb923c 0%,#f97316 42%,#f43f5e 100%); border:4px solid rgba(255,255,255,0.72); box-shadow:0 12px 28px rgba(244,63,94,0.24), inset 0 1px 0 rgba(255,255,255,0.4);"></div>
-          <div style="position:absolute; inset:10px 12px 14px; clip-path:polygon(50% 100%, 8% 63%, 8% 26%, 26% 26%, 26% 8%, 40% 8%, 40% 0, 60% 0, 60% 8%, 74% 8%, 74% 26%, 92% 26%, 92% 63%); background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.02));"></div>
+        <div style="position:relative; width:84px; height:76px; margin-right:4px;">
+          <div style="position:absolute; inset:0; clip-path:polygon(50% 94%, 14% 62%, 5% 48%, 5% 33%, 12% 21%, 24% 16%, 36% 19%, 50% 34%, 64% 19%, 76% 16%, 88% 21%, 95% 33%, 95% 48%, 86% 62%); background:linear-gradient(180deg,#fb7185 0%,#e11d48 55%,#be123c 100%); filter:drop-shadow(0 8px 12px rgba(190,24,93,0.25));"></div>
+          <div style="position:absolute; inset:8px 10px 12px; clip-path:polygon(50% 94%, 14% 62%, 5% 48%, 5% 33%, 12% 21%, 24% 16%, 36% 19%, 50% 34%, 64% 19%, 76% 16%, 88% 21%, 95% 33%, 95% 48%, 86% 62%); background:linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.02));"></div>
           <div style="position:absolute; top:50%; left:50%; width:10px; height:10px; background:#334155; border:2px solid rgba(255,255,255,0.88); border-radius:999px; transform:translate(-50%, -50%); z-index:10; box-shadow:0 2px 4px rgba(15,23,42,0.18);"></div>
           <div style="position:absolute; top:26%; bottom:50%; left:50%; width:5px; background:rgba(255,255,255,0.92); transform-origin:bottom center; transform:translateX(-50%) rotate(${hourDeg}deg); border-radius:999px; z-index:7;"></div>
           <div style="position:absolute; top:16%; bottom:50%; left:50%; width:3px; background:rgba(241,245,249,0.95); transform-origin:bottom center; transform:translateX(-50%) rotate(${minDeg}deg); border-radius:999px; z-index:8;"></div>

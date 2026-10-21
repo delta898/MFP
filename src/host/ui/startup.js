@@ -12,9 +12,11 @@ function createUiServerStartup({ config, logger, initializeAgentMemory, startUiS
         if (!safeMode && !deferred) {
             await initializeAgentMemory({ baseDir: config.ROOT_DIR });
         } else {
-            logger.warn(safeMode
-                ? '⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.'
-                : 'ℹ️ [AgentMemory] 첫 화면 이후 지능형 메모리를 초기화합니다.');
+            if (safeMode) {
+                logger.warn('⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 저장소 준비를 건너뜁니다.');
+            } else {
+                logger.info('ℹ️ [AgentMemory] 첫 화면 표시 후 지능형 메모리 저장소를 준비합니다.');
+            }
         }
 
         const started = await startUiServerRuntime(options);

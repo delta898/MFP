@@ -7,6 +7,7 @@ const {
 } = require('./contracts/runtime-contract');
 const { validatePlan } = require('./planning/planner-contract');
 const { createPlanner } = require('./planning/planner');
+const { applyUserActionPreferences } = require('../../services/memory/user-action-preferences');
 
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
@@ -186,7 +187,19 @@ function createAgentRuntime(options = {}) {
             const normalizedActions = [];
             const normalizedSteps = [];
             for (const step of normalizedPlan.steps) {
-                const action = step.action;
+                let action = step.action;
+                const registeredCapability = action.action_id
+                    ? capabilityRegistry.getAgentAction(action.action_id)
+                    : capabilityRegistry.get(buildCapabilityId(action.domain, action.name));
+                const preferenceResult = applyUserActionPreferences(
+                    action,
+                    registeredCapability,
+                    runtimeContext.memory?.user_action_preferences
+                );
+                action = preferenceResult.action;
+                if (preferenceResult.applied.length > 0) {
+                    logger?.info?.(`[AgentRuntime] user defaults applied capability_id=${String(registeredCapability?.id || 'unknown')} fields=${preferenceResult.applied.map((item) => item.path).join(',')}`);
+                }
                 const actionValidation = await capabilityRegistry.validateAction(action, context);
                 if (!actionValidation.ok) {
                     if (actionValidation.correctionProposal) {

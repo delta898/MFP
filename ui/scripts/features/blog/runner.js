@@ -433,7 +433,7 @@ function scheduleBlogNextRunnerPoll(delay = 1000) {
 function syncBlogNextRunnerWatchForTab() {
   clearTimeout(blogNextRunnerPollingTimer);
   if (blogNextRunnerActive) scheduleBlogNextRunnerPoll(1000);
-  else if (typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab === 'queue') scheduleBlogNextRunnerPoll(5000);
+  else scheduleBlogNextRunnerPoll(5000);
 }
 
 async function loadBlogNextRunnerStatus(options = {}) {
@@ -441,13 +441,9 @@ async function loadBlogNextRunnerStatus(options = {}) {
   const localDraftBusy = () => typeof blogNextDraftState !== 'undefined'
     && BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking);
   if (localDraftBusy()) return blogNextRunnerLastStatus;
-  if (['manuscript_generation', 'local_markdown'].includes(blogNextRunnerLastStatus.source)
-    && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue') return blogNextRunnerLastStatus;
   try {
     const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
-    if (blogNextAiOperationId || localDraftBusy()
-      || (['manuscript_generation', 'local_markdown'].includes(blogNextRunnerLastStatus.source)
-        && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue')) return blogNextRunnerLastStatus;
+    if (blogNextAiOperationId || localDraftBusy()) return blogNextRunnerLastStatus;
     const previousFinishedAt = blogNextRunnerObservedFinishedAt;
     const finishedAt = String(status.finishedAt || '');
     const finishedChanged = blogNextRunnerStatusInitialized

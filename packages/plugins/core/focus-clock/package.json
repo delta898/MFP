@@ -14,8 +14,8 @@
       "slot": "app.header.trailing",
       "entry": "ui/index.html",
       "assets": ["ui/index.html", "ui/clock.js", "ui/styles.css"],
-      "width": 400,
-      "height": 190,
+      "width": 360,
+      "height": 156,
       "maxHeight": 680
     }]
   }

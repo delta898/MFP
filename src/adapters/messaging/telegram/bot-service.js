@@ -53,6 +53,7 @@ class TelegramBotService {
     static POLLING_MAX_BACKOFF_MS = 30000;
     static _lastPollingError = null;
     static _stoppedReason = '';
+    static pendingOptionalInputs = new Map();
 
     static calculatePollingBackoffMs(errorCount) {
         return calculateTelegramPollingBackoffMs(errorCount, {
@@ -386,16 +387,24 @@ class TelegramBotService {
             const confirmationId = outcome.confirmation?.id;
             Logger.info(`🛂 [TelegramAgent] confirmation requested id=${String(confirmationId || 'unknown')} actions=${plannedActionIds}`);
             const message = TelegramAgentRenderer.formatPreviewMessage(outcome.confirmation, outcome.previews);
+            const optionalActions = (outcome.confirmation?.plan?.steps || [])
+                .map((step) => step.action)
+                .filter((action) => {
+                    if (action.action_id !== 'content.manuscript.generate_and_publish') return false;
+                    const capability = this.agentCapabilityRegistry?.getAgentAction?.(action.action_id);
+                    const suggestions = capability?.agentExposure?.optionalInputSuggestions || {};
+                    return Object.keys(suggestions).some((field) => !Object.prototype.hasOwnProperty.call(action.params || {}, field));
+                });
+            const keyboard = [
+                [
+                    { text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` },
+                    { text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }
+                ]
+            ];
+            if (optionalActions.length > 0) keyboard.push([{ text: '➕ 선택 정보 추가', callback_data: `agent_options:${confirmationId}` }]);
             const sent = await this.bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
-                reply_markup: JSON.stringify({
-                    inline_keyboard: [
-                        [
-                            { text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` },
-                            { text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }
-                        ]
-                    ]
-                })
+                reply_markup: JSON.stringify({ inline_keyboard: keyboard })
             });
             if (confirmationId) {
                 runtime.confirmationStore.bindTransportMessage(confirmationId, {
@@ -456,8 +465,42 @@ class TelegramBotService {
         const runtime = this.ensureAgentRuntime();
         const parts = String(data || '').split(':');
         const verb = parts[0];
-        const targetId = parts[parts.length - 1];
+        const callbackTargetId = parts[parts.length - 1];
+        const targetId = verb === 'agent_options_cancel' && !callbackTargetId.startsWith('confirm_')
+            ? `confirm_${callbackTargetId}`
+            : callbackTargetId;
         if (!targetId) return false;
+
+        if (verb === 'agent_options') {
+            const confirmation = runtime.confirmationStore.get(targetId);
+            if (!confirmation || confirmation.status !== 'pending') {
+                await this.bot.answerCallbackQuery(query.id, { text: '확인 요청이 만료되었거나 이미 처리되었습니다.', show_alert: true });
+                return true;
+            }
+            this.pendingOptionalInputs.set(String(chatId), targetId);
+            await this.bot.answerCallbackQuery(query.id, { text: '추가 정보를 입력해 주세요.' });
+            await this.bot.editMessageText(
+                '원하는 값만 채워서 보내 주세요. 비워 둔 항목은 현재 설정을 유지합니다.\n\n키워드: (예: OpenClaw)\n이미지 생성: 미포함 / 프롬프트만 / 생성\n외부 참고: 사용 / 사용 안 함\n추가 요청: (선택)\n\n예: 키워드: OpenClaw\n이미지 생성: 미포함\n외부 참고: 사용 안 함\n추가 요청: 초보자도 이해하기 쉽게 써줘',
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    reply_markup: { inline_keyboard: [[{ text: '↩️ 옵션 입력 취소', callback_data: `agent_options_cancel:${targetId.replace(/^confirm_/, '')}` }]] }
+                }
+            );
+            return true;
+        }
+
+        if (verb === 'agent_options_cancel') {
+            this.pendingOptionalInputs.delete(String(chatId));
+            const confirmation = runtime.confirmationStore.get(targetId);
+            await this.bot.answerCallbackQuery(query.id, { text: '옵션 입력을 취소했습니다. 실행 확인은 유지됩니다.' });
+            if (confirmation?.status === 'pending') {
+                await this.restoreOptionalInputConfirmation(chatId, confirmation, confirmation.previews || []);
+            } else {
+                await this.bot.editMessageText('ℹ️ 이 실행 확인은 만료되었거나 이미 처리되었습니다.', { chat_id: chatId, message_id: messageId }).catch(() => { });
+            }
+            return true;
+        }
 
         if (verb === 'rec_fb') {
             const feedback = parts[1] === 'h' ? 'helpful' : parts[1] === 'n' ? 'not_helpful' : '';
@@ -544,6 +587,7 @@ class TelegramBotService {
         context.messageId = String(messageId || '').trim();
 
         const decision = verb === 'agent_confirm' ? 'approve' : 'reject';
+        if (verb === 'agent_confirm' || verb === 'agent_reject') this.pendingOptionalInputs.delete(String(chatId));
         const confirmation = runtime.confirmationStore.get(targetId);
         const pendingActions = confirmation?.plan?.steps?.map(step => step.action)
             || confirmation?.actions
@@ -551,17 +595,35 @@ class TelegramBotService {
         const actionIds = summarizeAgentActionIds(pendingActions);
         const confirmationStartedAt = Date.now();
         Logger.info(`🛂 [TelegramAgent] confirmation decision=${decision} id=${targetId} actions=${actionIds}`);
+        // Acknowledge immediately so Telegram stops showing the callback spinner. The
+        // execution can take tens of seconds (AI generation / browser publishing).
+        await this.bot.answerCallbackQuery(query.id, { text: decision === 'approve' ? '요청을 처리하고 있습니다.' : '취소했습니다.' });
+        if (decision === 'approve') {
+            await this.bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+            await this.bot.editMessageText('⏳ 요청을 처리하고 있습니다. 원고 작성과 블로그 저장이 끝나면 결과를 알려드릴게요.', {
+                chat_id: chatId,
+                message_id: messageId
+            }).catch(() => { });
+        }
         let outcome;
         try {
             outcome = await runtime.handleConfirmationDecision({ confirmationId: targetId, decision }, context);
         } catch (error) {
             Logger.error(`❌ [TelegramAgent] confirmed execution threw actions=${actionIds} code=${getSafeAgentErrorCode(error)}`);
-            throw error;
+            const detail = String(error?.response?.data?.error?.message || error?.message || '처리 중 오류가 발생했습니다.').slice(0, 700);
+            await this.bot.editMessageText(`❌ 요청을 완료하지 못했습니다.\n\n${detail}`, {
+                chat_id: chatId,
+                message_id: messageId
+            }).catch(() => { });
+            return true;
         }
         Logger.info(`⏱️ [TelegramAgent] confirmation ${Date.now() - confirmationStartedAt}ms status=${outcome.status || (outcome.ok ? 'completed' : 'rejected')} actions=${summarizeAgentResults(outcome.results)}`);
 
         if (!outcome.ok) {
-            await this.bot.answerCallbackQuery(query.id, { text: outcome.message || '처리하지 못했습니다.', show_alert: true });
+            const finalText = outcome.status === 'invalid_state'
+                ? 'ℹ️ 이 요청은 이미 처리 중이거나 완료되었습니다.'
+                : `❌ ${outcome.message || '요청을 처리하지 못했습니다.'}`;
+            await this.bot.editMessageText(finalText, { chat_id: chatId, message_id: messageId }).catch(() => { });
             return true;
         }
 
@@ -570,7 +632,6 @@ class TelegramBotService {
                 chat_id: chatId,
                 message_id: messageId
             });
-            await this.bot.answerCallbackQuery(query.id);
             return true;
         }
 
@@ -589,11 +650,98 @@ class TelegramBotService {
                     'AGENT'
                 ).catch(() => { });
             }
-            await this.bot.answerCallbackQuery(query.id);
             return true;
         }
 
         return false;
+    }
+
+    static async applyOptionalInputReply(chatId, text, msg = {}) {
+        const confirmationId = this.pendingOptionalInputs.get(String(chatId));
+        this.pendingOptionalInputs.delete(String(chatId));
+        const runtime = this.ensureAgentRuntime();
+        const confirmation = runtime.confirmationStore.get(confirmationId);
+        if (!confirmation || confirmation.status !== 'pending') {
+            await this.bot.sendMessage(chatId, '추가 정보를 받을 실행 요청이 만료되었거나 이미 처리되었습니다. 원하시면 다시 요청해 주세요.');
+            return;
+        }
+        const raw = String(text || '').trim();
+        if (/^(취소|cancel)$/i.test(raw)) {
+            await this.restoreOptionalInputConfirmation(chatId, confirmation, confirmation.previews || []);
+            await this.bot.sendMessage(chatId, '추가 옵션 입력만 취소했습니다. 기존 실행 확인은 유지되어 있어요.');
+            return;
+        }
+        if (!raw || /^(건너뛰기|그대로|기본값|없음)$/i.test(raw)) {
+            await this.restoreOptionalInputConfirmation(chatId, confirmation, confirmation.previews || []);
+            return;
+        }
+
+        const steps = Array.isArray(confirmation.plan?.steps) ? confirmation.plan.steps : [];
+        const targetStep = steps.find((step) => step.action?.action_id === 'content.manuscript.generate_and_publish');
+        if (!targetStep?.action) {
+            await this.bot.sendMessage(chatId, '이 요청에는 추가 정보 입력을 적용할 수 없습니다.');
+            return;
+        }
+        const params = { ...(targetStep.action.params || {}) };
+        const keywordMatch = raw.match(/(?:키워드|검색어)\s*[:：]\s*([^;\n]+)/i);
+        const imageMatch = raw.match(/이미지(?:\s*생성)?\s*[:：]\s*([^;\n]+)/i);
+        const referenceMatch = raw.match(/(?:외부\s*참고|참고\s*자료)\s*[:：]\s*([^;\n]+)/i);
+        const instructionMatch = raw.match(/(?:추가\s*요청|추가\s*지시|요청사항)\s*[:：]\s*([^;\n]+)/i);
+        if (keywordMatch) params.keywords = keywordMatch[1].split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
+        else if (!imageMatch && !referenceMatch && !instructionMatch) params.keywords = raw.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
+        if (imageMatch) {
+            const image = imageMatch[1].trim().toLowerCase();
+            const explicitlyDisabled = /생성\s*하지\s*않|생성\s*안\s*함|미생성|생성\s*없|포함\s*하지\s*않|포함\s*안\s*함|미포함|없음|사용\s*안|끄기|\bno\b|\bfalse\b|\boff\b/i.test(image);
+            const explicitlyGenerated = /생성|만들어|포함|\byes\b|\btrue\b|\bon\b/i.test(image);
+            params.image_mode = explicitlyDisabled ? 'none' : explicitlyGenerated ? 'generate' : 'prompt_only';
+        }
+        if (referenceMatch) {
+            const reference = referenceMatch[1].trim().toLowerCase();
+            params.external_reference = !/아니|미사용|사용\s*안|없음|하지\s*않|\bno\b|\bfalse\b|\boff\b/i.test(reference);
+        }
+        if (instructionMatch) params.instruction = [String(params.instruction || '').trim(), instructionMatch[1].trim()].filter(Boolean).join('\n\n');
+        targetStep.action = { ...targetStep.action, params };
+        const actions = steps.map((step) => step.action).filter(Boolean);
+        const previews = [];
+        for (const action of actions) {
+            const preview = await this.agentCapabilityRegistry.previewAction(action, this.buildAgentContext(chatId, msg));
+            previews.push({ action_id: action.id, capability_id: action.action_id, preview });
+        }
+        const updated = runtime.confirmationStore.updatePlan(confirmationId, {
+            plan: confirmation.plan,
+            actions,
+            previews
+        });
+        if (!updated) {
+            await this.bot.sendMessage(chatId, '확인 요청을 갱신하지 못했습니다. 요청을 다시 보내 주세요.');
+            return;
+        }
+        await this.restoreOptionalInputConfirmation(chatId, updated, previews);
+    }
+
+    static async restoreOptionalInputConfirmation(chatId, confirmation, previews = []) {
+        const confirmationId = String(confirmation?.id || '').trim();
+        const messageId = Number(confirmation.transportMessageId);
+        if (!confirmationId || !Number.isInteger(messageId) || messageId < 1) return;
+        const message = TelegramAgentRenderer.formatPreviewMessage(confirmation, previews);
+        const keyboard = [[
+            { text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` },
+            { text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }
+        ]];
+        const optionalActions = (confirmation.plan?.steps || [])
+            .map((step) => step.action)
+            .filter((action) => {
+                if (action?.action_id !== 'content.manuscript.generate_and_publish') return false;
+                const suggestions = this.agentCapabilityRegistry?.getAgentAction?.(action.action_id)?.agentExposure?.optionalInputSuggestions || {};
+                return Object.keys(suggestions).some((field) => !Object.prototype.hasOwnProperty.call(action.params || {}, field));
+            });
+        if (optionalActions.length > 0) keyboard.push([{ text: '➕ 선택 정보 추가', callback_data: `agent_options:${confirmationId}` }]);
+        await this.bot.editMessageText(message, {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: keyboard }
+        });
     }
 
     static setupListeners(allowedChatId) {
@@ -654,6 +802,11 @@ class TelegramBotService {
                 ).catch(() => { });
             }
 
+            if (this.pendingOptionalInputs.has(chatId)) {
+                await this.applyOptionalInputReply(chatId, text, msg);
+                return;
+            }
+
             // 2. 명령어 처리 (/help 등)
             if (text.startsWith('/')) {
                 await this.handleCommand(chatId, text, msg);
@@ -707,7 +860,10 @@ class TelegramBotService {
             if (allowedChatId && chatId !== allowedChatId) return;
 
             try {
-                if (String(data || '').startsWith('agent_confirm:') || String(data || '').startsWith('agent_reject:')) {
+                if (String(data || '').startsWith('agent_confirm:')
+                    || String(data || '').startsWith('agent_reject:')
+                    || String(data || '').startsWith('agent_options:')
+                    || String(data || '').startsWith('agent_options_cancel:')) {
                     const handled = await this.handleAgentCallback(chatId, messageId, data, query);
                     if (handled) return;
                 }

@@ -202,6 +202,10 @@ function createRegisterTopicCapabilities(deps = {}) {
                 optionalInputSuggestions: {
                     keywords: '키워드는 선택 사항이지만, 함께 저장하면 나중에 글감 검색과 원고 작성에 도움이 됩니다.'
                 },
+                personalizableParameters: {
+                    'options.image_gen': { title: '이미지 생성', allowUserDefault: true },
+                    'options.external_reference': { title: '외부 참고자료', allowUserDefault: true }
+                },
                 inputSchema: {
                     type: 'object',
                     properties: {

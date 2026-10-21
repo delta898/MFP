@@ -259,7 +259,30 @@ function createBlogQueueManagementApplication(deps = {}) {
         };
     }
 
-    return { captureTopic, updateTopic, updateTopicDetails, deleteSavedTopic, removeReadyTopic, addSavedTopicToQueue, moveTopic, reorderReadyTopic, listTopics, getReadyQueue };
+    async function findSavedTopicForWriting(input = {}) {
+        const subject = String(input.subject || '').trim();
+        const requestedRowNumber = Number(input.rowNumber);
+        const hasRowNumber = Number.isInteger(requestedRowNumber) && requestedRowNumber >= 2;
+        if (!subject && !hasRowNumber) return { match: null, matches: [] };
+        if (typeof topicStore.readAll !== 'function') {
+            if (hasRowNumber) throw appError(503, 'TOPIC_STORE_UNAVAILABLE', '저장된 글감 저장소를 사용할 수 없습니다.');
+            return { match: null, matches: [], available: false };
+        }
+
+        const result = await topicStore.readAll(hasRowNumber
+            ? { limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' }
+            : { q: subject, limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' });
+        const items = Array.isArray(result?.items) ? result.items : [];
+        const normalizedSubject = value => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('ko-KR');
+        const matches = items.filter(item => {
+            if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(String(item?.status || '').trim())) return false;
+            if (hasRowNumber && Number(item?.rowNumber) !== requestedRowNumber) return false;
+            return !subject || normalizedSubject(item?.subject) === normalizedSubject(subject);
+        });
+        return { match: matches.length === 1 ? matches[0] : null, matches };
+    }
+
+    return { captureTopic, updateTopic, updateTopicDetails, deleteSavedTopic, removeReadyTopic, addSavedTopicToQueue, moveTopic, reorderReadyTopic, listTopics, getReadyQueue, findSavedTopicForWriting };
 }
 
 module.exports = { createBlogQueueManagementApplication };

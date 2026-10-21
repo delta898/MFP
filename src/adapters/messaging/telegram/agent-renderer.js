@@ -35,6 +35,27 @@ function formatStructuredPreviewLines(preview = {}) {
         return lines;
     }
 
+    if (kind === 'manuscript_generation') {
+        const lines = [`📝 *저장:* BlogGenius 원고 작업공간`, `🎯 *주제:* ${escapeMarkdown(preview.subject || '')}`];
+        if (preview.source_topic) lines.push(`🗂️ *글감:* #${Number(preview.source_topic.rowNumber)} ${escapeMarkdown(preview.source_topic.subject)} 설정 재사용`);
+        if (Array.isArray(preview.keywords) && preview.keywords.length > 0) lines.push(`🔑 *키워드:* ${preview.keywords.map(escapeMarkdown).join(', ')}`);
+        if (preview.image_mode) lines.push(`🖼️ *이미지:* ${preview.image_mode === 'generate' ? '생성' : preview.image_mode === 'none' ? '미포함' : '프롬프트만'}`);
+        if (typeof preview.external_reference === 'boolean') lines.push(`🔍 *외부 참고:* ${preview.external_reference ? '사용' : '사용 안 함'}`);
+        return lines;
+    }
+
+    if (kind === 'manuscript_workflow' || kind === 'manuscript_publication') {
+        const target = preview.target === 'wordpress' ? '워드프레스' : '네이버 블로그';
+        const status = preview.post_status === 'draft' ? '임시저장'
+            : (preview.post_status === 'schedule' ? '예약발행' : '즉시 게시');
+        const lines = [`📝 *대상:* ${target}`, `📌 *방식:* ${status}`];
+        if (Array.isArray(preview.keywords) && preview.keywords.length > 0) lines.push(`🔑 *키워드:* ${preview.keywords.map(escapeMarkdown).join(', ')}`);
+        if (preview.image_mode) lines.push(`🖼️ *이미지:* ${preview.image_mode === 'generate' ? '생성' : preview.image_mode === 'none' ? '미포함' : '프롬프트만'}`);
+        if (typeof preview.external_reference === 'boolean') lines.push(`🔍 *외부 참고:* ${preview.external_reference ? '사용' : '사용 안 함'}`);
+        if (preview.source_topic) lines.push(`🗂️ *글감:* #${Number(preview.source_topic.rowNumber)} ${escapeMarkdown(preview.source_topic.subject)} 설정 재사용`);
+        return lines;
+    }
+
     return [];
 }
 
@@ -102,9 +123,10 @@ function formatExecutionMessage(results = []) {
     }
 
     const first = results[0] || {};
+    const hasFailure = results.some((item) => item?.result?.success === false);
     const actionType = String(first.action_type || '').trim();
     const actionDomain = String(first.action_domain || '').trim();
-    let title = '✅ *요청을 처리했습니다.*';
+    let title = hasFailure ? '⚠️ *일부 작업이 완료되지 않았습니다.*' : '✅ *요청을 처리했습니다.*';
     if (actionType === 'setting.query' || actionType === 'agent.query') {
         title = 'ℹ️ *확인했습니다.*';
     } else if (actionType === 'setting.update') {
@@ -118,8 +140,10 @@ function formatExecutionMessage(results = []) {
         title = '📝 *등록했습니다.*';
     } else if (actionDomain === 'content.register_topic') {
         title = '💡 *이렇게 준비했습니다.*';
-    } else if (actionDomain === 'content.publish') {
+    } else if (actionDomain === 'content.publish' && !hasFailure) {
         title = '🚀 *발행을 시작했습니다.*';
+    } else if (actionDomain === 'content.manuscript' && !hasFailure) {
+        title = actionType === 'content.generate' ? '📝 *원고를 준비했습니다.*' : '🚀 *원고 발행을 처리했습니다.*';
     }
     if (actionDomain === 'agent.meta') {
         title = 'ℹ️ *안내드립니다.*';

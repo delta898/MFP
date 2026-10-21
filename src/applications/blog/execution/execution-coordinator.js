@@ -69,14 +69,36 @@ function createBlogExecutionCoordinator(options = {}) {
                     active.progressStage = stage;
                     active.message = message;
                     active.postStatus = normalizeText(progress.postStatus, 20);
-                    if (['submitting', 'verifying'].includes(stage)) active.canStop = false;
+                    if (['submitting', 'verifying', 'finalizing'].includes(stage)) active.canStop = false;
+                    return true;
+                },
+                complete(status = {}) {
+                    if (released || active?.token !== token) return false;
+                    const state = ['completed', 'failed', 'needs_attention'].includes(String(status.state || ''))
+                        ? String(status.state)
+                        : 'completed';
+                    lastTerminalStatus = {
+                        busy: false,
+                        state,
+                        executionId: active.executionId,
+                        source: active.source,
+                        subject: active.subject,
+                        message: normalizeText(status.message, 200) || active.message,
+                        resultStatus: normalizeText(status.resultStatus, 80),
+                        startedAt: active.startedAt,
+                        finishedAt: now().toISOString(),
+                        ...(active.progressStage ? { progressStage: active.progressStage } : {}),
+                        ...(normalizeText(status.postStatus || active.postStatus, 20)
+                            ? { postStatus: normalizeText(status.postStatus || active.postStatus, 20) }
+                            : {})
+                    };
                     return true;
                 },
                 release() {
                     if (released) return false;
                     released = true;
                     if (active?.token !== token) return false;
-                    if (active.stopRequested) {
+                    if (active.stopRequested && lastTerminalStatus?.executionId !== active.executionId) {
                         lastTerminalStatus = {
                             busy: false,
                             state: 'stopped',

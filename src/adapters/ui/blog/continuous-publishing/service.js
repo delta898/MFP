@@ -629,18 +629,22 @@ function createContinuousPublishingService(deps = {}) {
         }
         if (!runnerPromise && externalExecutionObserved) {
             externalExecutionObserved = false;
-            updateRunnerState({
-                state: 'idle',
-                message: '실행 대기 중',
-                rowIndex: null,
-                rowNumber: null,
-                subject: '',
-                resultStatus: '',
-                progressStage: '',
-                completionLinks: [],
-                startedAt: '',
-                finishedAt: ''
-            });
+            if (['completed', 'failed', 'needs_attention', 'stopped'].includes(sharedStatus.state)) {
+                updateRunnerState({ ...sharedStatus, completionLinks: [], busy: false });
+            } else {
+                updateRunnerState({
+                    state: 'idle',
+                    message: '실행 대기 중',
+                    rowIndex: null,
+                    rowNumber: null,
+                    subject: '',
+                    resultStatus: '',
+                    progressStage: '',
+                    completionLinks: [],
+                    startedAt: '',
+                    finishedAt: ''
+                });
+            }
         }
         return { ...runnerState, busy: runnerPromise !== null };
     }
@@ -663,13 +667,17 @@ function createContinuousPublishingService(deps = {}) {
         const completion = runner.state === 'completed'
             ? {
                 last_completion_at: runner.finishedAt || null,
-                last_result_status: runner.resultStatus || ''
+                last_result_status: runner.resultStatus || '',
+                last_source: runner.source || '',
+                last_progress_stage: runner.progressStage || ''
             }
             : { last_completion_at: null, last_result_status: '' };
         if (['failed', 'needs_attention', 'blocked'].includes(runner.state)) {
             return {
                 ...completion,
                 state: 'attention',
+                source: runner.source || '',
+                progressStage: runner.progressStage || '',
                 subject: runner.subject || '',
                 message: runner.message || '',
                 result_status: runner.resultStatus || '',
@@ -680,6 +688,8 @@ function createContinuousPublishingService(deps = {}) {
             return {
                 ...completion,
                 state: 'running',
+                source: runner.source || '',
+                progressStage: runner.progressStage || '',
                 subject: runner.subject || '',
                 message: runner.message || '',
                 result_status: '',

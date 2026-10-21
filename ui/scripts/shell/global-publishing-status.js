@@ -2,7 +2,7 @@ const GLOBAL_PUBLISHING_STATUS_POLL_MS = Object.freeze({
   running: 1500,
   attention: 15000,
   scheduled: 30000,
-  idle: 60000
+  idle: 5000
 });
 
 let globalPublishingStatusTimer = null;
@@ -11,6 +11,30 @@ let globalPublishingStatusSnapshot = { state: 'idle' };
 let globalPublishingStatusBound = false;
 let globalPublishingCompletionInitialized = false;
 let globalPublishingObservedCompletionAt = '';
+let globalPublishingCompletionSequence = null;
+let globalPublishingCompletionSequenceTimer = null;
+
+function scheduleGlobalPublishingCompletionSequence(summary = {}, phase = 'finalizing') {
+  clearTimeout(globalPublishingCompletionSequenceTimer);
+  globalPublishingCompletionSequence = {
+    phase,
+    source: summary.last_source || summary.source || ''
+  };
+  renderGlobalPublishingStatus(globalPublishingStatusSnapshot);
+
+  const duration = phase === 'finalizing' ? 380 : 680;
+  globalPublishingCompletionSequenceTimer = setTimeout(() => {
+    if (phase === 'finalizing') {
+      scheduleGlobalPublishingCompletionSequence(summary, 'settling');
+      return;
+    }
+    globalPublishingCompletionSequence = null;
+    renderGlobalPublishingStatus(globalPublishingStatusSnapshot);
+    if (typeof showPostingCompletionCelebration === 'function') {
+      showPostingCompletionCelebration(inferGlobalPublishingCompletionPostStatus(summary));
+    }
+  }, duration);
+}
 
 function inferGlobalPublishingCompletionPostStatus(summary = {}) {
   const resultStatus = String(summary.last_result_status || '').trim();
@@ -29,9 +53,10 @@ function observeGlobalPublishingCompletion(summary = {}) {
   }
   if (!completedAt || completedAt === globalPublishingObservedCompletionAt) return;
   globalPublishingObservedCompletionAt = completedAt;
-  if (typeof showPostingCompletionCelebration === 'function') {
-    showPostingCompletionCelebration(inferGlobalPublishingCompletionPostStatus(summary));
-  }
+  const postStatus = inferGlobalPublishingCompletionPostStatus(summary);
+  if (!['publish', 'draft'].includes(postStatus)) return;
+  const finalizingWasVisible = ['verifying', 'finalizing'].includes(globalPublishingStatusSnapshot.progressStage);
+  scheduleGlobalPublishingCompletionSequence(summary, finalizingWasVisible ? 'settling' : 'finalizing');
 }
 
 function globalPublishingSeoulDateParts(value) {
@@ -74,7 +99,12 @@ function presentGlobalPublishingStatus(summary = {}) {
   if (state === 'attention') return { state, label: '포스팅 확인 필요', detail: summary.message || '' };
   if (state === 'running') {
     const subject = truncateGlobalPublishingSubject(summary.subject);
-    return { state, label: subject ? `포스팅 중 · ${subject}` : '포스팅 중', detail: summary.subject || summary.message || '' };
+    const isFinalizing = ['verifying', 'finalizing'].includes(summary.progressStage);
+    const activityLabel = isFinalizing
+      ? '마무리 중'
+      : summary.source === 'manuscript_generation' ? 'AI 원고 작성 중'
+        : summary.source === 'local_markdown' ? '원고 포스팅 중' : '포스팅 중';
+    return { state, label: subject ? `${activityLabel} · ${subject}` : activityLabel, detail: summary.subject || summary.message || '' };
   }
   if (state === 'scheduled') {
     const schedule = formatGlobalPublishingSchedule(summary.next_processing_at);
@@ -95,6 +125,26 @@ function renderGlobalPublishingStatus(summary = {}) {
     button.title = presentation.detail || presentation.label;
     button.setAttribute('aria-label', `${presentation.label}. 글감 관리로 이동`);
     if (label) label.textContent = presentation.label;
+
+    const widgetArea = button.closest('.page-widget-area');
+    if (widgetArea) {
+      const sequence = globalPublishingCompletionSequence;
+      const widgetState = sequence?.phase || presentation.state;
+      const activity = sequence?.source || summary.source || '';
+      widgetArea.classList.toggle('is-publishing', widgetState === 'running' || widgetState === 'finalizing');
+      widgetArea.dataset.activity = widgetState !== 'idle' ? activity || 'publishing' : '';
+      const activityMessage = {
+        type: 'widget:host-activity',
+        state: widgetState === 'settling' ? 'settling'
+          : ['running', 'finalizing'].includes(widgetState) ? 'running' : 'idle',
+        activity,
+        stage: sequence?.phase === 'finalizing' ? 'finalizing'
+          : sequence?.phase === 'settling' ? 'settling' : summary.progressStage || ''
+      };
+      widgetArea.querySelectorAll('.widget-plugin-frame').forEach((frame) => {
+        frame.contentWindow?.postMessage(activityMessage, '*');
+      });
+    }
   });
 
   const sidebarSignal = document.getElementById('blog-next-global-nav-status');

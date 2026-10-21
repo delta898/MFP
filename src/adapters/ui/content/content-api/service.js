@@ -165,7 +165,29 @@ function createContentApiService(deps = {}) {
             throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
         try {
-            return await task(lease);
+            const result = await task(lease);
+            const failed = result?.success === false;
+            const postStatus = String(result?.postStatus || '').trim();
+            const resultStatus = failed
+                ? (result?.code || 'FAILED')
+                : postStatus === 'draft' ? '임시 저장 완료'
+                    : postStatus === 'schedule' ? '예약 발행 완료'
+                        : postStatus === 'publish' ? '발행 완료'
+                            : '작업 완료';
+            lease.complete({
+                state: failed ? 'failed' : 'completed',
+                message: failed ? result?.message : (postStatus === 'draft' ? '임시 저장을 완료했습니다.' : '블로그 작업을 완료했습니다.'),
+                resultStatus,
+                postStatus
+            });
+            return result;
+        } catch (error) {
+            lease.complete({
+                state: 'failed',
+                message: error?.message || '블로그 작업에 실패했습니다.',
+                resultStatus: error?.apiCode || error?.code || 'BLOG_EXECUTION_FAILED'
+            });
+            throw error;
         } finally {
             lease.release();
         }
@@ -1117,6 +1139,11 @@ function createContentApiService(deps = {}) {
                         reportNaverProgress(progress);
                     }
                 }, { signal: lease.signal });
+                lease.updateProgress({
+                    stage: 'finalizing',
+                    message: '포스팅 결과를 정리하고 마무리하고 있습니다.',
+                    postStatus: snapshot.settings?.postStatus || ''
+                });
                 const platformResult = result.results?.[target];
                 if (target === 'wordpress') {
                     Logger?.info?.(platformResult?.success === true

@@ -27,12 +27,13 @@ function createMemoryRetrievalService(options = {}) {
             let recentJobRuns = [];
             let recentArtifacts = [];
             let preferences = [];
+            let userActionPreferences = [];
             let userRules = [];
 
             if (eventStore && conversationId) {
                 try {
                     if (typeof eventStore.listConversationEvents === 'function') {
-                        recentEvents = await eventStore.listConversationEvents(conversationId, limit);
+                        recentEvents = await eventStore.listConversationEvents(conversationId, Math.max(12, limit));
                     }
                     if (typeof eventStore.listRecentMessages === 'function') {
                         recentMessages = await eventStore.listRecentMessages(conversationId, Math.min(6, limit));
@@ -51,6 +52,9 @@ function createMemoryRetrievalService(options = {}) {
                     }
                     if (typeof eventStore.listUserPreferences === 'function' && userId) {
                         preferences = await eventStore.listUserPreferences(userId, Math.min(10, limit));
+                    }
+                    if (typeof eventStore.listUserActionPreferences === 'function' && userId) {
+                        userActionPreferences = await eventStore.listUserActionPreferences(userId, { limit: Math.min(50, limit * 5) });
                     }
                 } catch (_ignore) { }
             }
@@ -114,6 +118,7 @@ function createMemoryRetrievalService(options = {}) {
                 recent_job_runs: Array.isArray(recentJobRuns) ? recentJobRuns : [],
                 recent_artifacts: Array.isArray(recentArtifacts) ? recentArtifacts : [],
                 preferences: Array.isArray(preferences) ? preferences : [],
+                user_action_preferences: Array.isArray(userActionPreferences) ? userActionPreferences : [],
                 user_rules: Array.isArray(userRules) ? userRules : [],
                 pending_confirmations: Array.isArray(pendingConfirmations) ? pendingConfirmations.map((item) => ({
                     id: item.id,

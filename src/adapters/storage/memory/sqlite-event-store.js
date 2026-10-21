@@ -167,6 +167,14 @@ class SQLiteEventStore extends MemoryPayloadCodec {
                 confidence REAL NOT NULL, evidence_count INTEGER NOT NULL, updated_at TEXT NOT NULL
             ) STRICT;
             CREATE INDEX IF NOT EXISTS idx_preferences_user_time ON preferences(user_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS user_action_preferences (
+                id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, user_id TEXT NOT NULL,
+                action_id TEXT NOT NULL, parameter_path TEXT NOT NULL, value_json TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                UNIQUE(user_id, action_id, parameter_path),
+                FOREIGN KEY(owner_id) REFERENCES owners(id) ON DELETE CASCADE
+            ) STRICT;
+            CREATE INDEX IF NOT EXISTS idx_user_action_preferences_user ON user_action_preferences(user_id, updated_at DESC);
             CREATE TABLE IF NOT EXISTS user_command_rules (
                 id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, user_id TEXT NOT NULL,
                 trigger TEXT NOT NULL, normalized_trigger TEXT NOT NULL,
@@ -797,6 +805,71 @@ class SQLiteEventStore extends MemoryPayloadCodec {
     async listUserPreferences(userId, limit = 10) {
         await this.initialize();
         return this.database.all('SELECT * FROM preferences WHERE user_id = :id ORDER BY updated_at DESC LIMIT :limit', { id: String(userId || ''), limit: boundedLimit(limit, 10) }).map((r) => ({ ...r, value: json(r.value_json) }));
+    }
+
+    async upsertUserActionPreference(input = {}) {
+        await this.initialize();
+        const userId = String(input.user_id || input.userId || '').trim();
+        const ownerId = String(input.owner_id || input.ownerId || this.owner?.owner_user_id || '').trim();
+        const actionId = String(input.action_id || '').trim();
+        const parameterPath = String(input.parameter_path || '').trim();
+        const value = input.value;
+        if (!userId || !ownerId || !actionId || !parameterPath || value === undefined) {
+            throw Object.assign(new Error('개인 기본 설정의 소유자와 저장할 내용을 확인해 주세요.'), { code: 'USER_ACTION_PREFERENCE_INVALID' });
+        }
+        const valueJson = JSON.stringify(value);
+        if (Buffer.byteLength(valueJson, 'utf8') > 2000) {
+            throw Object.assign(new Error('개인 기본 설정 값이 너무 큽니다.'), { code: 'USER_ACTION_PREFERENCE_TOO_LARGE' });
+        }
+        this._ensureOwner({ owner_user_id: ownerId });
+        await this.ensureUser({ id: userId, channel: input.channel || 'telegram', username: input.username || '' });
+        const id = String(input.id || `pref_${crypto.randomUUID()}`).trim();
+        const timestamp = iso(input.timestamp);
+        this.database.run(`INSERT INTO user_action_preferences(
+            id, owner_id, user_id, action_id, parameter_path, value_json, created_at, updated_at
+        ) VALUES (:id, :owner_id, :user_id, :action_id, :parameter_path, :value_json, :created_at, :updated_at)
+        ON CONFLICT(user_id, action_id, parameter_path) DO UPDATE SET
+            value_json = excluded.value_json, updated_at = excluded.updated_at`, {
+            id, owner_id: ownerId, user_id: userId, action_id: actionId,
+            parameter_path: parameterPath, value_json: valueJson, created_at: timestamp, updated_at: timestamp
+        });
+        return this.getUserActionPreference(userId, actionId, parameterPath);
+    }
+
+    async getUserActionPreference(userId, actionId, parameterPath) {
+        await this.initialize();
+        const row = this.database.get(`SELECT * FROM user_action_preferences
+            WHERE user_id = :user_id AND action_id = :action_id AND parameter_path = :parameter_path LIMIT 1`, {
+            user_id: String(userId || ''), action_id: String(actionId || ''), parameter_path: String(parameterPath || '')
+        });
+        return row ? this._userActionPreference(row) : null;
+    }
+
+    _userActionPreference(row) {
+        let value = null;
+        try { value = JSON.parse(String(row?.value_json || 'null')); } catch (_error) { }
+        return row ? {
+            id: row.id, user_id: row.user_id, action_id: row.action_id,
+            parameter_path: row.parameter_path, value,
+            created_at: row.created_at, updated_at: row.updated_at
+        } : null;
+    }
+
+    async listUserActionPreferences(userId, options = {}) {
+        await this.initialize();
+        return this.database.all(`SELECT * FROM user_action_preferences WHERE user_id = :user_id
+            ORDER BY updated_at DESC LIMIT :limit`, {
+            user_id: String(userId || ''), limit: boundedLimit(options.limit, 30, 100)
+        }).map((row) => this._userActionPreference(row));
+    }
+
+    async deleteUserActionPreference(userId, actionId, parameterPath) {
+        await this.initialize();
+        const result = this.database.run(`DELETE FROM user_action_preferences
+            WHERE user_id = :user_id AND action_id = :action_id AND parameter_path = :parameter_path`, {
+            user_id: String(userId || ''), action_id: String(actionId || ''), parameter_path: String(parameterPath || '')
+        });
+        return Number(result.changes || 0) > 0;
     }
 
     async createUserCommandRule(input = {}) {

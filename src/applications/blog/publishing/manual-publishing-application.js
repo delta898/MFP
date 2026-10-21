@@ -530,6 +530,7 @@ function createBlogManualPublishingApplication(deps = {}) {
         }, {
             fs,
             path,
+            findImageByPrefix,
         });
 
         preview.source = {
@@ -1380,6 +1381,7 @@ function createBlogManualPublishingApplication(deps = {}) {
             }, {
                 fs,
                 path,
+                findImageByPrefix,
             });
         } catch (error) {
             return { success: false, code: 'LOCAL_MARKDOWN_PREVIEW_INVALID', message: error.message || '원고 검증에 실패했습니다.' };
@@ -1431,6 +1433,7 @@ function createBlogManualPublishingApplication(deps = {}) {
                     }, {
                         fs,
                         path,
+                        findImageByPrefix,
                     });
                     Logger.info(`🔗 [PastedMarkdown] 관련 글 ${relatedPosts.length}개 자동 추가 완료`);
                 } else {
