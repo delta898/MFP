@@ -114,7 +114,7 @@
 
 - `plans/active/2026-10-14-ai-gateway-plugin-development.md` (manifest 기반 Core Plugin 계약 위에서 provider-neutral AI Gateway 구현)
 - `plans/active/2026-10-15-sns-ai-generation-service.md` (SNS AI 경로를 공통 AI Generation Application interface로 연결)
-- `plans/active/2026-10-14-plugin-architecture-foundation-fbr.md` (plugin 기반 구조 도입을 위한 현행 구조 조사와 설계 논의)
+- `plans/archive/2026-10-14-plugin-architecture-foundation-fbr.md` (dev에 통합된 plugin 기반 구조와 제품 경로 전환 기록)
 - `plans/active/2026-10-14-ai-gateway-plugin-design.md` (공통 Plugin manifest/Host 등록 계약, Core Hello World reference, AI Gateway 계약 설계)
 - `plans/archive/2026-10-14-application-plugin-composition-pilot-development.md` (공통 runtime composition과 생성·발행 Application 통합 pilot; parent 통합 완료)
 - `plans/archive/2026-10-14-core-plugin-registration-development.md` (명시적 Core Plugin 등록부와 런타임 조회 계약 검증; parent 통합 완료)
