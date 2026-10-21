@@ -218,6 +218,29 @@ test('remote catalog can activate KIE GPT only through the trusted Responses tra
     assert.equal(model.transport, 'kie_responses');
 });
 
+test('remote catalog can activate KIE Claude only through the trusted Messages transport', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'kie-claude-model',
+        models: [{
+            key: 'kie:claude-sonnet-5-5',
+            kind: 'text',
+            provider: 'kie',
+            transport: 'kie_claude_messages',
+            model_id: 'claude-sonnet-5-5',
+            display_name: 'Claude Sonnet 5.5',
+            status: 'active',
+            sort_order: 5
+        }]
+    }, { appVersion: '0.7.0' });
+
+    const model = getAiModelCatalog().text.find((item) => item.code === 'claude-sonnet-5-5');
+    assert.ok(model);
+    assert.equal(model.provider, 'kie');
+    assert.equal(model.transport, 'kie_claude_messages');
+    assert.equal(model.base_url, 'https://api.kie.ai');
+});
+
 test('remote catalog can activate a shipped KIE image profile only through the trusted Market job transport', () => {
     applyRemoteCatalog({
         schema_version: 1,

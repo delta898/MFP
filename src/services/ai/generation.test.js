@@ -38,11 +38,81 @@ test('AI service uses the Gateway catalog snapshot without maintaining a second 
     await service.generateText({ modelSelection: { provider: 'openai', modelId: 'text-v1' }, prompt: 'Hello', responseFormat: 'json' }, context);
     await service.generateImage({ modelSelection: { provider: 'google', modelId: 'image-v1' }, prompt: 'Tree' }, context);
     assert.equal(calls[0].request.model.modelId, 'text-v1');
+    assert.equal(calls[0].request.model.transport, 'openai');
     assert.equal(calls[0].request.options.responseFormat, 'json');
     assert.strictEqual(calls[0].context, context);
     assert.equal(calls[1].request.model.modelId, 'image-v1');
     await service.generateText({ modelSelection: { provider: 'google', modelId: 'text-v2' }, prompt: 'Gateway validates this route' });
     assert.equal(calls.length, 3);
+});
+
+test('AI service forwards the selected KIE transport so the Gateway chooses the catalog protocol', async () => {
+    let captured;
+    const gateway = {
+        describeSupport: () => ({ routes: [
+            { kind: 'text', provider: 'kie', transport: 'kie_responses', modelIds: null },
+            { kind: 'text', provider: 'kie', transport: 'kie_claude_messages', modelIds: null }
+        ] }),
+        async generateText(request) { captured = request; return { content: 'ok' }; },
+        async generateImage() { return { images: [] }; }
+    };
+    const service = createAiGenerationService({
+        gateway,
+        getModelCatalog: () => ({
+            text: [{ provider: 'kie', code: 'claude-sonnet-5-5', transport: 'kie_claude_messages' }],
+            image: []
+        })
+    });
+
+    await service.generateText({
+        modelSelection: { provider: 'kie', modelId: 'claude-sonnet-5-5' },
+        prompt: '작성 지침과 주제를 포함한 전체 원고 프롬프트'
+    });
+
+    assert.deepEqual(captured.model, {
+        provider: 'kie', modelId: 'claude-sonnet-5-5', transport: 'kie_claude_messages'
+    });
+    assert.deepEqual(captured.messages, [{
+        role: 'user', content: '작성 지침과 주제를 포함한 전체 원고 프롬프트'
+    }]);
+});
+
+test('AI service logs model identity and system/user prompt lengths without logging prompt content', async () => {
+    const logs = [];
+    const systemPrompt = 'private system instructions';
+    const userPrompt = 'private user topic';
+    const gateway = {
+        describeSupport: () => ({ routes: [{ kind: 'text', provider: 'kie', transport: 'kie_claude_messages' }] }),
+        async generateText() { return { content: 'ok' }; },
+        async generateImage() { return { images: [] }; }
+    };
+    const service = createAiGenerationService({
+        gateway,
+        getModelCatalog: () => ({ text: [{
+            provider: 'kie', code: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', transport: 'kie_claude_messages'
+        }], image: [] }),
+        logger: { info(message) { logs.push(message); } }
+    });
+
+    await service.generateText({
+        modelSelection: { provider: 'kie', modelId: 'claude-sonnet-5-5' },
+        logContext: { imageModel: {
+            provider: 'google', modelId: 'gemini-nano-banana-2.1', name: 'Nano Banana 2.1', transport: 'gemini_generate_content'
+        } },
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ]
+    });
+
+    assert.match(logs[0], /provider=kie/);
+    assert.match(logs[0], /model=Claude Sonnet 5\.5/);
+    assert.match(logs[0], /modelId=claude-sonnet-5-5/);
+    assert.match(logs[0], /transport=kie_claude_messages/);
+    assert.match(logs[0], /imageModel=Nano Banana 2\.1 \/ provider=google \/ modelId=gemini-nano-banana-2\.1 \/ transport=gemini_generate_content/);
+    assert.match(logs[0], /promptChars\(system=27, user=18\)/);
+    assert.equal(logs[0].includes(systemPrompt), false);
+    assert.equal(logs[0].includes(userPrompt), false);
 });
 
 test('AI service exposes only the configured direct model identity and routes it through Gateway', async () => {
@@ -68,7 +138,9 @@ test('AI service exposes only the configured direct model identity and routes it
     }]);
     assert.equal(service.supportsOption('image', { provider: 'direct', modelId: 'local-image' }, 'aspectRatio', '4:5'), undefined);
     await service.generateText({ modelSelection: { provider: 'direct', modelId: 'local-model' }, prompt: 'Hi' });
-    assert.deepEqual(calls[0].model, { provider: 'direct', modelId: 'local-model' });
+    assert.deepEqual(calls[0].model, {
+        provider: 'direct', modelId: 'local-model', transport: 'openai_chat_completions'
+    });
     assert.equal(JSON.stringify(calls).includes('must-not-be-exposed'), false);
     await assert.rejects(service.generateText({ modelSelection: { provider: 'direct', modelId: 'arbitrary-model' }, prompt: 'Hi' }), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
     assert.equal(calls.length, 1);

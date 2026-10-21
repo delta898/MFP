@@ -32,6 +32,13 @@ const TRANSPORTS = Object.freeze({
         base_url: KIE_BASE_URL,
         verification_scope: 'provider'
     }),
+    kie_claude_messages: Object.freeze({
+        id: 'kie_claude_messages',
+        providers: Object.freeze(['kie']),
+        kinds: Object.freeze(['text']),
+        base_url: KIE_BASE_URL,
+        verification_scope: 'provider'
+    }),
     kie_responses: Object.freeze({
         id: 'kie_responses',
         providers: Object.freeze(['kie']),

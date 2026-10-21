@@ -31,6 +31,7 @@ function isAllowedRoute({ provider, kind, modelId, method, path }) {
     if (provider === 'anthropic') return kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions';
     if (provider === 'kie') return (kind === 'text' && verb === 'POST' && normalized === '/codex/v1/responses')
         || (kind === 'text' && verb === 'POST' && normalized === `/${model}/v1/chat/completions`)
+        || (kind === 'text' && verb === 'POST' && normalized === '/claude/v1/messages')
         || (kind === 'image' && verb === 'POST' && normalized === '/api/v1/jobs/createTask')
         || (kind === 'image' && verb === 'GET' && normalized === '/api/v1/jobs/recordInfo');
     return false;

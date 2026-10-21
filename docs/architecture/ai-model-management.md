@@ -71,12 +71,13 @@ Legacy local selections using `gemini` are normalized to `google` when read. New
 catalog keys and saved selections use `google` only.
 
 Provider and model ordering are independent. The app does not infer semantic
-versions or performance tiers from model names:
+versions, model families, or performance tiers from model names:
 
 - provider `sort_order` follows user-facing provider-name ascending order
-- model `sort_order` is assigned newest version first
-- within the same version, model `sort_order` is assigned high, medium, then
-  low-cost/performance tier
+- model `sort_order` is assigned explicitly in the catalog
+- related product families are grouped together; within a family, put newer
+  versions first and order same-version tiers as high, medium, then
+  low-cost/performance
 - `direct` remains a UI-owned final option
 
 The current trusted transports are:
@@ -85,6 +86,7 @@ The current trusted transports are:
 - `openai_chat_completions`
 - `anthropic_openai_compat`
 - `kie_openai_chat`
+- `kie_claude_messages`
 - `kie_responses`
 - `kie_market_image_jobs`
 - `openai_images`
@@ -196,8 +198,15 @@ one path segment; it cannot supply a host, arbitrary URL, authentication header,
 parser. Responses are parsed as OpenAI chat responses with a narrowly scoped
 Gemini-shaped fallback for the inconsistency in KIE's published examples.
 
-Claude Messages and other KIE contracts require their own transports before those
-models become selectable.
+KIE Claude models use the separate `kie_claude_messages` transport. It owns the
+fixed `POST https://api.kie.ai/claude/v1/messages` endpoint and Anthropic Messages
+request/response mapping while reusing the Host-resolved KIE credential and
+provider transport allowlist. System messages are mapped to the Messages `system`
+field; user/assistant turns remain in `messages`. Requests are non-streaming and
+require `max_tokens`, defaulting to 4096 when the caller does not provide a limit.
+KIE Claude is deliberately distinct from direct Anthropic's OpenAI-compatible
+route. The model's catalog transport is part of route selection so different KIE
+text protocols do not fall through to another KIE adapter.
 
 KIE GPT 5.6 Sol, Terra, and Luna use the separate `kie_responses` transport.
 The adapter owns the fixed `POST https://api.kie.ai/codex/v1/responses` endpoint,

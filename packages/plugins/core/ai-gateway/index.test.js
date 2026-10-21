@@ -65,6 +65,7 @@ test('models.list delegates catalog refresh and only exposes routes implemented 
                     providers: { text: [{ id: 'openai' }], image: [] },
                     text: [
                         { provider: 'openai', code: 'new-model', transport: 'openai_chat_completions' },
+                        { provider: 'kie', code: 'claude-haiku-5-5', transport: 'kie_claude_messages' },
                         { provider: 'unknown', code: 'bad-model', transport: 'unknown' }
                     ],
                     image: []
@@ -76,7 +77,7 @@ test('models.list delegates catalog refresh and only exposes routes implemented 
 
     const catalog = await plugin.operations['models.list'].execute({ forceRefresh: true });
     assert.deepEqual(calls, [['refresh', true], ['getCatalog']]);
-    assert.deepEqual(catalog.text.map(({ code }) => code), ['new-model']);
+    assert.deepEqual(catalog.text.map(({ code }) => code), ['new-model', 'claude-haiku-5-5']);
     assert.equal(catalog.status.version, 'catalog-2');
 });
 
@@ -111,6 +112,57 @@ test('Anthropic OpenAI-compatible requests forward caller options for provider r
     assert.equal(request.body.temperature, 0.8);
     assert.equal(request.body.max_tokens, 600);
     assert.deepEqual(request.body.response_format, { type: 'json_object' });
+});
+
+test('KIE Claude Messages models use the fixed Messages endpoint and normalize Claude responses', async () => {
+    const requests = [];
+    const plugin = createPlugin({ transport: { async request(input) {
+        requests.push(input);
+        return { status: 200, headers: {}, body: {
+            type: 'message',
+            content: [{ type: 'thinking', thinking: 'hidden' }, { type: 'text', text: 'Claude result' }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 12, output_tokens: 7 }
+        } };
+    } } });
+    const result = await plugin.operations['text.generate'].execute({
+        model: { provider: 'kie', modelId: 'claude-sonnet-5-5', transport: 'kie_claude_messages' },
+        messages: [
+            { role: 'system', content: 'Write clearly.' },
+            { role: 'user', content: 'Write a short greeting.' }
+        ],
+        options: { maxOutputTokens: 128, temperature: 0.3 }
+    });
+
+    assert.deepEqual(result, {
+        content: 'Claude result',
+        model: { provider: 'kie', modelId: 'claude-sonnet-5-5' },
+        usage: { inputTokens: 12, outputTokens: 7 },
+        finishReason: 'end_turn'
+    });
+    assert.equal(requests[0].path, '/claude/v1/messages');
+    assert.deepEqual(requests[0].body, {
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Write a short greeting.' }],
+        max_tokens: 128,
+        stream: false,
+        system: 'Write clearly.',
+        temperature: 0.3
+    });
+});
+
+test('KIE Claude Messages route does not fall through to the first KIE text transport', async () => {
+    let request;
+    const plugin = createPlugin({ transport: { async request(input) {
+        request = input;
+        return { status: 200, headers: {}, body: { content: [{ type: 'text', text: 'ok' }] } };
+    } } });
+    await plugin.operations['text.generate'].execute({
+        model: { provider: 'kie', modelId: 'claude-haiku-5-5', transport: 'kie_claude_messages' },
+        messages: [{ role: 'user', content: 'hello' }]
+    });
+    assert.equal(request.path, '/claude/v1/messages');
+    assert.equal(request.body.max_tokens, 4096);
 });
 
 test('direct compatible text and image operations use bounded OpenAI-compatible paths', async () => {
@@ -171,6 +223,48 @@ test('manifest Host contract rejects credentials in operation input before provi
     await assert.rejects(host.execute('ai-gateway', 'models.verify', {
         kind: 'text', model: { provider: 'openai', modelId: 'gpt-6-astra' }, apiKey: 'must-not-cross-the-plugin-boundary'
     }), { code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION' });
+});
+
+test('manifest Host contract accepts the catalog transport for text generation', async () => {
+    const requests = [];
+    const plugin = createCorePluginRegistry().createPlugin('ai-gateway', {
+        transport: { async request(input) {
+            requests.push(input);
+            return { status: 200, body: { content: [{ type: 'text', text: 'Claude result' }] } };
+        } }
+    });
+    const host = createPluginHost({ plugins: [plugin] });
+
+    const result = await host.execute('ai-gateway', 'text.generate', {
+        model: { provider: 'kie', modelId: 'claude-sonnet-5-5', transport: 'kie_claude_messages' },
+        messages: [{ role: 'user', content: '주제만 전달해도 작성할 수 있습니다.' }]
+    });
+
+    assert.equal(result.content, 'Claude result');
+    assert.equal(requests[0].path, '/claude/v1/messages');
+});
+
+test('manifest Host contract accepts the catalog transport for KIE image generation', async () => {
+    const plugin = createCorePluginRegistry().createPlugin('ai-gateway', {
+        sleep: async () => {},
+        transport: {
+            async request(input) {
+                if (input.path.endsWith('createTask')) return { status: 200, body: { data: { taskId: 'contract-image-task' } } };
+                return { status: 200, body: { data: { state: 'success', resultUrls: ['https://image.example/result.png'] } } };
+            },
+            async downloadUrl() { return { bytes: Buffer.from('image-bytes'), mimeType: 'image/png' }; }
+        }
+    });
+    const host = createPluginHost({ plugins: [plugin] });
+
+    const result = await host.execute('ai-gateway', 'image.generate', {
+        model: { provider: 'kie', modelId: 'nano-banana-2-1', transport: 'kie_market_image_jobs' },
+        input: { prompt: 'A green tea cup' },
+        options: { aspectRatio: '4:3', size: '1K', count: 1 }
+    });
+
+    assert.equal(result.images.length, 1);
+    assert.equal(Buffer.from(result.images[0].dataBase64, 'base64').toString(), 'image-bytes');
 });
 
 test('KIE image operation reports async progress, polls and downloads a bounded image', async () => {

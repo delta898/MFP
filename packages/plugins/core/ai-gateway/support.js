@@ -12,6 +12,7 @@ const ROUTES = Object.freeze([
     { kind: 'text', provider: 'anthropic', transport: 'anthropic_openai_compat', jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_responses', jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_openai_chat', jsonMode: false },
+    { kind: 'text', provider: 'kie', transport: 'kie_claude_messages', jsonMode: false },
     {
         kind: 'image', provider: 'google', transport: 'gemini_generate_content',
         aspectRatios: GEMINI_IMAGE_ASPECT_RATIOS,
@@ -46,8 +47,11 @@ function describeSupport() {
 function resolveRoute(kind, model = {}) {
     const provider = String(model.provider || '').trim().toLowerCase();
     const modelId = String(model.modelId || '').trim();
+    const transport = String(model.transport || '').trim();
     if (!provider || !modelId) return null;
-    return ROUTES.find((route) => route.kind === kind && route.provider === provider) || null;
+    return ROUTES.find((route) => route.kind === kind
+        && route.provider === provider
+        && (!transport || route.transport === transport)) || null;
 }
 
 module.exports = { describeSupport, resolveRoute };

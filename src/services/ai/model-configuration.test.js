@@ -30,10 +30,13 @@ const modelSets = [
         ['claude-fable-5-1', 5], ['claude-opus-5', 10], ['claude-sonnet-5', 20], ['claude-haiku-4-5', 30]
     ]],
     ['text', 'kie', 'kie_responses', [
-        ['gpt-6-astra', 5], ['gpt-5-6-sol', 10], ['gpt-5-6-terra', 20], ['gpt-5-6-luna', 30], ['gemini-3.1-pro', 70]
+        ['gpt-6-astra', 10], ['gpt-5-6-sol', 20], ['gpt-5-6-terra', 30], ['gpt-5-6-luna', 40], ['gemini-3.1-pro', 140]
     ]],
     ['text', 'kie', 'kie_openai_chat', [
-        ['gemini-3-8-flash-openai', 40], ['gemini-3-6-flash-openai', 50]
+        ['gemini-3-8-flash-openai', 110], ['gemini-3-6-flash-openai', 120]
+    ]],
+    ['text', 'kie', 'kie_claude_messages', [
+        ['claude-haiku-5-5', 200], ['claude-sonnet-5-5', 210], ['claude-opus-5-5', 220]
     ]],
     ['image', 'google', 'gemini_generate_content', [
         ['gemini-nano-banana-2.1', 5], ['gemini-3.1-flash-image', 10], ['gemini-3.1-flash-lite-image', 20]
@@ -42,9 +45,10 @@ const modelSets = [
         ['gpt-image-2.5-sunburst', 5], ['gpt-image-2.5-flare', 10], ['gpt-image-2', 20]
     ]],
     ['image', 'kie', 'kie_market_image_jobs', [
-        ['gpt-image-2-5-sunburst-text-to-image', 5], ['gpt-image-2-5-flare-text-to-image', 10],
-        ['gpt-image-2-text-to-image', 20], ['nano-banana-2-lite', 30], ['nano-banana-2', 40],
-        ['nano-banana-pro', 50], ['seedream/5-pro-text-to-image', 70], ['seedream/4.5-text-to-image', 80]
+        ['gpt-image-2-5-sunburst-text-to-image', 10], ['gpt-image-2-5-flare-text-to-image', 20],
+        ['gpt-image-2-text-to-image', 30], ['nano-banana-2.1', 110], ['nano-banana-2', 120],
+        ['nano-banana-2-lite', 130], ['nano-banana-pro', 140], ['seedream/5-flash-text-to-image', 210],
+        ['seedream/5-pro-text-to-image', 220], ['seedream/4.5-text-to-image', 230]
     ]]
 ];
 
@@ -167,7 +171,10 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
             'gpt-5-6-luna',
             'gemini-3-8-flash-openai',
             'gemini-3-6-flash-openai',
-            'gemini-3.1-pro'
+            'gemini-3.1-pro',
+            'claude-haiku-5-5',
+            'claude-sonnet-5-5',
+            'claude-opus-5-5'
         ]
     );
     assert.deepEqual(
@@ -176,9 +183,11 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
             'gpt-image-2-5-sunburst-text-to-image',
             'gpt-image-2-5-flare-text-to-image',
             'gpt-image-2-text-to-image',
-            'nano-banana-2-lite',
+            'nano-banana-2.1',
             'nano-banana-2',
+            'nano-banana-2-lite',
             'nano-banana-pro',
+            'seedream/5-flash-text-to-image',
             'seedream/5-pro-text-to-image',
             'seedream/4.5-text-to-image'
         ]
@@ -214,6 +223,9 @@ test('AI model catalog preserves trusted transport metadata from the validated s
     assert.equal(findModel('kie', 'gpt-5-6-luna').base_url, 'https://api.kie.ai');
     assert.equal(findModel('kie', 'gemini-3-6-flash-openai').transport, 'kie_openai_chat');
     assert.equal(findModel('kie', 'gemini-3-8-flash-openai').provider, 'kie');
+    assert.equal(findModel('kie', 'claude-haiku-5-5').transport, 'kie_claude_messages');
+    assert.equal(findModel('kie', 'claude-sonnet-5-5').provider, 'kie');
+    assert.equal(findModel('kie', 'claude-opus-5-5').base_url, 'https://api.kie.ai');
     assert.equal(findModel('kie', 'gemini-3.1-pro').base_url, 'https://api.kie.ai');
     assert.equal(
         findModel('kie', 'seedream/5-pro-text-to-image').transport,

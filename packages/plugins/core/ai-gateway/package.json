@@ -80,7 +80,8 @@
               "type": "object",
               "properties": {
                 "provider": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9-]*$" },
-                "modelId": { "type": "string", "minLength": 1, "pattern": "\\S" }
+                "modelId": { "type": "string", "minLength": 1, "pattern": "\\S" },
+                "transport": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" }
               },
               "required": ["provider", "modelId"],
               "additionalProperties": false
@@ -149,7 +150,8 @@
               "type": "object",
               "properties": {
                 "provider": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9-]*$" },
-                "modelId": { "type": "string", "minLength": 1, "pattern": "\\S" }
+                "modelId": { "type": "string", "minLength": 1, "pattern": "\\S" },
+                "transport": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" }
               },
               "required": ["provider", "modelId"],
               "additionalProperties": false

@@ -28,6 +28,28 @@ test('Gateway transport resolves the configured key internally and restricts pro
         provider: 'openai', kind: 'text', modelId: 'gpt-6-astra', method: 'POST', path: '/v1/other'
     }), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
     assert.equal(isAllowedRoute({ provider: 'kie', kind: 'image', modelId: 'nano-banana-pro', method: 'POST', path: '/api/v1/jobs/createTask' }), true);
+    assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'claude-sonnet-5-5', method: 'POST', path: '/claude/v1/messages' }), true);
+    assert.equal(isAllowedRoute({ provider: 'kie', kind: 'text', modelId: 'claude-sonnet-5-5', method: 'POST', path: '/claude/v1/models' }), false);
+});
+
+test('KIE Claude Messages uses its fixed endpoint and Host-resolved bearer credential', async () => {
+    const calls = [];
+    const transport = createProviderTransport({
+        getProviderProfile: async ({ provider, modelId }) => provider === 'kie' && modelId === 'claude-opus-5-5'
+            ? { api_key: 'kie-secret' }
+            : null,
+        fetch: async (url, init) => {
+            calls.push({ url: String(url), init });
+            return { status: 200, headers: {}, async json() { return { type: 'message' }; } };
+        }
+    });
+    await transport.request({
+        provider: 'kie', kind: 'text', modelId: 'claude-opus-5-5', method: 'POST',
+        path: '/claude/v1/messages', body: { model: 'claude-opus-5-5', stream: false }
+    });
+    assert.equal(calls[0].url, 'https://api.kie.ai/claude/v1/messages');
+    assert.equal(calls[0].init.headers.Authorization, 'Bearer kie-secret');
+    assert.equal(calls[0].init.redirect, 'error');
 });
 
 test('model verification uses Gateway-owned metadata endpoints and provider authentication', async () => {

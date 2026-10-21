@@ -31,7 +31,7 @@ test('models.verify checks metadata without generation and returns normalized mo
         profileRef: '0a1b2c3d-4e5f-4678-9012-123456789abc'
     });
     assert.deepEqual(requests[0], {
-        kind: 'text', provider: 'google', modelId: 'gemini-3.7-flash',
+        kind: 'text', provider: 'google', modelId: 'gemini-3.7-flash', transport: 'gemini_generate_content',
         profileRef: '0a1b2c3d-4e5f-4678-9012-123456789abc',
         signal: undefined, timeoutMs: 15000
     });

@@ -7,6 +7,10 @@ function logField(value, maxLength = 500) {
     return String(value || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
+function countMessageChars(messages, role) {
+    return messages.reduce((total, message) => total + (message?.role === role && typeof message.content === 'string' ? message.content.length : 0), 0);
+}
+
 function resolveModels(kind, catalog, support, configuredModels = []) {
     if (!['text', 'image'].includes(kind)) throw new TypeError('AI model kind must be text or image.');
     const models = [
@@ -21,7 +25,11 @@ function resolveModel(kind, selection, catalog, support, configuredModels = []) 
     const modelId = String(selection?.modelId || selection?.code || '').trim();
     if (!provider || !modelId) return null;
     const model = resolveModels(kind, catalog, support, configuredModels).find((item) => item.provider === provider && item.code === modelId);
-    return model ? Object.freeze({ provider: model.provider, modelId: model.code }) : null;
+    return model ? Object.freeze({
+        provider: model.provider,
+        modelId: model.code,
+        ...(model.transport ? { transport: model.transport } : {})
+    }) : null;
 }
 
 function createAiGenerationService(options = {}) {
@@ -148,6 +156,16 @@ function createAiGenerationService(options = {}) {
                 optionsForRequest.responseFormat = 'json';
             }
             const startedAt = Date.now();
+            const promptLengths = `promptChars(system=${countMessageChars(messages, 'system')}, user=${countMessageChars(messages, 'user')})`;
+            const imageModel = request.logContext?.imageModel;
+            const imageModelDetail = imageModel && typeof imageModel === 'object'
+                ? `, imageModel=${logField(imageModel.name || imageModel.modelId || imageModel.code, 160)} / provider=${logField(imageModel.provider, 80) || 'unknown'} / modelId=${logField(imageModel.modelId || imageModel.code, 160)} / transport=${logField(imageModel.transport, 100) || 'unknown'}`
+                : '';
+            try {
+                logger?.info?.(`[AI Gateway] text.generate 시작 (provider=${logField(model.provider, 80)}, model=${logField(selectedModel?.name || selectedModel?.display_name || model.modelId, 160)}, modelId=${logField(model.modelId, 160)}, transport=${logField(model.transport, 100) || 'unknown'}${imageModelDetail}, ${promptLengths})`);
+            } catch (_error) {
+                // Logging must not block provider generation.
+            }
             try {
                 return await gateway.generateText({ model, messages, ...(Object.keys(optionsForRequest).length ? { options: optionsForRequest } : {}) }, executionContext);
             } catch (error) {

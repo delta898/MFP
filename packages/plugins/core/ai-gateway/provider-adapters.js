@@ -130,6 +130,14 @@ function extractOpenAiText(body) {
     return '';
 }
 
+function extractKieClaudeText(body) {
+    return (Array.isArray(body?.content) ? body.content : [])
+        .filter((part) => part?.type === 'text')
+        .map((part) => String(part.text || '').trim())
+        .filter(Boolean)
+        .join('\n');
+}
+
 function extractGeminiText(body) {
     return (body?.candidates?.[0]?.content?.parts || [])
         .filter((part) => part?.thought !== true)
@@ -156,6 +164,24 @@ function normalizeUsage(body, route) {
 
 function buildTextRequest(route, modelId, messages, options = {}) {
     const text = flattenMessages(messages);
+    if (route.transport === 'kie_claude_messages') {
+        const system = messages.filter((message) => message.role === 'system')
+            .map((message) => String(message.content || '').trim())
+            .filter(Boolean)
+            .join('\n\n');
+        const body = {
+            model: modelId,
+            messages: messages.filter((message) => message.role !== 'system')
+                .map((message) => ({ role: message.role, content: message.content })),
+            max_tokens: Number.isInteger(options.maxOutputTokens) && options.maxOutputTokens > 0
+                ? options.maxOutputTokens
+                : 4096,
+            stream: false
+        };
+        if (system) body.system = system;
+        if (options.temperature !== undefined) body.temperature = options.temperature;
+        return { method: 'POST', path: '/claude/v1/messages', body };
+    }
     if (route.transport === 'gemini_generate_content') {
         const system = messages.filter((message) => message.role === 'system').map((message) => message.content).join('\n\n');
         const contents = messages.filter((message) => message.role !== 'system').map((message) => ({
@@ -228,7 +254,9 @@ async function generateText(input, context, transport) {
         const body = assertResponse(response, route.provider);
         const content = route.transport === 'gemini_generate_content'
             ? extractGeminiText(body)
-            : (route.transport === 'kie_responses' ? parseKieResponsesText(body) : extractOpenAiText(body));
+            : (route.transport === 'kie_responses'
+                ? parseKieResponsesText(body)
+                : (route.transport === 'kie_claude_messages' ? extractKieClaudeText(body) : extractOpenAiText(body)));
         if (!content) throw new AiGatewayError('AI_GATEWAY_EMPTY_RESPONSE', 'The AI provider returned no text.');
         const usage = normalizeUsage(body, route);
         return {
@@ -239,7 +267,7 @@ async function generateText(input, context, transport) {
                 ? { finishReason: body.choices[0].finish_reason }
                 : (typeof body?.candidates?.[0]?.finishReason === 'string'
                     ? { finishReason: body.candidates[0].finishReason.toLowerCase() }
-                    : {}))
+                    : (typeof body?.stop_reason === 'string' ? { finishReason: body.stop_reason } : {})))
         };
     } catch (error) {
         throw normalizeProviderError(error, route.provider);
@@ -561,6 +589,7 @@ async function verifyModel(input, context, transport, now) {
     try {
         const response = await transport.inspectModel({
             kind, provider, modelId,
+            transport: route.transport,
             ...(input.profileRef ? { profileRef: input.profileRef } : {}),
             signal: context.signal,
             timeoutMs: 15000
@@ -643,9 +672,9 @@ function createGatewayOperations(options = {}) {
                 text: Array.isArray(snapshot.providers?.text) ? snapshot.providers.text : [],
                 image: Array.isArray(snapshot.providers?.image) ? snapshot.providers.image : []
             },
-            text: snapshot.text.filter((model) => resolveRoute('text', { provider: model.provider, modelId: model.code })
+            text: snapshot.text.filter((model) => resolveRoute('text', { provider: model.provider, modelId: model.code, transport: model.transport })
                 ?.transport === model.transport),
-            image: snapshot.image.filter((model) => resolveRoute('image', { provider: model.provider, modelId: model.code })
+            image: snapshot.image.filter((model) => resolveRoute('image', { provider: model.provider, modelId: model.code, transport: model.transport })
                 ?.transport === model.transport),
             ...(typeof catalog.getStatus === 'function' ? { status: catalog.getStatus() } : {})
         };
