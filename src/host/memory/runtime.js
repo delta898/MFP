@@ -93,6 +93,12 @@ function buildDisabledEventStore(reason, logger = Logger) {
         },
         async listDomainKnowledge() { return []; },
         async listUserPreferences() { return []; },
+        async createUserCommandRule() { return null; },
+        async getUserCommandRule() { return null; },
+        async getUserCommandRuleByTrigger() { return null; },
+        async listUserCommandRules() { return []; },
+        async setUserCommandRuleStatus() { return null; },
+        async deleteUserCommandRule() { return false; },
         getLocalOwnerIdentity() { return null; },
         async getOwnerMemoryStats() { return { owner_user_id: '', event_count: 0, artifact_count: 0, orphan_event_count: 0, orphan_artifact_count: 0 }; },
         async getOwnerCollectionAudit(ownerUserId = '') {

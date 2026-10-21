@@ -126,6 +126,17 @@ function focusMatch(value, query) {
     return { matched: matchedTerms.length > 0, terms: matchedTerms };
 }
 
+function matchesExplicitTopic(value, topic) {
+    const valueKey = normalizeKey(value);
+    const terms = String(topic || '')
+        .toLocaleLowerCase('ko-KR')
+        .split(/[^\p{L}\p{N}]+/u)
+        .map((item) => normalizeKey(item))
+        .filter((item) => item.length >= 2);
+    if (!valueKey || terms.length === 0) return false;
+    return terms.every((term) => valueKey.includes(term));
+}
+
 function activityText(item = {}) {
     const payload = item?.payload && typeof item.payload === 'object' ? item.payload : {};
     const keywordText = Array.isArray(payload.keywords) ? payload.keywords.join(' ') : payload.keywords;
@@ -177,7 +188,7 @@ function createTopicCandidateGenerator() {
             const limit = Math.max(1, Math.min(50, Number(input.limit || 20)));
             const recentArtifacts = Array.isArray(input.recentArtifacts) ? input.recentArtifacts : [];
             const focusedKeywords = query
-                ? keywords.filter((facet) => focusMatch(`${facet.value} ${facet.normalized_value}`, query).matched)
+                ? keywords.filter((facet) => matchesExplicitTopic(`${facet.value} ${facet.normalized_value}`, query))
                 : [];
             const candidates = [];
             const seen = new Set();
@@ -223,6 +234,7 @@ function createTopicCandidateGenerator() {
                 const title = trendItem.title;
                 if (!title) continue;
                 const categoryText = trendItem.categories.join(' ');
+                if (query && !matchesExplicitTopic(`${title} ${categoryText}`, query)) continue;
                 const keywordMatches = matchesFacet(title, keywords);
                 const categoryMatches = matchesFacet(categoryText, categories);
                 append(buildCandidate({
@@ -257,7 +269,7 @@ function createTopicCandidateGenerator() {
                 }));
             }
 
-            const profileKeywordPool = query && focusedKeywords.length > 0 ? focusedKeywords : keywords;
+            const profileKeywordPool = query ? focusedKeywords : keywords;
             for (const facet of profileKeywordPool) {
                 const isFocused = query && focusedKeywords.includes(facet);
                 const context = profileFacetContext(facet);
@@ -296,9 +308,9 @@ function createTopicCandidateGenerator() {
                     .includes(compact(recent?.stage, 80).toLowerCase()))
             ];
             const focusedActivities = query
-                ? activityCandidates.filter((recent) => focusMatch(activityText(recent), query).matched)
+                ? activityCandidates.filter((recent) => matchesExplicitTopic(activityText(recent), query))
                 : [];
-            const activityPool = query && focusedActivities.length > 0 ? focusedActivities : activityCandidates;
+            const activityPool = query ? focusedActivities : activityCandidates;
             for (const recent of activityPool.slice(0, 12)) {
                 const subject = compact(recent?.subject, 180);
                 if (!subject) continue;
@@ -341,8 +353,9 @@ function createTopicCandidateGenerator() {
                     query,
                     matched_profile_keyword_count: focusedKeywords.length,
                     matched_activity_count: focusedActivities.length,
-                    profile_fallback_used: focusedKeywords.length === 0,
-                    activity_fallback_used: focusedActivities.length === 0
+                    profile_fallback_used: false,
+                    activity_fallback_used: false,
+                    explicit_constraint: true
                 } : null,
                 source_counts: limitedCandidates.reduce((counts, item) => {
                     counts[item.candidate_type] = (counts[item.candidate_type] || 0) + 1;
@@ -358,6 +371,7 @@ module.exports = {
     createTopicCandidateGenerator,
     flattenTrendKnowledge,
     focusMatch,
+    matchesExplicitTopic,
     normalizeKey,
     readTrendItem,
     stableCandidateId

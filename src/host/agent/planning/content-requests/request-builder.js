@@ -4,8 +4,8 @@ const {
     normalizeExplicitParams,
     validateContentRequestBundle
 } = require('./schema');
-const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../../../../capabilities/content/register-topic');
-const { normalizePublishParams, buildPublishRequestPreview } = require('../../../../capabilities/content/publish');
+const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../../../../applications/blog/agent-actions/register-topic');
+const { normalizePublishParams, buildPublishRequestPreview } = require('../../../../applications/blog/agent-actions/publish');
 
 function normalizeString(value) {
     return String(value || '').trim();

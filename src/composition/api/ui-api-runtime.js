@@ -16,6 +16,7 @@ function createUiApiRuntime(deps = {}) {
         fetchReferenceContent,
         findImageByPrefix,
         GoogleSheets,
+        blogNextExecutionCoordinator,
         BrowserLauncher,
         fs,
         path,
@@ -467,6 +468,7 @@ function createUiApiRuntime(deps = {}) {
         const runtimeDeps = {
             parseBoolQuery,
             ensureSheetsReadyForUi,
+            blogNextExecutionCoordinator,
             toFeatureMap,
             checkNaverSessionForUi,
             peekNaverSessionForUi,

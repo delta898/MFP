@@ -8,8 +8,176 @@ const {
     CARD_NEWS_SHEET_NAME, CARD_NEWS_SHEET_HEADERS, buildCardNewsStatusValidationRequests,
     buildTopicRowMoveRequest, getAgentEventStore
 } = require('./dependencies');
+const { sleep } = require('../../../utilities/async/sleep');
 
 module.exports = {
+    appendGoogleSheetTopics: async function (topics, options = {}) {
+        if (!Array.isArray(topics) || topics.length === 0) {
+            return { success: true, addedCount: 0, rowNumbers: [], rowIndices: [] };
+        }
+
+        Logger.info(`📝 [GoogleSheets] topic append started count=${topics.length}`);
+        try {
+        const accessToken = await this.getGoogleAccessToken();
+        const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+        const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+        const headersUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+        const headerResponse = await this.callWithRetry(() => axios.get(headersUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        }));
+        const headers = Array.isArray(headerResponse?.data?.values?.[0])
+            ? headerResponse.data.values[0]
+            : [];
+        if (headers.length === 0) {
+            throw Object.assign(new Error(`'${sheetName}' 시트의 헤더를 읽지 못했습니다.`), { code: 'TOPIC_SHEET_HEADERS_UNAVAILABLE' });
+        }
+
+        const normalizeHeader = value => String(value || '').toLowerCase().replace(/[\s/_]/g, '').trim();
+        const columns = {};
+        headers.forEach((header, index) => {
+            const name = normalizeHeader(header);
+            if (name.includes('category') || name.includes('카테고리')) columns.category = index;
+            else if (name.includes('poststatus') || name.includes('발행옵션')) columns.postStatus = index;
+            else if (name.includes('scheduledate') || name.includes('예약일시')) columns.scheduleDate = index;
+            else if (name.includes('주제') || name.includes('subject') || name.includes('제목')) columns.subject = index;
+            else if (name.includes('키워드') || name.includes('keyword')) columns.keywords = index;
+            else if (name.includes('참고지시사항') || name.includes('instruction') || name.includes('지시사항')) columns.instruction = index;
+            else if (name.includes('외부참고') || name.includes('extref') || name.includes('external')) columns.externalReference = index;
+            else if (name.includes('참고url') || name.includes('referenceurl') || name === 'url') columns.referenceUrls = index;
+            else if (name.includes('상태') || name.includes('status')) columns.status = index;
+            else if (name.includes('이미지개수') || name.includes('imagecount')) columns.imageCount = index;
+            else if (name.includes('이미지처리') || name.includes('imagemode') || name.includes('이미지생성') || name.includes('imagegen') || name.includes('imggen')) columns.imageMode = index;
+            else if (name.includes('추가일시') || name.includes('addedat') || name.includes('createdat')) columns.addedAt = index;
+            else if (name === '소스' || name.includes('source')) columns.source = index;
+            else if (name.includes('트렌드일자') || name.includes('trenddate')) columns.trendDate = index;
+            else if (name === 'options' || name === '옵션' || name === 'extraoptions') columns.options = index;
+        });
+        if (columns.subject === undefined || columns.keywords === undefined) {
+            throw Object.assign(new Error(`'${sheetName}' 시트에 주제와 키워드 헤더가 필요합니다.`), { code: 'TOPIC_REQUIRED_HEADERS_MISSING' });
+        }
+
+        const defaultStatus = String(options.defaultStatus || '대기').trim() || '대기';
+        const rows = topics.map(topic => {
+            const row = Array(headers.length).fill('');
+            const keywords = Array.isArray(topic.keywords) ? topic.keywords.join(', ') : String(topic.keywords || '');
+            const guide = topic.content_guide || {};
+            const instruction = String(guide.additional_instructions || topic.instruction || topic.additional_instructions || '').trim();
+            const references = Array.isArray(guide.reference_urls)
+                ? guide.reference_urls.join(', ')
+                : (Array.isArray(topic.reference_urls) ? topic.reference_urls.join(', ') : String(topic.reference_urls || topic.reference_url || ''));
+            const imageMode = parseSheetImageModeValue(topic.image_options?.mode || topic.image_mode, {
+                legacyGenerate: typeof topic.image_options?.generate === 'boolean' ? topic.image_options.generate : topic.image_generation
+            });
+            const externalReference = typeof topic.use_external_ref === 'boolean'
+                ? topic.use_external_ref
+                : (typeof topic.external_reference === 'boolean' ? topic.external_reference : topic.options?.external_reference !== false);
+            const status = String(topic.status || defaultStatus).trim() || defaultStatus;
+            const postStatus = String(topic.postStatus || topic.post_status || topic.options?.post_status || '').trim();
+            const scheduleDate = String(topic.scheduleDate || topic.schedule_date || topic.options?.schedule_date || '').trim();
+            const category = String(topic.category || topic.options?.category || '').trim();
+            const platforms = topic.targets || topic.platforms || topic.options?.platforms;
+
+            const put = (column, value) => {
+                if (columns[column] !== undefined) row[columns[column]] = value;
+            };
+            put('subject', String(topic.subject || '').trim());
+            put('keywords', keywords);
+            put('instruction', instruction);
+            put('referenceUrls', references);
+            put('status', status);
+            put('imageMode', formatSheetImageModeValue(imageMode));
+            put('imageCount', topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count ?? '');
+            put('externalReference', externalReference ? 'Yes' : 'No');
+            put('category', category);
+            put('postStatus', postStatus);
+            put('scheduleDate', scheduleDate);
+            put('addedAt', String(topic.addedAt || options.addedAt || new Date().toISOString()));
+            put('source', String(topic.source || options.source || 'manual'));
+            put('trendDate', String(topic.trendDate || topic.trend_date || options.trendDate || ''));
+
+            if (columns.options !== undefined) {
+                const syncedOptions = mergeTopicSheetOptions(topic.options, {
+                    title: topic.title,
+                    subject: topic.subject,
+                    keywords: topic.keywords,
+                    instruction,
+                    referenceUrls: guide.reference_urls || topic.reference_urls,
+                    category,
+                    postStatus,
+                    scheduleDate,
+                    imageMode,
+                    imageCount: topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count,
+                    externalReference,
+                    writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
+                    writingOverrides: guide.writing_overrides || topic.writing_overrides || topic.options?.writing_overrides,
+                    platforms
+                });
+                row[columns.options] = stringifySheetOptionsValue(syncedOptions);
+            }
+            return row;
+        });
+
+        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+        const response = await this.callWithRetry(() => axios.post(appendUrl, {
+            range: sheetName,
+            majorDimension: 'ROWS',
+            values: rows
+        }, {
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        }));
+
+        const updates = response?.data?.updates || {};
+        const updatedRange = String(updates.updatedRange || '');
+        const rangeMatch = updatedRange.match(/![A-Z]+(\d+):[A-Z]+(\d+)$/i)
+            || updatedRange.match(/![A-Z]+(\d+)$/i);
+        const startRow = rangeMatch ? Number(rangeMatch[1]) : null;
+        const endRow = rangeMatch?.[2] ? Number(rangeMatch[2]) : startRow;
+        const rowNumbers = Number.isInteger(startRow) && Number.isInteger(endRow)
+            ? Array.from({ length: endRow - startRow + 1 }, (_, index) => startRow + index)
+            : [];
+        const updatedRows = Number(updates.updatedRows);
+        if ((Number.isFinite(updatedRows) && updatedRows !== rows.length) || (!Number.isFinite(updatedRows) && rowNumbers.length !== rows.length)) {
+            throw Object.assign(new Error(`Google Sheets가 글감 ${rows.length}건 저장을 확인하지 않았습니다.`), { code: 'TOPIC_APPEND_UNCONFIRMED' });
+        }
+
+        this.clearSheetCache('topics');
+        for (const topic of topics) {
+            try {
+                const guide = topic.content_guide || {};
+                await getAgentEventStore().recordTopic(
+                    topic.chatId || options.chatId || null,
+                    {
+                        subject: topic.subject || '',
+                        platform: Array.isArray(topic.targets || topic.platforms)
+                            ? (topic.targets || topic.platforms).join(', ')
+                            : 'naver',
+                        category: topic.category || topic.options?.category || '',
+                        keywords: Array.isArray(topic.keywords) ? topic.keywords.join(', ') : String(topic.keywords || ''),
+                        instruction: guide.additional_instructions || topic.instruction || '',
+                        source: topic.source || options.source || 'manual'
+                    },
+                    topic.memory_provenance || options.memoryProvenance || {}
+                );
+            } catch (memoryError) {
+                Logger.error(`⚠️ 토픽 메모리 기록 실패: ${memoryError.message}`);
+            }
+        }
+        const appendResult = {
+            success: true,
+            addedCount: rows.length,
+            rowNumbers,
+            rowIndices: rowNumbers.map(rowNumber => rowNumber - 2).filter(index => index >= 0)
+        };
+        Logger.info(`✅ [GoogleSheets] topic append completed count=${appendResult.addedCount} rows=${appendResult.rowNumbers.join(',') || 'unavailable'}`);
+        return appendResult;
+        } catch (error) {
+            const code = String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
+            const status = Number(error?.response?.status);
+            Logger.error(`❌ [GoogleSheets] topic append failed code=${code}${Number.isFinite(status) && status > 0 ? ` http_status=${status}` : ''}`);
+            throw error;
+        }
+    },
+
     readGoogleSheetTopics: async function (options = {}) {
         try {
             if (!options.silent) Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
@@ -87,7 +255,7 @@ module.exports = {
      * UI/운영용: topics 시트 전체 조회 (상태/검색/페이징 지원)
      */
     readGoogleSheetTopicsAll: async function (options = {}) {
-        const cacheKey = `topics_${options.status || 'all'}_${options.q || ''}_${options.limit || 'max'}_${options.offset || 0}_${options.sortBy || 'none'}_${options.sortDir || 'none'}`;
+        const cacheKey = `topics_${options.status || 'all'}_${options.q || ''}_${options.limit || 'max'}_${options.offset || 0}_${options.sortBy || 'none'}_${options.sortDir || 'none'}_${options.throwOnError === true ? 'strict' : 'safe'}`;
         return this.withSimpleCache(cacheKey, async () => {
             try {
                 const accessToken = await this.getGoogleAccessToken();
@@ -256,6 +424,7 @@ module.exports = {
                 return { items, total, limit, offset };
             } catch (e) {
                 Logger.error(`❌ topics 전체 조회 실패: ${e.message}`);
+                if (options.throwOnError === true) throw e;
                 return { items: [], total: 0, limit: 0, offset: 0 };
             }
         });
@@ -298,7 +467,12 @@ module.exports = {
 
 
     updateGoogleSheetStatus: async function (rowIndex, status, logMessage, options = {}) {
+        const safeRowIndex = Number(rowIndex);
         try {
+            if (!Number.isInteger(safeRowIndex) || safeRowIndex < 0) {
+                throw new RangeError('글감 행 번호는 0 이상의 정수여야 합니다.');
+            }
+
             const accessToken = await this.getGoogleAccessToken();
             const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
@@ -330,7 +504,7 @@ module.exports = {
                 this._headerCache[cacheKey] = { map, timestamp: now };
             }
 
-            const targetRow = rowIndex + 2;
+            const targetRow = safeRowIndex + 2;
             const toA1 = (colIdx) => {
                 let letter = '';
                 let num = colIdx;
@@ -347,25 +521,41 @@ module.exports = {
             if (map.log !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(map.log)}${targetRow}`, values: [[logMessage]] });
             if (map.time !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(map.time)}${targetRow}`, values: [[new Date().toLocaleString()]] });
 
-            if (dataToUpdate.length === 0) return;
+            if (options.throwOnError === true && map.status === -1) {
+                throw new Error(`'${sheetName}' 시트에서 상태 컬럼을 찾지 못했습니다.`);
+            }
+            if (dataToUpdate.length === 0) {
+                if (options.throwOnError === true) throw new Error('글감 상태를 업데이트할 수 있는 컬럼이 없습니다.');
+                return;
+            }
 
             const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
-            await this.callWithRetry(() => axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
+            const updateResponse = await this.callWithRetry(() => axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }));
+            if (options.throwOnError === true) {
+                const updatedRows = Number(updateResponse?.data?.totalUpdatedRows);
+                const updatedCells = Number(updateResponse?.data?.totalUpdatedCells);
+                if (!((Number.isFinite(updatedRows) && updatedRows > 0) || (Number.isFinite(updatedCells) && updatedCells > 0))) {
+                    throw new Error('Google Sheets가 글감 상태 변경을 확인하지 않았습니다.');
+                }
+            }
 
             // ⏳ API 호출 간 안전 대기 (헤더 읽기를 건너뛰므로 요청 간격이 좁아질 수 있음)
-            await this.sleep(300);
+            await sleep(300);
+            this.clearSheetCache('topics');
+            return { success: true, rowIndex: safeRowIndex, status };
 
         } catch (e) {
-            Logger.error(`❌ 구글 시트 업데이트 최종 실패 (Row ${rowIndex + 1}): ${e.message}`);
-            // 🔧 [Backup] 로컬 파일에 백업 기록
-            const backupLog = `${new Date().toISOString()} | Row ${rowIndex + 1} | ${status} | ${logMessage}\n`;
-            try {
-                fs.appendFileSync('failed_updates.log', backupLog);
-                Logger.warn(`   💾 백업 로그에 기록됨: failed_updates.log`);
-            } catch (fileErr) {
-                Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
+            Logger.error(`❌ 구글 시트 업데이트 최종 실패 (Row ${safeRowIndex + 1}): ${e.message}`);
+            if (options.throwOnError !== true) {
+                const backupLog = `${new Date().toISOString()} | Row ${safeRowIndex + 1} | ${status} | ${logMessage}\n`;
+                try {
+                    fs.appendFileSync('failed_updates.log', backupLog);
+                    Logger.warn(`   💾 백업 로그에 기록됨: failed_updates.log`);
+                } catch (fileErr) {
+                    Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
+                }
             }
             if (options.throwOnError === true) throw e;
         }
@@ -512,7 +702,7 @@ module.exports = {
         }, {
             headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
         }));
-        await this.sleep(300);
+        await sleep(300);
         this.clearSheetCache('topics');
     },
 

@@ -52,6 +52,44 @@ test('topic event는 artifact와 facet insight를 함께 materialize한다', asy
     } finally { f.close(); }
 });
 
+test('사용자 실행 규칙은 사용자별로 저장·조회·비활성화·삭제된다', async () => {
+    const f = fixture();
+    try {
+        await f.store.initialize();
+        const saved = await f.store.createUserCommandRule({
+            user_id: 'telegram-user-a',
+            trigger: '[ideas]', normalized_trigger: '[ideas]',
+            action_id: 'content.idea.suggest',
+            action_params: { query: '가을 여행', limit: 3 }
+        });
+        assert.equal(saved.trigger, '[ideas]');
+        assert.equal(saved.action_id, 'content.idea.suggest');
+        assert.deepEqual(saved.action_params, { query: '가을 여행', limit: 3 });
+        assert.equal((await f.store.getUserCommandRuleByTrigger('telegram-user-a', ' [IDEAS] ')).id, saved.id);
+        assert.equal(await f.store.getUserCommandRuleByTrigger('telegram-user-b', '[ideas]'), null);
+        assert.equal((await f.store.listUserCommandRules('telegram-user-a', { activeOnly: true })).length, 1);
+        assert.equal((await f.store.listUserCommandRules('telegram-user-b')).length, 0);
+        const disabled = await f.store.setUserCommandRuleStatus('telegram-user-a', saved.id, 'disabled');
+        assert.equal(disabled.status, 'disabled');
+        assert.equal((await f.store.listUserCommandRules('telegram-user-a', { activeOnly: true })).length, 0);
+        assert.equal(await f.store.deleteUserCommandRule('telegram-user-a', saved.id), true);
+        assert.equal(await f.store.getUserCommandRule('telegram-user-a', saved.id), null);
+    } finally { f.close(); }
+});
+
+test('동일 사용자는 같은 정규화 트리거를 두 번 저장할 수 없다', async () => {
+    const f = fixture();
+    try {
+        await f.store.initialize();
+        const rule = {
+            user_id: 'telegram-user', trigger: '[post]', normalized_trigger: '[post]',
+            action_id: 'content.idea.suggest', action_params: {}
+        };
+        await f.store.createUserCommandRule(rule);
+        await assert.rejects(() => f.store.createUserCommandRule({ ...rule, trigger: ' [POST] ' }), { code: 'USER_RULE_TRIGGER_CONFLICT' });
+    } finally { f.close(); }
+});
+
 test('activity evidence는 중복 제거되고 owner profile에 반영된다', async () => {
     const f = fixture();
     try {

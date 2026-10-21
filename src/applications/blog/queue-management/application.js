@@ -50,15 +50,28 @@ function createBlogQueueManagementApplication(deps = {}) {
 
     async function updateTopic(input = {}) {
         const rowIndex = parseRowIndex(input.rowIndex);
-        const action = String(input.action || 'enqueue').trim();
-        if (!['save', 'enqueue'].includes(action)) throw appError(400, 'TOPIC_UPDATE_ACTION_INVALID', '글감 저장 방식을 확인해 주세요.');
         const sourceStatus = String(input.sourceStatus || TOPIC_STATUS.READY).trim();
         if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(sourceStatus)) throw appError(400, 'TOPIC_SOURCE_STATUS_INVALID', '수정할 글감 상태를 확인해 주세요.');
         if (sourceStatus === TOPIC_STATUS.READY) requireIdle();
-        await requireTopicInStatus(rowIndex, sourceStatus);
-        const ready = sourceStatus === TOPIC_STATUS.READY || action === 'enqueue';
+        const existing = await requireTopicInStatus(rowIndex, sourceStatus);
+        const options = existing.options || {};
+        const guide = existing.content_guide || {};
+        const merged = {
+            subject: existing.subject || '', title: existing.title || '', keywords: existing.keywords || [],
+            instruction: guide.additional_instructions || '', referenceUrls: guide.reference_urls || [],
+            platforms: options.platforms || [], siteTarget: options.site_target || null,
+            naverCategory: options.naver_category || '', wordpressCategory: options.wordpress_category || '',
+            writingStrategy: existing.writing_strategy || options.writing_strategy,
+            writingOverrides: guide.writing_overrides || options.writing_overrides,
+            imageMode: existing.image_mode || options.image_mode,
+            externalReference: existing.external_reference !== false,
+            postStatus: existing.postStatus || options.post_status || 'publish',
+            scheduleDate: existing.scheduleDate || options.schedule_date || '',
+            ...input
+        };
+        const ready = sourceStatus === TOPIC_STATUS.READY;
         let row;
-        try { row = buildTopicSheetRow(input, { ready, now: typeof deps.now === 'function' ? deps.now() : Date.now() }); }
+        try { row = buildTopicSheetRow(merged, { ready, now: typeof deps.now === 'function' ? deps.now() : Date.now() }); }
         catch (error) { throw appError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message); }
         if (ready) {
             const readiness = await diagnoseTopic(row);
@@ -73,17 +86,51 @@ function createBlogQueueManagementApplication(deps = {}) {
             writingOverrides: row.content_guide.writing_overrides, platforms: row.targets,
             siteTarget: row.options.site_target || null
         });
-        return { action, rowIndex, rowNumber: rowIndex + 2, status: row.status };
+        return { rowIndex, rowNumber: rowIndex + 2, status: row.status, subject: row.subject };
     }
 
-    async function captureTopic(input = {}) {
+    async function updateTopicDetails(input = {}) {
+        const subject = String(input.subject || '').trim();
+        const requestedRowNumber = Number(input.rowNumber);
+        const hasRowNumber = Number.isInteger(requestedRowNumber) && requestedRowNumber >= 2;
+        if (!subject && !hasRowNumber) throw appError(400, 'TOPIC_SUBJECT_REQUIRED', '수정할 글감의 주제나 목록 번호가 필요합니다.');
+        const location = String(input.location || 'any').trim();
+        if (!['any', 'queue', 'saved'].includes(location)) throw appError(400, 'TOPIC_LOCATION_INVALID', '글감의 현재 위치를 확인해 주세요.');
+        const statuses = location === 'queue' ? [TOPIC_STATUS.READY]
+            : location === 'saved' ? [TOPIC_STATUS.WAITING]
+                : [TOPIC_STATUS.READY, TOPIC_STATUS.WAITING];
+        const matches = [];
+        for (const status of statuses) {
+            const result = await topicStore.readByStatus(status, { limit: 10000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' });
+            for (const item of Array.isArray(result?.items) ? result.items : []) {
+                if (hasRowNumber && Number(item?.rowNumber) !== requestedRowNumber) continue;
+                if (subject && String(item?.subject || '').trim().toLocaleLowerCase('ko-KR') !== subject.toLocaleLowerCase('ko-KR')) continue;
+                matches.push({ item, status });
+            }
+        }
+        if (matches.length === 0) throw appError(404, 'TOPIC_UPDATE_NOT_FOUND', '수정할 글감을 찾지 못했습니다. 현재 보관함이나 발행 대기열을 확인해 주세요.');
+        if (matches.length > 1) throw appError(409, 'TOPIC_UPDATE_AMBIGUOUS', `“${subject}” 글감이 여러 건 있습니다. 목록 번호나 현재 위치를 지정해 주세요.`);
+        const { item, status } = matches[0];
+        return updateTopic({
+            ...input,
+            subject: input.newSubject === undefined ? item.subject : input.newSubject,
+            rowIndex: item.rowIndex,
+            sourceStatus: status
+        });
+    }
+
+    async function captureTopic(input = {}, appendOptions = {}) {
         const action = String(input.action || '').trim();
         if (!['save', 'enqueue'].includes(action)) throw appError(400, 'TOPIC_CAPTURE_ACTION_INVALID', '글감 저장 방식을 확인해 주세요.');
         const ready = action === 'enqueue';
         let row;
         try { row = buildTopicSheetRow(input, { ready, now: typeof deps.now === 'function' ? deps.now() : Date.now() }); }
         catch (error) { throw appError(400, error.code || 'TOPIC_CAPTURE_INVALID', error.message, error.details); }
-        const result = await topicStore.append([row], { defaultStatus: row.status, postAppendDelayMs: 0 });
+        const result = await topicStore.append([row], {
+            ...appendOptions,
+            defaultStatus: row.status,
+            postAppendDelayMs: 0
+        });
         if (!result?.success) throw appError(400, 'TOPIC_CAPTURE_FAILED', result?.message || '글감을 저장하지 못했습니다.');
         return {
             action, status: row.status,
@@ -116,6 +163,44 @@ function createBlogQueueManagementApplication(deps = {}) {
         if (!readiness.ready) throw appError(409, readiness.issues[0]?.code || 'TOPIC_QUEUE_NOT_READY', readiness.issues.map((issue) => issue.message).filter(Boolean).join(' ') || '대기열에 추가할 수 없는 글감입니다.', readiness.issues);
         await topicStore.updateStatus(rowIndex, TOPIC_STATUS.READY, '연속 발행 대기열에 추가');
         return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.READY };
+    }
+
+    async function moveTopic(input = {}) {
+        const subject = String(input.subject || '').trim();
+        const requestedRowNumber = Number(input.rowNumber);
+        const source = String(input.source || '').trim();
+        const destination = String(input.destination || '').trim();
+        const hasRowNumber = Number.isInteger(requestedRowNumber) && requestedRowNumber >= 2;
+        if (!subject && !hasRowNumber) throw appError(400, 'TOPIC_SUBJECT_REQUIRED', '옮길 글감의 주제를 확인해 주세요.');
+        if (!['queue', 'saved'].includes(source) || !['queue', 'saved'].includes(destination) || source === destination) {
+            throw appError(400, 'TOPIC_MOVE_DIRECTION_INVALID', '글감을 옮길 위치를 확인해 주세요.');
+        }
+
+        const sourceStatus = source === 'queue' ? TOPIC_STATUS.READY : TOPIC_STATUS.WAITING;
+        const result = await topicStore.readByStatus(sourceStatus, { limit: 10000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' });
+        const normalizedSubject = subject.toLocaleLowerCase('ko-KR');
+        const matches = (Array.isArray(result?.items) ? result.items : []).filter((item) => {
+            if (hasRowNumber && Number(item?.rowNumber) !== requestedRowNumber) return false;
+            return !subject || String(item?.subject || '').trim().toLocaleLowerCase('ko-KR') === normalizedSubject;
+        });
+        if (matches.length === 0) {
+            const selection = subject ? `“${subject}” 주제` : `${requestedRowNumber}번 행`;
+            throw appError(404, 'TOPIC_MOVE_NOT_FOUND', `${selection}의 글감을 ${source === 'queue' ? '발행 대기열' : '글감 저장소'}에서 찾지 못했습니다.`);
+        }
+        if (matches.length > 1) {
+            throw appError(409, 'TOPIC_MOVE_AMBIGUOUS', `“${subject}” 주제의 글감이 여러 건 있습니다. 구분할 수 있도록 키워드나 제목을 알려주세요.`);
+        }
+
+        const rowIndex = parseRowIndex(matches[0].rowIndex);
+        if (destination === 'saved') await removeReadyTopic({ rowIndex });
+        else await addSavedTopicToQueue({ rowIndex });
+        return {
+            subject: String(matches[0].subject || '').trim(),
+            rowNumber: Number(matches[0].rowNumber) || rowIndex + 2,
+            source,
+            destination,
+            rowIndex,
+        };
     }
 
     async function reorderReadyTopic(input = {}) {
@@ -174,7 +259,7 @@ function createBlogQueueManagementApplication(deps = {}) {
         };
     }
 
-    return { captureTopic, updateTopic, deleteSavedTopic, removeReadyTopic, addSavedTopicToQueue, reorderReadyTopic, listTopics, getReadyQueue };
+    return { captureTopic, updateTopic, updateTopicDetails, deleteSavedTopic, removeReadyTopic, addSavedTopicToQueue, moveTopic, reorderReadyTopic, listTopics, getReadyQueue };
 }
 
 module.exports = { createBlogQueueManagementApplication };

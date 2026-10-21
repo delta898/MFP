@@ -1,0 +1,291 @@
+# Telegram Agent Control Plane Development
+
+## Branch and status
+
+- Branch: `codex/fbr/telegram-agent-control-plane`
+- Start date: 2026-10-19
+- Base/parent: `codex/fbr/plugin-architecture-foundation`
+- Status: Telegram Host Agent execution-path consolidation implemented; focused/manual validation pending
+
+## User need and goal
+
+Evolve Telegram from a request-and-response integration into BlogGenius's bidirectional conversational control surface. A user should be able to discover available built-in and Plugin-backed functions, ask for guidance, request work, and receive useful recommendations, news, humor, and operation outcomes from BlogGenius.
+
+The capability catalog must reflect runtime availability instead of duplicating a hard-coded list. Agent execution must stay within the user's request. Sensitive or consequential actions require explicit confirmation. No autonomous recurring execution is enabled by default; if the user asks for automation, BlogGenius must confirm its scope and behavior before enabling it. Future community Plugin installation and use through Telegram should be possible without treating that as an initial implementation requirement.
+
+## Scope
+
+- Map current Telegram inbound and outbound paths, Agent Runtime, Capability Registry, Memory, Plugin Host, and Composition.
+- Design one discoverable catalog that can describe built-in capabilities and eligible Plugin-backed extensions.
+- Design request interpretation, clarification/help, capability invocation, confirmation, and result delivery.
+- Design BlogGenius-to-user message delivery for recommendations and other user-selected information.
+- Define a staged migration that removes replaced Telegram legacy flows instead of retaining parallel implementations.
+- Keep Telegram protocol details in `src/adapters/messaging/telegram/`, orchestration in `src/host/agent/`, product workflows in `src/applications/<name>/`, reusable service contracts in `src/services/<domain>/`, Plugin translation in `src/adapters/plugins/`, and concrete wiring in `src/composition/`.
+
+## Non-goals for the initial stage
+
+- Implementing arbitrary autonomous behavior or enabling periodic work by default.
+- Installing or running executable Community Plugins, building a third-party marketplace, or promising Plugin sandbox isolation.
+- Allowing the Agent to invoke raw Plugin Host operations directly from natural-language input.
+- Rewriting Memory or changing its event-first semantics.
+- Changing the UI product workflows unless a shared Application contract requires it.
+
+## Current-state findings
+
+- `docs/architecture/overview.md` identifies `Channel Adapter -> Agent Runtime -> Capability Registry -> Execution Layer -> Memory` as the current control path and says Telegram should remain an adapter.
+- `docs/architecture/agent-runtime.md` assigns channel-neutral planning and execution to `src/host/agent/`, Telegram interpretation to `src/adapters/messaging/telegram/`, and the Agent Action Catalog to `src/host/agent/capability-registry/`.
+- `docs/architecture/platform-kernel-applications-plugins.md` says Agent capability registration is independent from Plugin hosting. The previous Plugin-contribution host was removed; native Community Plugin operation loading is not implemented. It also records that the existing Agent/Capability path and Plugin Host are still parallel systems.
+- Initial audit: `src/composition/capability-runtime.js` constructed a Capability Registry from injected domain Applications, while product action declarations were mixed into `src/capabilities/`. Plugin packages did not contribute Agent actions.
+- Initial audit: `src/capabilities/index.js` built the fixed action list and the Telegram parser separately embedded allowed capability IDs. The catalog now lives at `src/host/agent/capability-registry/registry.js`, and Blog/Settings actions are contributed from their owning Applications.
+- Initial audit: `src/adapters/messaging/telegram/bot-service.js` included parsing, direct query handlers, and `legacy_actions`. The legacy dispatcher and direct query handlers have now been removed; the bot is a channel adapter over the shared Host Agent Runtime.
+- Plugin operations are registered through `src/platform/` and translated by adapters under `src/adapters/plugins/`. Applications must not depend on Plugin IDs or operation IDs. Any Agent-facing Plugin extension therefore needs a Host-owned translation and policy boundary; natural-language input must never become an unrestricted raw Plugin call.
+- Core Plugin manifests already describe operation IDs, schemas, and requested Host capabilities, but do not yet declare a reviewed user-facing Agent action contract (purpose, examples, availability, impact/confirmation policy). `src/composition/core-plugin-runtime.js` exposes Plugin inventory, while the runtime wrapper does not yet expose a complete Agent-safe action catalog.
+- Outbound Telegram delivery is split: `src/adapters/messaging/telegram/service.js` sends configured notifications; `bot-service.js` also sends messages directly; publishing workflows call injected Telegram notification services. There is no unified typed delivery contract or preference model for recommendations/news/humor. Current evidence does not show proactive topic recommendations being pushed to Telegram.
+- Existing responses to an inbound message should remain part of that conversation. Proactive content is a separate delivery class and should be opt-in; recommendations, news, and humor must not start sending automatically just because a Telegram bot is connected.
+
+## Consolidated product requirements
+
+Telegram should support natural-language conversations over available BlogGenius Applications. This is a requirement inventory, not a claim that every function is currently wired to Telegram. The current capability registry includes Agent metadata, pending actions, preferences, recommendations, topic ideas, keyword analysis/title suggestions, publishing, and Chat Model summary. It does not currently register direct Card News, Shopping Connect, or SNS workflow actions; those require deliberate Application-facing actions before Telegram may offer them.
+
+| Product area | Requests to support | Boundary and response requirements |
+|---|---|---|
+| Help and availability | “뭘 할 수 있어?”, “카드뉴스 기능은?”, “지금 쓸 수 있는 기능만 알려줘” | Build help from the live catalog and readiness. Explain unavailable dependencies and the setup step. |
+| Chat Model and conversation | Interpret natural Korean, maintain conversational context, ask focused questions, explain features/errors, summarize results | Use configured Chat Model for interpretation and natural response. It proposes intent and arguments; catalog validation, authorization, effect policy, and execution remain authoritative. |
+| User behavior and personalization | “내가 최근 자주 쓴 주제는?”, “내 스타일에 맞는 글감 추천해줘”, “이 추천은 왜 나왔어?” | Use relevant, consented activity and preference evidence. Distinguish observed facts from inferred preferences; surface recency/confidence/reason when useful; do not fake personalization when evidence is sparse. |
+| Keyword research | Search one/multiple terms; category/time filtered popular terms when the data source supports those metrics; compare/rank/explain | Read-only queries need no confirmation. Report source, time range, metric definition and unavailable/estimated values. Monthly search volume alone must not be presented as a measured “past seven days” trend. |
+| Blog topics and recommendations | Recommend/save/list/update/remove ideas; use imported trends and owner activity as recommendation evidence; explain provenance | Recommendation is a proposal. A write/delete previews the exact item and asks for confirmation unless the user clearly requested a narrow reversible change under an approved policy. |
+| Blog writing and publishing | Draft from a selected topic, revise, inspect drafts/queue, reorder/remove queue entries, inspect status/history, publish a selected draft | Generation identifies the configured writing-model role and preserves the last valid draft on failure. Queue changes show exact target. External publication previews destination/content and requires explicit confirmation. Blog Application continues to own workflow policy. |
+| Blog scheduled queue publishing | Inspect schedule/settings; enable, disable, or change interval/window | No automatic execution by default. Changes to recurring behavior require confirmation of scope, cadence/window, affected queue, and stop control. This is distinct from RSS-based SNS automation. |
+| Shopping Connect | Inspect readiness and prepared drafts; prepare content from an explicitly supplied product/source; revise or summarize a selected result | Use Shopping Application only when required inputs and integrations are available. Ask when product/source is ambiguous; preview generated or publishable content. Never invent affiliate/product claims. |
+| Card News | List/inspect projects and sources; create a project from selected material; generate/revise copy and slides; inspect export/publishing readiness; publish/share a selected result | Use Card News Application and configured AI roles. Preserve prior project/result on failure. External publishing requires preview and confirmation. |
+| SNS | Inspect channels/recent results; prepare copy/media; publish a selected item; inspect RSS-based automation and change it | Reads can run directly. External publication and changes to recurring RSS distribution require preview and explicit confirmation. This is separate from Blog queue publishing. |
+| Settings | Query/update only settings explicitly exposed by the live catalog: writing defaults, AI model selection, app preferences, connections, optional services and supported Plugin state | Never accept arbitrary config paths or values. Resolve names against allowed settings, validate, show current → proposed value and consequence, confirm, apply, then report/read back the result. Never echo secrets. |
+| Plugin actions | Discover enabled, ready, explicitly Agent-exposed Core Plugin actions; explain purpose/requirements; request an action naturally | Manifest declarations are explicit and Host-validated. Never expose all low-level operations or let the model choose arbitrary Plugin/operation IDs. Recheck readiness at invocation. |
+| Outbound messages | Receive replies and requested operation outcomes; optionally receive selected recommendations/news/humor | Replies/results go to the originating chat. Proactive categories are individually opt-in, rate-limited, deduplicated, quiet-hours aware, and easy to pause/stop. No unsolicited messages by default. |
+
+### Chat Model behavior requirements
+
+- Resolve the configured Chat Model through the existing AI model configuration service; do not duplicate provider/model metadata or silently substitute the writing model unless current settings explicitly define Chat Model as inheriting it.
+- Use it for intent interpretation, entity extraction, focused follow-up questions, capability explanations, and response summaries. Action results remain the factual source for values, status, and provenance.
+- Supply only the minimum conversation and memory context needed for the current request. Never include credentials, unrelated personal records, or full activity history by default.
+- Constrain model output to catalog-listed actions and schemas. Validate arguments at Host/Application boundaries. Model output itself is neither authorization nor user confirmation.
+- If category, period, target, destination, project, draft, or setting is ambiguous, ask instead of guessing. On timeout/invalid output, explain the failure and preserve the last valid state/context.
+- Model prose cannot override confirmation policy, Plugin readiness, environment/publishing gates, or user-approved scope.
+
+### User activity and Memory requirements
+
+- Reuse event-first Memory and Recommendation services. Record concrete user actions (request, selection, save, edit, publish, dismiss/feedback) as events first; derive preference/recommendation signals separately with confidence and provenance.
+- Combine relevant recent signals with the current explicit request. The user's current instruction takes precedence over inferred preference.
+- Distinguish recorded facts from inferred preferences. Offer a concise “추천 근거” when asked; avoid exposing raw private history unnecessarily.
+- Provide ways to inspect/reset learned preference summaries and opt out of personalization or proactive delivery, through existing Application policy rather than direct Telegram writes to Memory/config.
+- Do not record secrets or full private message content by default. Define retention/deletion and data-minimization rules before adding Telegram conversation persistence.
+- If Memory is sparse or unavailable, return useful non-personalized results and say so truthfully; do not block a direct query.
+
+### Personalization foundation v1 (initial implementation slice; under structural correction)
+
+- **Goal:** Let the Agent become more useful for this user over time while keeping the source and authority of each memory clear.
+- **Scope:** Keep request context, explicit user-authored execution rules, and inferred event-derived preferences separate. Persist explicit literal-trigger rules per Telegram user, let the user inspect, disable, re-enable, and delete them, and resolve exact trigger matches to one currently registered and schema-validated Agent action. Preserve the target action's existing readiness and confirmation policy on every use.
+- **Inferred personalization:** Reuse existing preference and owner-activity projections as evidence; the current user message always takes precedence. Do not add new behavior inference or write raw messages into rule records in this slice.
+- **Boundaries:** No arbitrary code or model-authored workflows in a saved rule. A rule can refer only to one live Agent action. Multi-action rules such as “find trends, write a post, and publish” remain unavailable until a registered Application workflow supports that sequence. The shortcut itself never grants standing permission to publish or automate.
+- **User data:** Store only the normalized trigger, catalog action identity, schema-validated arguments, user/owner identity, status, and timestamps. Reject credentials/secrets and keep rules isolated by Telegram user. Non-sensitive rule creation/deletion/status changes require the same explicit preview/confirmation path.
+- **Deliverables:** Memory contract and architecture notes; SQLite V2 user-rule persistence; Memory retrieval of active rules separate from learned preferences; Agent actions to create/list/delete/enable/disable a rule; exact-trigger routing through the live catalog; focused tests for ownership, collision, disabled rules, stale targets, confirmation metadata, and secret rejection.
+- **Non-goals:** Conversation-wide semantic alias matching; generalized preference learning; arbitrary composed workflows; automatic publication; additional SNS/Blog Application workflows; broad data-retention redesign.
+
+### Personalization foundation v1 result
+
+- Added an event-store-backed, per-user explicit command-rule record. A confirmed rule maps one literal trigger to one currently registered Agent action and schema-validated arguments; rule creation rejects secret-like fields.
+- Telegram retrieves these rules separately from inferred preference summaries. Exact trigger matches are resolved against the live action catalog before model interpretation; stale targets are reported instead of being routed elsewhere.
+- Added confirmed create, list, disable/re-enable, and delete actions. The target action's own readiness and confirmation policy still applies on every invocation. To revise a rule in v1, delete and recreate it.
+- If Memory is unavailable or disabled, rule management reports that honestly and request handling continues without personalization.
+- Focused verification: 27 tests passed across rule normalization/matching, Memory retrieval, capability registry and rule actions, Telegram parsing, and SQLite event storage; `git diff --check` passed.
+- Manual Telegram validation remains: create and confirm a rule, invoke its exact phrase, confirm the mapped action still enforces its policy, list/toggle/delete the rule, and verify behavior when the target action or Memory store is unavailable. No full suite or live external action was run.
+- Explicit non-goals retained: inferred preference learning quality improvements, arbitrary or multi-action workflows, automatic standing consent, and proactive execution.
+- **Field-test finding:** repeated corrections to target identity and management revealed that catalog action identity, one invocation's ID, and capability `domain/name` had separate meanings but were not separated in the contract. The correction is not another parser patch: the Host now uses stable `action_id` for catalog selection, reserves `id` for one invocation, and derives execution metadata from the canonical registry record. Personal rules continue to store the existing SQLite record so the user's saved rule is not discarded; this storage shape will be revisited only if it prevents the target Routine contract.
+
+### Action binding correction after Telegram field testing
+
+- The user confirmed the broader direction: natural-language requests must bind to executable capabilities reliably, personalization must not override explicit user intent, and unused legacy paths can be removed rather than preserved as compatibility obligations.
+- Inspection found that natural-language selection already reads the runtime Agent Action Catalog, but the catalog did not distinguish hard request constraints from optional personalization hints. Topic recommendations treated `query` as a soft bias and could return unrelated activity candidates.
+- User-authored rules also persisted `action_domain/action_name/action_type` and reconstructed an action at invocation. This contradicts the canonical `action_id` contract and allows identity drift.
+- Implemented first correction slice: persist and resolve a user rule by canonical `action_id`; rebuild the SQLite rule table shape while preserving existing rows; mark a concise requested topic as an `explicit_constraint`; filter trend/profile/activity candidates against every topic term; and validate generated titles/candidate IDs before returning results. When relevant candidates are sparse, generate distinct angles from the exact requested topic instead of filling the result with unrelated personalization. A registry role-name mismatch discovered during final static review was corrected to the single supported `explicit_constraint` value.
+- This is a first action-binding slice, not completion of generalized multi-action Workflows. Model-proposed intent coverage, typed output-to-input binding, and dynamic Plugin actions remain follow-up stages. The later catalog-only routing change below removes Telegram's separate legacy execution route.
+
+### Foundational correction: one canonical action identity
+
+- The Chat Model now returns only the stable `action_id` and typed parameters. It cannot provide execution `type/domain/name`; Host resolves those from the canonical registration and applies the declared input schema and confirmation policy.
+- Capability Registry normalizes missing names once and rejects an explicit ID that conflicts with its domain/name. Telegram prompt shaping no longer derives action identity independently, and user-rule creation resolves by `action_id`.
+- The registry remains the single current source for exposed first-party actions. Plugin contributions, live readiness filtering, Application workflow composition, semantic personal routines, and general learned preference behavior are not implemented by this correction.
+- Existing SQLite personal-rule rows are preserved while their old domain/name identity is converted to canonical `action_id`; no persisted user data is reset or deleted.
+- **Verification:** 21 focused tests passed across Telegram parsing/help, capability composition, Host action-envelope validation, planner/runtime execution, and personal-rule management. `git diff --check` passed. The full test suite and hands-on Telegram verification were not run.
+- Topic-binding follow-up static verification: `node --check` passed on all changed runtime JavaScript modules and `git diff --check` passed. Tests were not rerun for this follow-up. Manual Telegram verification still needs to confirm `[겨울글감]` returns only titles grounded in “겨울 여행” and that the exact shortcut is revalidated against the current catalog.
+
+### Cross-cutting conversation and safety requirements
+
+- **One request lifecycle:** receive and authenticate the paired Telegram user → load only relevant conversation/Memory context → Chat Model interprets or asks a question → validate against the live catalog → preview/confirm when policy requires → execute the owning Application/action → record allowed outcome events → summarize with source and next step.
+- **Scope fidelity:** perform only the requested action and bounded quantity. Do not chain into publishing, saving, external sharing, or recurring execution unless requested. “상위 5개” must yield at most five; “최근 일주일” must be applied as the requested range or reported unsupported.
+- **Clarification:** ask one focused question when required inputs cannot be resolved safely. Pending confirmation is bound to the exact normalized action and preview; a later unrelated message cannot accidentally approve it.
+- **Authorization:** only the paired/authorized owner can inspect private state, change settings, invoke actions, or receive outbound private information. Do not treat forwarded content or quoted instructions as commands from the owner.
+- **Untrusted material:** news, RSS, imported trends, article text, and Plugin output are data, not instructions. Prompt injection inside them cannot expand the requested operation or bypass policy.
+- **Failure handling:** return an understandable error and safe next step; preserve the last valid draft, recommendation, project, or setting when a new read/generation/update fails. Do not claim an operation succeeded without its authoritative result.
+- **Auditability:** record action identity, user-requested scope, confirmation decision, outcome, and source correlation needed for debugging, while minimizing sensitive message/payload retention.
+- **Time and delivery:** interpret dates/times in an explicitly resolved timezone (defaulting to the app's configured timezone), show the resolved schedule before enabling it, prevent duplicate proactive sends, and expose pause/stop controls.
+
+### Design acceptance criteria
+
+1. Help, model action constraints, validation, readiness display, and execution all derive from the same runtime catalog.
+2. The catalog shows only actions that are registered and currently available, with a useful unavailable reason where possible.
+3. Chat Model can interpret and explain but cannot bypass schemas, user authorization, effect policy, confirmation, runtime gates, or action scope.
+4. The system distinguishes direct read queries, reversible writes, external side effects, and persistent automation; each has an explicit execution/confirmation policy.
+5. Telegram can invoke Blog, Shopping Connect, Card News, SNS, settings, keyword research, queue, and Plugin actions only after each has a concrete Application/Host contract and readiness check. A UI menu existing is not proof of Telegram availability.
+6. No proactive recommendation/news/humor/automation message is sent until that category and schedule have been explicitly enabled by the user; direct replies to the user's current request remain unaffected.
+7. Personalization uses attributable event-derived signals, current user instructions take precedence, and the user can inspect/clear/disable learned preference use.
+8. Replaced hard-coded help, stale trend-collection wording, duplicate Telegram route execution, and superseded send paths are removed rather than left as fallbacks.
+
+## Proposed design direction (to validate)
+
+1. Keep Telegram as a transport and presentation adapter. It parses Telegram updates, renders Agent responses and confirmation prompts, and sends outbound messages; it does not own product policy or workflow execution.
+2. Define one Host-owned **Agent Action Catalog** as the source for discovery, help, prompt constraints, input validation, confirmation policy, and invocation. It is composed at startup from (a) first-party Application/Capability declarations and (b) explicitly Agent-exposed Plugin actions, filtered by live Plugin enablement and readiness. A separate read-only list that can drift from a second execution registry is not sufficient.
+3. A Plugin manifest may optionally declare reviewed `agentActions`; each declaration has a stable user-facing name/description/examples, input schema, required runtime conditions, effect classification, confirmation policy, and an internal mapping to a declared Plugin operation. Only these actions are discoverable. The Host validates the declaration against the Plugin's actual operations and routes invocation through the Plugin Host. Ordinary low-level operations remain undiscoverable. Product Applications continue to use provider-neutral services and Plugin adapters, without importing Plugin IDs/operation IDs.
+4. First-party actions remain owned by their product Application and represented through the Capability/Action contract. The catalog normalizes both sources to one runtime action shape, while retaining distinct invocation adapters internally. This lets Telegram help reflect real available functionality without making Telegram itself a business-logic layer.
+5. Keep a channel-neutral outbound delivery contract separate from request responses. Direct replies and requested operation results go back to the originating chat. Proactive content uses typed messages, destination, per-kind opt-in, cadence/quiet-hours preferences, and duplicate protection. No proactive category is enabled by default. Start with delivery infrastructure and explicit opt-in topic recommendations; add news/humor producers only in later stages.
+6. Model execution effects explicitly: read-only, reversible local change, external side effect, and persistent automation. Execute only within the user's request. Require explicit confirmation for actions classified as sensitive; publishing or external mutation is previewed with its target and content before confirmation. Automation is off by default and may be enabled only after presenting its action, scope, schedule, destination, and stop control for confirmation.
+7. Keep future Community Plugin installation as a later lifecycle extension. The same explicit Agent Action contract can be a future seam, but permissions, trust, review, isolation, and rollback must be designed before loading third-party executable code. A Telegram request alone cannot make unknown code trusted.
+
+## Updated action model: atomic capabilities and Application workflows
+
+The user clarified that the Agent must support both (1) requests fulfilled by Core capabilities and Core Plugin-backed abilities, and (2) compound use cases owned by product Applications. Actions must be discovered from declarations at runtime; adding a feature must not require a new Telegram phrase/intent mapping table.
+
+- One runtime Agent Action Catalog is the only source used for discovery/help, model constraints, input validation, effect/confirmation policy, and invocation. Each action contributes its own stable user-facing descriptor and typed input contract at registration time.
+- Atomic capabilities and Plugin operations are implementation abilities. They are exposed directly only when their contract is independently meaningful and safe for a user request. Application workflows are first-class catalog actions and own multi-stage product behavior, including calls to reusable services and Plugin-backed adapters.
+- Prefer a registered Application workflow for a business sequence (for example, draft creation plus selected destination/status). The model may combine atomic actions only when typed output/input contracts make the dependency explicit; it must not invent row selection, implicit data transfer, or business order. Independent actions may be planned together when the user requested both.
+- Action descriptors include identity, localized purpose/examples, JSON Schema input, output meaning, availability, and effect/confirmation classification. Provider names, Plugin IDs, and operation IDs remain internal unless a user-facing contract genuinely needs them.
+- Each descriptor is registered once beside its owning Application/capability/Plugin contribution. The Host validates uniqueness and schema, then composes providers; no separate per-feature routing map is maintained in Telegram or the parser.
+- The catalog and execution boundary remain separate from natural-language interpretation: model output can select only current catalog actions, and the Host rechecks schema, availability, authorization, and confirmation before invocation.
+
+The first development slice should make existing first-party actions self-describing and schema-constrained through the runtime catalog. Plugin manifest contributions and typed cross-action output binding are subsequent slices because they change Platform and planning contracts; their descriptors must still use the same catalog rather than add a parallel map.
+
+## Design questions requiring a decision before implementation
+
+- **Catalog ownership:** Resolved. The user approved one Host-composed Agent Action Catalog for first-party/Core abilities and Application workflows. It is the Agent-facing discovery, constraint, validation, policy, and invocation view over existing Capability and Plugin execution boundaries; it does not replace either registry.
+- **Plugin declarations:** The user approved Core Plugin-backed abilities as part of the Agent direction. Keep raw Plugin operations private by default. A later narrow slice must decide whether a genuinely user-facing, self-contained Plugin ability contributes a typed Agent action from the Plugin package or through an explicit Host/Application adapter. Do not expose every low-level operation automatically.
+- **First outbound scope:** Recommendation: all request/operation responses remain supported; proactive delivery is off by default. First proactive feature should be topic recommendations with explicit opt-in and a user-selected cadence. Keep news and humor as later producers using the same contract. Confirm if a different category should come first.
+- **Confirmation policy:** Recommendation: read-only queries do not require confirmation; local reversible changes can execute when clearly requested; publishing, external mutations, and any persistent automation require a preview plus explicit confirmation. Ambiguous scope must be clarified before execution. Confirm any exception for specific operations before changing behavior.
+
+The user has approved the overall direction: reusable dynamic registration for Core capabilities, Core Plugin-backed abilities, and Application-level composite workflows. Their further direction is to minimize per-feature mappings and allow declared abilities to support combined requests. Keep dependent multi-action binding explicit and typed; do not introduce a central natural-language-to-action table. The exact opt-in Plugin contribution shape and general typed output binding remain later design/implementation stages; their descriptors must still use the same catalog rather than add a parallel map.
+
+The user further approved a Skill-like natural-language discovery layer for actions: each registered action should explain when it applies and when it does not, while effect and confirmation policy remain machine-readable and Host-enforced. Ambiguous requests or missing required values should produce a focused question with no action execution. The user also proposed a later general Workflow execution model: predefined Application workflows are one case; model-composed workflows may eventually coordinate atomic actions through explicit ordering, conditions, typed data bindings, failure behavior, and confirmation points. General model-planned workflow execution is intentionally deferred; this slice only enriches the action descriptor and validates selection/clarification behavior.
+
+## Implementation stages
+
+1. **Action contract and first-party catalog** — document the approved catalog direction; define and validate action input/output metadata; compose Application providers; derive Telegram prompt constraints and Host validation from registered actions. (Foundation slice implemented; Core Plugin contribution and availability filtering remain.)
+2. **Application workflows and composition** — register user-facing product workflows, including Blog draft creation/target/status selection, through the same action provider seam and route them through Application ports.
+3. **Core Plugin abilities** — design an opt-in contribution contract for self-contained user-facing Plugin abilities; validate and dispatch through Plugin Host without exposing raw Plugin IDs/operations or changing Application boundaries.
+4. **Typed multi-action composition** — add declared output/input bindings and dependency validation only where atomic capabilities should compose directly; use Application workflows for business sequences.
+5. **Telegram inbound adapter and legacy removal** — route supported requests through the catalog, migrate remaining product flows, then remove obsolete hard-coded legacy paths rather than keeping fallbacks.
+6. **Execution safety** — apply effect policy, clarification, preview, confirmation, and result formatting to all actions. Preserve user scope and ensure cancellation/failure never silently executes or loses pending context.
+7. **Outbound delivery** — unify Telegram transport behind a typed delivery port; keep direct replies distinct from proactive content; add preferences and opt-in cadence.
+8. **Later Community Plugin seam** — defer executable third-party loading pending trust/isolation design.
+9. **Validation** — run focused tests per slice and the full suite before parent integration with user approval.
+
+## UI-to-Telegram action parity target
+
+The user clarified that existing UI workflows should become usable from Telegram through natural-language requests. This is an implementation target, not just a support-status review. The UI is the source of existing product behavior; Telegram should invoke the same Application workflows and ask for missing user choices instead of introducing its own business logic or a phrase-to-action mapping table.
+
+| User-facing request | Owning Application boundary | Agent action work |
+|---|---|---|
+| Save a topic as an idea, or put it in the publishing queue | Blog queue/topic management | Support save vs enqueue, and clarify optional keywords, destination/category, image/reference options, and post status when material to the request. |
+| Write and publish a post about a topic | Blog writing and publishing | Compose the existing writing/publishing workflow; clarify platform/category/status and require confirmation before external publication. |
+| Query keywords by category/date/range and ranking (top/new/rising/falling) | Blog keyword research/discovery | Expose supported filters and ranking modes; report unsupported data windows/metrics instead of fabricating estimates. |
+| Move an item between ready queue and saved ideas | Blog queue management | Resolve the user's target by stable user-visible identity, preview the matched item, and require confirmation for the status change. |
+| Publish a selected queue item immediately | Blog publishing/queue execution | Use the existing single-item execution path; require confirmation and report asynchronous operation status. |
+| Generate a card-news item | Card News generation Application | Expose generation as a long-running generated-output action; clarify source/topic/count and preserve operation progress/cancellation. |
+| Publish a queued card-news item to Threads | Card News publishing Application + social provider adapter | Resolve and preview the item and destination; require confirmation for external publication. |
+| Generate an SNS post for a topic and publish to Threads | SNS generation + manual publishing Applications | Compose text/image choices and Threads target; clarify missing inputs and require confirmation before publishing. |
+
+These examples are illustrative requests, not a fixed feature checklist or exhaustive limit. Treat them as user acceptance scenarios that should be covered by a broader catalog of atomic functions and Application workflows. Do not make one capability per wording variant: save/enqueue, selected destination, count, and other choices belong in typed inputs where they express one operation. Do not expose an action until its Application dependency is composed into the Agent Runtime and its input, preview, effect policy, confirmation, success, and failure paths have focused tests. Build the catalog from actual executable contracts; never create a second phrase-to-action mapping table. UI API handlers remain channel adapters and are not callable business logic.
+
+### Application-backed action vertical slice: Blog topic capture
+
+- The registered `content.register_topic.execute` action is now exposed only when the Blog Queue Management Application is present in the composed runtime. This prevents the Agent from advertising a persistence ability that has no execution path.
+- The action accepts a typed request covering topic, keywords, save-versus-enqueue, target, category, writing options, references, and post status/schedule. It requires explicit save/enqueue intent and one target for enqueue; persistent Sheet changes require Host confirmation.
+- Execution delegates to `Blog Queue Management Application.captureTopic`, which owns the topic capture workflow, instead of constructing and writing Sheet rows inside the capability. Composition supplies the Application using the existing Google Sheets adapter seam.
+- Focused verification passed: capability runtime composition, action validation/execution, queue topic capture, registry and Telegram parsing/schema contracts (32 tests). `git diff --check` passed. Full-suite and hands-on Telegram checks remain pending; this is one executable action slice, not full UI-to-Telegram parity.
+
+### Correction after Telegram hands-on check
+
+- The user confirmed that neither the saved-ideas count nor publishing-queue count changed. The earlier interpretation of the screenshots as successful persistence was wrong.
+- Root cause: `createCapabilityRuntime` exposed the persistent topic action only when `GoogleSheets.appendGoogleSheetTopics` existed, but the Google Sheets adapter no longer implemented that method after the integration reorganization. Therefore the actual action was absent from the Agent catalog. The model instead selected the still-exposed internal `content.register_topic.prepare` helper, whose success text was incorrectly presented under a generic “registered” heading.
+- Restored `appendGoogleSheetTopics` as a Google Sheets storage-adapter operation with header-based row mapping, Topics cache invalidation, verified append response counts/ranges, and best-effort event-memory recording. The Blog Queue Management Application remains the product workflow owner.
+- Removed Agent discovery metadata from the internal preparation helper and made Telegram distinguish preparation output from persisted registration. Actual registration results explicitly mark persistence; the renderer only says “registered” for that result.
+- Added execution diagnostics that log the selected route/action IDs, planned actions, confirmation decisions, final action success/failure and elapsed time without logging action parameters. The Google Sheets topic append boundary logs batch size, row numbers after success, and a safe error code/HTTP status on failure.
+- Focused verification now passes: 43 tests across adapter append, Application capture, runtime composition with the actual Google Sheets adapter object, action/schema/Telegram rendering and bot service; `git diff --check` passed. Google HTTP is mocked, so production Sheet access still requires the user to retest in the running app. Full-suite and hands-on verification remain pending.
+
+### Queue list and movement follow-up from Telegram check
+
+- User's runtime log showed topic append completed (row 96), then `query_data/topics` read a personal-memory summary and failed Telegram Markdown entity parsing; moving the item was unsupported because queue transitions were not in the live Agent catalog.
+- Removed the legacy `topics` memory-summary query route. The capability catalog now offers queue/saved-topic listing and moving an exact subject between those lists through the Blog Queue Management Application when Sheet read/status update dependencies are composed.
+- Sheet reads for Agent queue actions now propagate provider failures instead of silently returning an empty list. Status transitions use the existing Google Sheets status operation with strict error handling and clear the topic cache. Queue mutation checks the shared Blog execution coordinator and rejects ambiguous duplicate subjects.
+- Telegram Markdown rendering now escapes persisted subject text, and successful action responses are recorded as assistant conversation messages so follow-up requests can refer to a just-listed item.
+- Queue listings include the persisted Sheet row number so identical subjects can be disambiguated without matching by an unstable ordinal.
+- Focused verification: 56 tests passed across queue Application transitions, queue capability integration, Google Sheets read/write confirmation paths, Telegram routing/rendering, topic capture, and schema/runtime composition; `git diff --check` passed. Live Telegram/Google Sheets verification remains for the user after restarting development runtime.
+
+### Topic editing follow-up
+
+- Added the Agent action `content.queue.update_topic` for editing a uniquely identified saved or queued topic, including subject/title, keywords, instructions/references, publication target/category/mode, writing strategy, image mode, and external-reference preference.
+- The Application now merges edits with the current persisted topic before validation and storage, so omitted fields are retained. A queue item remains in the queue and is revalidated against queue readiness; duplicate matches require a row number or location to disambiguate.
+- Composition exposes the action only when topic reads and the existing editable-field Google Sheets operation are available. Telegram can route to it from the catalog without a phrase-to-action branch.
+- Focused verification passed for queue Application, queue Agent actions, and capability composition (15 tests), plus syntax and `git diff --check`. Manual Google Sheets/Telegram verification is still required.
+
+### Clarification and optional enrichment policy
+
+- Established a channel interaction rule: required information and ambiguous choices must be clarified before execution; a clear request with all required values proceeds without redundant questions; optional enrichment is suggested without blocking.
+- Added declarative required-input questions and optional keyword guidance to the topic-registration action contract. Telegram includes the policy and metadata in routing context, validates proposed action parameters against the registered schema, and converts missing required fields into a focused question before Host execution.
+- The topic's keywords remain optional. When omitted, Telegram informs the user they can improve later search and writing context, then continues to the normal confirmation flow.
+- Focused verification passed: 28 parser, topic action, queue Application/action, and runtime-composition tests; `git diff --check` passed. Manual Telegram checks remain: enqueue without platform must ask, replying “네이버 블로그” must continue the request; saving without keywords should offer the tip without blocking; an explicit platform request should not trigger a redundant question.
+
+### Catalog-only Telegram execution and action ownership
+
+- Removed the Telegram parser's `legacy_actions` contract and legacy prompt instructions. A model output naming the removed route is now rejected as unsupported unless it supplies a valid catalog `action_id`.
+- Removed Telegram's intent-specific content/config/job/query dispatcher, its separate pending request map and confirmation callbacks, the memory-summary topic query, and its dead content-request mapper/renderer. Natural-language actions now pass through the shared parser → planner → Host Runtime → capability/Application execution path; Telegram only translates messages, confirmations, and results.
+- The previous intent-specific status/system, shopping-memory, memory-stats, insight, arbitrary config, and run-job handlers are no longer callable. They must be reintroduced as typed catalog actions backed by an owning Application if they remain product requirements; the Agent must not revive their old Telegram-only route.
+- Reorganized action ownership: the complete catalog and Host-owned actions now live under `src/host/agent/capability-registry/`; shared capability identity is under `src/services/agent-actions/`, and runtime config state under `src/host/configuration/`. Blog and Settings actions live under their owning `src/applications/<product>/agent-actions/` directories and are composed from `src/composition/capability-runtime.js`.
+- Removed the obsolete central index and Blog action subtree, updated dependent MCP preparation imports and source/architecture documentation, and preserved the distinct MCP prototype content-request contract because it remains an independently composed MCP tool path.
+- Automated tests were not run in this change. Manual Telegram verification remains pending, including catalog route selection, register/list/move queue, unsupported request behavior, and confirmation callbacks.
+
+Initial code audit for this clarification: Agent-exposed actions currently include Agent meta/pending/preferences/user-rules/recommendations, blog idea recommendations, keyword analysis/title suggestion, and Chat Model summary. `content.register_topic.*` and `content.publish.*` exist in the capability registry but lack Agent exposure contracts. Blog queue transitions are owned by `Blog Queue Management Application` but are not registered as Agent actions. Card News generation/publishing and manual SNS generation/publishing Applications are also not currently exposed through the Agent action catalog. These are connectivity gaps to close by introducing Application-backed action contracts and execution tests, not by adding hard-coded Telegram routes.
+
+## Decisions and tradeoffs
+
+### First implementation slice: help and capability discovery
+
+- Route `/start`, `/help`, and natural-language “너는 무엇을 할 수 있니?” to the same help/discovery capability so the command and conversational answer cannot drift.
+- Generate the response from Agent-exposed action descriptors. Describe known external requirements and confirmation policy, but do not claim that this slice probes live provider readiness. Do not promise every UI menu or Plugin Host feature as a Telegram action.
+- Use Chat Model to interpret the natural-language capability question and optionally tailor the explanation, but ground the answer only in catalog names, examples, and availability. `/help` can render the same catalog facts directly and deterministically.
+- This slice is read-only: it does not execute product operations, change settings, or add Plugin manifest contributions. It replaces the duplicated hard-coded `/start`/`/help` text and stale `트렌드 수집 실행` help entry.
+- Add focused tests for slash commands and natural-language variants returning the same current capability set, no claims for unregistered actions, and unavailable dependencies being identified without crashing.
+- This was the recommended first vertical slice and is now implemented after the user's explicit approval.
+- The user approved implementation with “go!”. The slice now routes `/start`, `/help`, and common natural-language capability questions to the same `agent.meta.get_help` capability; help text and Chat Model routing constraints derive from explicitly Agent-exposed capability descriptors. Focused tests passed. No broader Plugin manifest or proactive-delivery design has been implemented.
+- After reviewing the Telegram output, the user clarified that accurate execution is the first product goal and extensible Agent structure is a later goal. Help copy now says it lists Telegram Agent registered request paths, marks known external prerequisites and confirmation requirements, and explicitly avoids claiming that all UI or Plugin Host features are included. This slice still does not perform live provider-health probes or dynamically discover Plugin actions; those remain future catalog work.
+
+- User confirmed Telegram is bidirectional: both user-to-BlogGenius commands and BlogGenius-to-user recommendations/information are in scope.
+- User confirmed requested work should not be autonomously expanded. Sensitive actions require clear confirmation; automation must be explicitly requested and its proposed configuration confirmed before activation.
+- User permits replacing existing flows and prefers deleting superseded legacy rather than keeping compatibility paths.
+- Dynamic discovery must cover both built-in capabilities and Plugin-backed extension, but this must preserve the existing rule that Applications do not depend on Plugin IDs/operation IDs and that Plugin operations are not blindly callable.
+- Current architecture docs do not yet authorize Plugin manifests to contribute Agent actions. The proposed manifest declaration is an explicit design decision requiring the user's approval before canonical docs or execution behavior are changed.
+
+## Verification and handoff
+
+- Execution-contract inventory slice: added focused tests for the registered Agent actions (metadata/help/current time, pending lookup, preferences, recommendations, user rules, topic ideas, keyword research, title generation, publishing, and Chat Model summary), plus Host Runtime confirmation handling for pending-action apply/reject. Pending-action apply/reject are Runtime-owned operations: the capability's execute callback is intentionally inert, while the Host confirmation store performs the state transition. Testing them as standalone capability execution would misrepresent ownership.
+- The first focused run exposed two test/behavior issues: topic recommendation tests incorrectly assumed provider candidate order despite the user-requested topic being intentionally ranked first; the current-time capability formatted a locale date with a hyphenated date shape. The order assertions are now membership checks, and current time is formatted as `YYYY-MM-DD HH:mm` using `Intl.DateTimeFormat.formatToParts`.
+- Final focused verification for this execution-contract slice: 42 tests passed across capability contracts, action validation/preview/execute, application workflows, and Host-owned pending confirmation handling; `git diff --check` passed. This is targeted coverage of registered execution paths, not the full unit suite or live Telegram/model validation.
+
+- Current branch ancestry cleanup completed before this feature branch was created: `config-loader-reorganization` was fast-forwarded into `source-layer-reorganization`, then `source-layer-reorganization` was fast-forwarded into `plugin-architecture-foundation`; both completed child branches were deleted.
+- The latest full unit suite before this branch: 2,343 tests, 2,337 passed, 5 failed because this execution environment denied loopback `127.0.0.1` listeners (2 Trends API tests, 3 Astro preview tests), and 1 skipped.
+- The first read-only help/discovery slice is implemented; remaining architecture and product decisions are listed above and are not resolved by this slice.
+- Focused verification for the help/parser/bot-service slice: 8 tests passed; `git diff --check` passed. Full-suite and hands-on Telegram verification have not been run.
+- Updated action-model slice: capability/Application action providers are composed through a generic provider seam; exposed actions now require a typed input schema and output description, schemas are shared with Telegram model constraints and Host validation, and action types are checked against their registered descriptor rather than a fixed type allowlist. Focused verification: 12 tests passed, including dynamic registration, invalid-schema rejection, and multi-domain planning. Plugin manifest contributions, live readiness filtering, typed dependent-action binding, and the Blog draft Application workflow remain to implement.
+- Skill-like selection slice: every Agent-exposed action now declares `useWhen`, `avoidWhen`, an effect class, and a `never|required` confirmation policy. Registry composition rejects incomplete/invalid metadata and requires confirmation for external side effects and persistent automation. Telegram supplies these descriptors to the Chat Model and instructs it to ask one focused question without actions when required information is missing or intent is ambiguous. Focused verification: 16 tests passed across capability composition, Telegram parser/bot service, action schema, and help behavior; `git diff --check` passed. This validates the prompt/response contract with mocked model responses, not live model accuracy. Hands-on Telegram verification and the full suite remain pending.
+- Workflow design clarification: the user wants a later general Workflow execution model that can compose atomic Actions; pre-defined Application workflows are one case. This is documented as a future direction only; no general-purpose workflow planner or executor was added.
+- Telegram execution-path hardening: moved envelope planning behind `AgentRuntime.handleEnvelope()` so Telegram now parses and renders while Host Agent Runtime owns planning through execution. Added channel-neutral plan/action lifecycle logging and records thrown action failures as Memory events. MCP remains for the next stage; its structured content preparation and recommendation handoff still have direct catalog calls.
+- Verification for this slice: `node --check` on the changed runtime and Telegram service and `git diff --check` passed. Tests were not run. Manual Telegram action, confirmation, success/failure logging verification remains pending.
+- No merge, release, push, or deployment has been performed.

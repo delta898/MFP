@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCapabilityRegistry } = require('./index');
-const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
-const { createAiModelConfiguration } = require('../composition/ai-model-configuration');
+const { createCapabilityRegistry } = require('./registry');
+const { createKnowledgeRuntime } = require('../../../composition/knowledge-runtime');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 
 function createRegistry(deps = {}) {
     return createCapabilityRegistry({ modelConfiguration: createAiModelConfiguration(), ...createKnowledgeRuntime(deps), ...deps });

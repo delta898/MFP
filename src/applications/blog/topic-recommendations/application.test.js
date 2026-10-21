@@ -42,8 +42,8 @@ test('passes owner/trend candidates to content idea providers', async () => {
     assert.equal(generatorInput.ownerProfile.owner_user_id, 'local:test');
     assert.equal(generatorInput.recentArtifacts[0].id, 'a1');
     assert.deepEqual(generatorInput.excludedCandidateIds, ['old-candidate']);
-    assert.equal(providerContext.recommendationCandidates[0].id, 'candidate-1');
-    assert.equal(result.candidates[0].id, 'candidate-1');
+    assert.equal(providerContext.recommendationCandidates.some((candidate) => candidate.id === 'candidate-1'), true);
+    assert.equal(result.candidates.some((candidate) => candidate.id === 'candidate-1'), true);
     assert.equal(result.ideas[0].title, 'AI 트렌드를 실무에 적용하는 법');
     assert.equal(result.ideas[0].reason, '검증된 최근 트렌드입니다.');
     assert.equal(result.ideas[0].recommendation.basis, 'trend');

@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const { createAgentRuntime } = require('../../../host/agent/runtime');
 const { ConfirmationStore } = require('../../../adapters/storage/confirmations/confirmation-store');
 const { createMcpPrototypeAdapter } = require('./prototype-adapter');
-const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../../../capabilities/content/register-topic');
-const { normalizePublishParams, buildPublishRequestPreview } = require('../../../capabilities/content/publish');
+const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../../../applications/blog/agent-actions/register-topic');
+const { normalizePublishParams, buildPublishRequestPreview } = require('../../../applications/blog/agent-actions/publish');
 
 function createStubCapabilityRegistry() {
     return {

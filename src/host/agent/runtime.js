@@ -1,5 +1,4 @@
-const { buildCapabilityId } = require('../../capabilities/capability-id');
-const { validateActionEnvelope } = require('./contracts/action-schema');
+const { buildCapabilityId } = require('../../services/agent-actions/capability-id');
 const {
     normalizeRuntimeContext,
     buildInvalidResult,
@@ -7,12 +6,13 @@ const {
     buildConfirmationResult
 } = require('./contracts/runtime-contract');
 const { validatePlan } = require('./planning/planner-contract');
-const { buildPlanFromActions } = require('./planning/planner-rules');
+const { createPlanner } = require('./planning/planner');
 
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
     const confirmationStore = options.confirmationStore;
     const eventStore = options.eventStore || null;
+    const logger = options.Logger || null;
 
     if (!capabilityRegistry) {
         throw new Error('capabilityRegistry is required');
@@ -20,6 +20,11 @@ function createAgentRuntime(options = {}) {
     if (!confirmationStore) {
         throw new Error('confirmationStore is required');
     }
+
+    const planner = options.planner || createPlanner({
+        capabilityRegistry,
+        CONFIG: options.CONFIG
+    });
 
     async function recordEvent(event) {
         if (!eventStore || typeof eventStore.appendEvent !== 'function') return;
@@ -69,13 +74,33 @@ function createAgentRuntime(options = {}) {
         const results = [];
         for (const action of actions) {
             const hydratedAction = hydrateActionFromPreviousResults(action, results);
-            const result = await capabilityRegistry.executeAction(hydratedAction, context);
+            const capabilityId = buildCapabilityId(hydratedAction.domain, hydratedAction.name);
+            logger?.info?.(`[AgentRuntime] action execution started capability_id=${capabilityId}`);
+            let result;
+            try {
+                result = await capabilityRegistry.executeAction(hydratedAction, context);
+            } catch (error) {
+                const errorCode = String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
+                logger?.error?.(`[AgentRuntime] action execution failed capability_id=${capabilityId} error_code=${errorCode}`);
+                await recordEvent({
+                    event_type: 'capability.action.failed',
+                    actor_type: 'system',
+                    actor_id: context?.user?.id || '',
+                    conversation_id: context?.conversation?.id || '',
+                    message_id: context?.messageId || '',
+                    payload: { action: hydratedAction, error_code: errorCode, plan },
+                    user: context?.user,
+                    conversation: context?.conversation
+                });
+                throw error;
+            }
+            logger?.info?.(`[AgentRuntime] action execution completed capability_id=${capabilityId} success=${result?.success !== false}`);
             results.push({
                 action_id: hydratedAction.id,
                 action_type: hydratedAction.type,
                 action_domain: hydratedAction.domain,
                 action_name: hydratedAction.name,
-                capability_id: buildCapabilityId(hydratedAction.domain, hydratedAction.name),
+                capability_id: capabilityId,
                 result
             });
             await recordEvent({
@@ -115,10 +140,45 @@ function createAgentRuntime(options = {}) {
     return {
         confirmationStore,
 
+        async handleEnvelope(envelope = {}, context = {}) {
+            const planningStartedAt = Date.now();
+            const planning = await planner.buildPlan(envelope, context);
+            logger?.info?.(`[AgentRuntime] planning completed duration_ms=${Date.now() - planningStartedAt} ok=${planning.ok === true}`);
+            if (!planning.ok) {
+                logger?.warn?.(`[AgentRuntime] plan rejected action_count=${Array.isArray(envelope.actions) ? envelope.actions.length : 0} error_count=${(planning.errors || []).length}`);
+                await recordEvent({
+                    event_type: 'agent.plan.rejected',
+                    actor_type: 'agent',
+                    actor_id: context?.user?.id || '',
+                    conversation_id: context?.conversation?.id || '',
+                    message_id: context?.messageId || '',
+                    payload: { error_count: (planning.errors || []).length },
+                    user: context?.user,
+                    conversation: context?.conversation
+                });
+                return buildInvalidResult(planning.errors || ['요청 계획을 만들지 못했습니다.']);
+            }
+
+            const plan = planning.plan;
+            logger?.info?.(`[AgentRuntime] plan accepted plan_id=${String(plan.plan_id || 'unknown')} action_count=${plan.steps.length}`);
+            const outcome = await this.handlePlan(plan, context);
+            return { ...outcome, plan };
+        },
+
         async handlePlan(planInput = {}, context = {}) {
             const runtimeContext = normalizeRuntimeContext(context);
             const validation = validatePlan(planInput);
             if (!validation.ok) {
+                await recordEvent({
+                    event_type: 'agent.plan.rejected',
+                    actor_type: 'agent',
+                    actor_id: context?.user?.id || '',
+                    conversation_id: context?.conversation?.id || '',
+                    message_id: context?.messageId || '',
+                    payload: { error_count: validation.errors.length },
+                    user: context?.user,
+                    conversation: context?.conversation
+                });
                 return buildInvalidResult(validation.errors);
             }
 
@@ -178,6 +238,19 @@ function createAgentRuntime(options = {}) {
                         });
                         return buildConfirmationResult(confirmation, confirmation.previews, { memory: runtimeContext.memory || {} });
                     }
+                    await recordEvent({
+                        event_type: 'capability.action.validation_failed',
+                        actor_type: 'agent',
+                        actor_id: runtimeContext?.user?.id || '',
+                        conversation_id: runtimeContext?.conversation?.id || '',
+                        message_id: runtimeContext?.messageId || '',
+                        payload: {
+                            capability_id: buildCapabilityId(action.domain, action.name),
+                            error_count: (actionValidation.errors || []).length
+                        },
+                        user: runtimeContext?.user,
+                        conversation: runtimeContext?.conversation
+                    });
                     return buildInvalidResult(actionValidation.errors);
                 }
                 const normalizedAction = {
@@ -336,12 +409,7 @@ function createAgentRuntime(options = {}) {
         },
 
         async handleParsedEnvelope(envelope = {}, context = {}) {
-            const validation = validateActionEnvelope(envelope, capabilityRegistry);
-            if (!validation.ok) {
-                return buildInvalidResult(validation.errors);
-            }
-            const plan = buildPlanFromActions(validation.envelope);
-            return this.handlePlan(plan, context);
+            return this.handleEnvelope(envelope, context);
         },
 
         async handleConfirmationDecision(input = {}, context = {}) {

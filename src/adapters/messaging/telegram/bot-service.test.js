@@ -21,3 +21,9 @@ test('Telegram polling logs safe diagnostics and applies bounded backoff', () =>
     assert.match(source, /recordPollingSuccess\(\)/);
     assert.doesNotMatch(source, /Polling Error .*error[.]message/);
 });
+
+test('Telegram /start and /help route through the Agent help capability', () => {
+    assert.match(source, /handleCommand\(chatId, text, msg\)/);
+    assert.match(source, /handleRoutedTelegramMessage\(chatId, commandText, msg, \{ preParsedEnvelope \}\)/);
+    assert.doesNotMatch(source, /에이전트에게 이렇게 명령해 보세요/);
+});

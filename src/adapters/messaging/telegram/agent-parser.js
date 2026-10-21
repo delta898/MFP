@@ -1,3 +1,6 @@
+const { matchUserCommandRule } = require('../../../services/memory/user-command-rules');
+const { validateActionEnvelope } = require('../../../host/agent/contracts/action-schema');
+
 function buildEnvelope(conversationId, messageId, actions = []) {
     return {
         version: '1.0',
@@ -5,80 +8,103 @@ function buildEnvelope(conversationId, messageId, actions = []) {
         message_id: messageId,
         route: actions.length > 0 ? 'agent' : 'unsupported',
         actions,
-        legacy_actions: [],
         meta: {},
         reply: { text: '', recommendation: '' }
     };
+}
+
+function matchUserRuleEnvelope(messageText, context = {}) {
+    const rule = matchUserCommandRule(messageText, context.memory?.user_rules);
+    if (!rule) return null;
+    const capability = listAgentActions(context.capabilityRegistry)
+        .find((item) => item.action_id === rule.action_id);
+    if (!capability) {
+        return {
+            ...buildEnvelope(context.conversationId, context.messageId),
+            route: 'reply',
+            reply: { text: `“${rule.trigger}” 규칙의 기능이 현재 등록되어 있지 않아 실행하지 않았습니다. 기존 규칙을 삭제한 뒤 현재 기능으로 다시 등록해 주세요.`, recommendation: '' }
+        };
+    }
+    const actionId = `action_${String(rule.id || 'user_rule').replace(/[^a-zA-Z0-9_-]/g, '_')}_${String(context.messageId || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    return buildEnvelope(context.conversationId, context.messageId, [{
+        id: actionId,
+        action_id: capability.id,
+        type: capability.type,
+        domain: capability.domain,
+        name: capability.name,
+        params: rule.action_params || {},
+        requires_confirmation: capability.confirmationPolicy === 'required',
+        reason: `사용자가 저장한 “${rule.trigger}” 실행 규칙`
+    }]);
 }
 
 function normalizeText(raw) {
     return String(raw || '').trim();
 }
 
+function listAgentActions(capabilityRegistry) {
+    const capabilities = typeof capabilityRegistry?.listAgentActions === 'function'
+        ? capabilityRegistry.listAgentActions()
+        : [];
+    return capabilities
+        .map((capability) => {
+            const id = String(capability?.id || '').trim();
+            const domain = String(capability?.domain || '').trim();
+            const name = String(capability?.name || '').trim();
+            if (!id || !domain || !name || !String(capability?.type || '').trim()) return null;
+            return {
+                id,
+                action_id: id,
+                domain,
+                name,
+                type: String(capability.type).trim(),
+                kind: String(capability.agentExposure?.kind || 'atomic').trim(),
+                title: String(capability.agentExposure?.title || id).trim(),
+                description: String(capability.agentExposure?.description || '').trim(),
+                useWhen: String(capability.agentExposure?.useWhen || '').trim(),
+                avoidWhen: String(capability.agentExposure?.avoidWhen || '').trim(),
+                inputSchema: capability.agentExposure?.inputSchema || { type: 'object', properties: {}, additionalProperties: false },
+                parameterSemantics: capability.agentExposure?.parameterSemantics || {},
+                outputDescription: String(capability.agentExposure?.outputDescription || '').trim(),
+                requiredInputQuestions: capability.agentExposure?.requiredInputQuestions || {},
+                optionalInputSuggestions: capability.agentExposure?.optionalInputSuggestions || {},
+                effect: String(capability.effect || '').trim(),
+                confirmationPolicy: String(capability.confirmPolicy || '').trim(),
+                availabilityNote: String(capability.agentExposure?.availabilityNote || '').trim(),
+                examples: Array.isArray(capability.agentExposure?.examples)
+                    ? capability.agentExposure.examples.map((item) => String(item || '').trim()).filter(Boolean)
+                    : []
+            };
+        })
+        .filter(Boolean);
+}
+
+function formatAgentActionCatalog(actions = []) {
+    if (actions.length === 0) return '- 현재 등록된 Agent 기능 없음';
+    return actions.map((action) => {
+        const examples = action.examples.length > 0 ? `; 예: ${action.examples.join(' / ')}` : '';
+        const output = action.outputDescription ? `; 결과: ${action.outputDescription}` : '';
+        const availability = action.availabilityNote ? `; 이용 조건: ${action.availabilityNote}` : '';
+        const requiredQuestions = Object.keys(action.requiredInputQuestions).length > 0 ? `; 필수 정보 질문=${JSON.stringify(action.requiredInputQuestions)}` : '';
+        const optionalSuggestions = Object.keys(action.optionalInputSuggestions).length > 0 ? `; 선택 정보 제안=${JSON.stringify(action.optionalInputSuggestions)}` : '';
+        return `- action_id=${action.id} (type=${action.type}, kind=${action.kind}, effect=${action.effect}, confirmation=${action.confirmationPolicy}): ${action.title} — ${action.description}; 사용 시점=${action.useWhen}; 사용하지 않을 때=${action.avoidWhen}; inputSchema=${JSON.stringify(action.inputSchema)}; parameterSemantics=${JSON.stringify(action.parameterSemantics)}${requiredQuestions}${optionalSuggestions}${output}${availability}${examples}`;
+    }).join('\n');
+}
+
 function tryParseDeterministicEnvelope(messageText, context = {}) {
     const text = normalizeText(messageText);
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
-    const pendingConfirmations = Array.isArray(context.memory?.pending_confirmations) ? context.memory.pending_confirmations : [];
-
-    if (pendingConfirmations.length > 0
-        && /(그거|그것|아까|방금|지금 대기|대기 중인|확인 대기)/.test(text)
-        && /(적용|승인|진행)/.test(text)) {
+    const command = text.split(/\s+/)[0].split('@')[0].toLowerCase();
+    if (command === '/start' || command === '/help') {
         return buildEnvelope(conversationId, messageId, [{
             id: 'act_1',
-            type: 'agent.command',
-            domain: 'agent.pending',
-            name: 'apply_latest',
-            params: {},
-            reason: '가장 최근 확인 대기 중인 요청 적용'
-        }]);
-    }
-
-    if (pendingConfirmations.length > 0
-        && /(그거|그것|아까|방금|지금 대기|대기 중인|확인 대기)/.test(text)
-        && /(취소|거절|중단)/.test(text)) {
-        return buildEnvelope(conversationId, messageId, [{
-            id: 'act_1',
-            type: 'agent.command',
-            domain: 'agent.pending',
-            name: 'reject_latest',
-            params: {},
-            reason: '가장 최근 확인 대기 중인 요청 취소'
-        }]);
-    }
-
-    if (/(너 누구|넌 누구|뭐하는 봇|뭐하는 에이전트|정체가 뭐)/.test(text)) {
-        return buildEnvelope(conversationId, messageId, [{
-            id: 'act_1',
-            type: 'agent.query',
-            domain: 'agent.meta',
-            name: 'get_identity',
-            params: {},
-            reason: 'Agent 정체성과 역할 안내'
-        }]);
-    }
-
-    const isHelpLike = /(사용법|사용 방법|어떻게 써|어떻게 사용|가이드|도움말)/.test(text);
-    const looksLikeContentCommand = /(주제|글감|추가|등록|발행|추천|써줘|작성|포스팅)/.test(text);
-    if (isHelpLike && !looksLikeContentCommand) {
-        return buildEnvelope(conversationId, messageId, [{
-            id: 'act_1',
+            action_id: 'agent.meta.get_help',
             type: 'agent.query',
             domain: 'agent.meta',
             name: 'get_help',
             params: {},
-            reason: 'Agent 사용법 안내'
-        }]);
-    }
-
-    if ((/(지금|현재)/.test(text) && /(몇시|시간)/.test(text))) {
-        return buildEnvelope(conversationId, messageId, [{
-            id: 'act_1',
-            type: 'agent.query',
-            domain: 'agent.meta',
-            name: 'get_current_time',
-            params: {},
-            reason: '현재 시각 확인'
+            reason: '현재 Telegram에서 가능한 기능 안내'
         }]);
     }
 
@@ -134,45 +160,6 @@ function extractFirstJsonObject(raw) {
     return '';
 }
 
-const LEGACY_ACTIONS = new Set([
-    'register_topic',
-    'publish_article',
-    'update_config',
-    'run_job',
-    'query_data'
-]);
-const LEGACY_CONFIG_KEYS = new Set([
-    'PUBLISH_AUTO_HEADLESS',
-    'image_gen',
-    'NAVER_ID',
-    'TYPING_SPEED'
-]);
-const LEGACY_JOB_NAMES = new Set(['shopping', 'publish']);
-const LEGACY_QUERY_TYPES = new Set(['status', 'system', 'topics', 'shopping', 'stats', 'insight']);
-
-function normalizeLegacyActions(actions) {
-    if (!Array.isArray(actions) || actions.length === 0) return [];
-    return actions.map((item) => {
-        const action = String(item?.action || '').trim();
-        if (!LEGACY_ACTIONS.has(action) || !item?.params || typeof item.params !== 'object' || Array.isArray(item.params)) {
-            return null;
-        }
-        const params = item.params;
-        if (action === 'register_topic' && !String(params.theme || '').trim()) return null;
-        if (action === 'publish_article'
-            && params.target !== undefined
-            && !['all', 'naver', 'wordpress'].includes(String(params.target).trim().toLowerCase())) return null;
-        if (action === 'update_config') {
-            const updates = params.config_updates;
-            if (!updates || typeof updates !== 'object' || Array.isArray(updates)) return null;
-            if (Object.keys(updates).length === 0 || Object.keys(updates).some((key) => !LEGACY_CONFIG_KEYS.has(key))) return null;
-        }
-        if (action === 'run_job' && !LEGACY_JOB_NAMES.has(String(params.job_name || '').trim().toLowerCase())) return null;
-        if (action === 'query_data' && !LEGACY_QUERY_TYPES.has(String(params.query_type || '').trim().toLowerCase())) return null;
-        return { action, params };
-    });
-}
-
 async function routeTelegramMessage(messageText, context = {}) {
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
@@ -181,8 +168,11 @@ async function routeTelegramMessage(messageText, context = {}) {
     if (deterministic) {
         return deterministic;
     }
+    const matchedUserRule = matchUserRuleEnvelope(messageText, context);
+    if (matchedUserRule) return matchedUserRule;
     const modelCaller = context.modelCaller;
     if (typeof modelCaller !== 'function') throw new Error('AI Gateway text generation is unavailable for Telegram routing.');
+    const agentActions = listAgentActions(context.capabilityRegistry);
     const recentEvents = Array.isArray(context.memory?.recent_events) ? context.memory.recent_events.slice(0, 6) : [];
     const recentMessages = Array.isArray(context.memory?.recent_messages) ? context.memory.recent_messages.slice(0, 4) : [];
     const recentActions = Array.isArray(context.memory?.recent_actions) ? context.memory.recent_actions.slice(0, 4) : [];
@@ -191,66 +181,38 @@ async function routeTelegramMessage(messageText, context = {}) {
     const pendingConfirmations = Array.isArray(context.memory?.pending_confirmations) ? context.memory.pending_confirmations.slice(0, 3) : [];
 
     const prompt = `당신은 BlogGenius의 Telegram 대화 라우터입니다.
-사용자 메시지에 직접 답하거나, 아래 Agent capability 또는 legacy 호환 작업으로 연결하세요. 키워드만 맞춘 기계적 분기 대신 문맥과 사용자의 의도를 해석하세요.
+사용자 메시지에 직접 답하거나, 아래 Agent action catalog의 action 하나를 선택하세요. 키워드만 맞춘 기계적 분기 대신 문맥과 사용자의 의도를 해석하세요.
 
-[허용 capability]
-1. agent.pending.get
-2. agent.pending.apply_latest
-3. agent.pending.reject_latest
-4. agent.meta.get_help
-5. agent.meta.get_identity
-6. agent.meta.get_current_time
-7. agent.preferences.get_summary
-8. agent.recommendations.get
-9. content.idea.suggest
-10. settings.chat_model.get_summary
+[현재 허용 Agent action catalog]
+다음 목록은 현재 등록되어 실행 가능한 Agent action 계약입니다. 각 action의 고유 식별자는 action_id입니다. 반환할 때 action_id를 그대로 사용하고 type/domain/name을 만들지 마세요. 목록에 없는 기능을 만들어 내지 마세요.
+${formatAgentActionCatalog(agentActions)}
 
-[Legacy 호환 작업]
-아래 기능은 기존 사용자의 흐름을 유지하기 위한 실행 경로입니다. 새 권한을 만들지 말고, 요청이 이들 중 하나에 해당할 때만 legacy_actions를 사용하세요.
-1. register_topic: params { theme, keywords?, platforms?, options? }
-2. publish_article: params { target?: "all" | "naver" | "wordpress", targetRowIndices?: number[] }
-3. update_config: params { config_updates: { "PUBLISH_AUTO_HEADLESS" | "image_gen" | "NAVER_ID" | "TYPING_SPEED": value } }; 위 목록 외 설정 키는 사용하지 않습니다.
-4. run_job: params { job_name: "shopping" | "publish" }
-5. query_data: params { query_type: "status" | "system" | "topics" | "shopping" | "stats" | "insight", query_params?: {} }
-
-[Legacy action 해석 기준]
-- 사용자가 글감/주제를 시트에 저장해 달라고 하면 register_topic을 선택합니다. theme은 사용자가 말한 주제를 보존하고, keywords/platforms/options는 사용자가 명시한 경우에만 채웁니다.
-- 사용자가 특정 행 또는 새 주제를 블로그에 올려 달라고 하면 publish_article을 선택합니다. 새 글을 등록한 뒤 발행까지 명시했다면 register_topic과 publish_article을 함께 반환합니다.
-- “저장만” 요청은 발행을 포함하지 않습니다. 사용자가 직접 말하지 않은 플랫폼, 카테고리, 게시 상태를 임의로 지정하지 않습니다.
-- update_config는 사용자가 설정 변경을 명시했을 때만 사용합니다. 모든 설정 변경은 기존 확인 절차를 거칩니다.
-- run_job과 query_data는 각각 작업 실행과 조회 요청에만 사용하고, 질의형 일반 대화를 작업으로 바꾸지 않습니다.
-
-[액션 매핑 규칙]
-- 확인 대기 요청 조회는 type: "agent.query"
-- 확인 대기 요청 적용/취소는 type: "agent.command"
-- 조회는 type: "setting.query"
-- 변경은 type: "setting.update"
-- 작업 실행은 type: "job.run"
-- 글감 추천은 type: "content.generate"
-- domain / name은 capability 이름에 맞춰 정확히 작성
-- 확인이 필요한 변경은 requires_confirmation 값을 비워도 됨. 시스템이 보정함.
-- Agent 지원 범위를 벗어나면 actions는 빈 배열 [] 로 반환
+- 사용자의 목적과 가장 잘 맞는 action을 의미에 따라 고르고, 입력은 해당 action의 inputSchema에 맞춥니다. 스키마에 없는 필드는 만들지 않습니다.
+- 각 action의 사용 시점과 사용하지 않을 조건을 비교해 선택하세요. examples는 표현 예시일 뿐 완전한 phrase 목록이 아닙니다.
+- parameterSemantics에서 role이 explicit_constraint인 입력은 현재 요청이 지정한 범위를 보존하는 값입니다. 개인화 기억이나 외부 후보로 그 범위를 바꾸지 마세요. 해당 조건을 입력으로 받지 않는 action은 선택하지 말고 질문하거나 지원 불가를 안내하세요.
+- personalization_context는 현재 요청의 명시 조건을 만족하는 후보 안에서만 선택 근거로 사용하세요. 현재 요청과 기억이 충돌하면 현재 요청을 따릅니다.
+- kind가 application_workflow인 action은 검증된 여러 단계의 제품 업무를 수행하므로, 같은 목적의 원자 action을 임의로 나열하는 것보다 우선 선택합니다.
+- 여러 action을 함께 선택하는 것은 사용자가 여러 작업을 요청했거나 각 작업이 서로 독립적일 때만 합니다. 다른 action의 결과를 임의로 다음 입력에 연결하지 않습니다.
+- effect는 read_only(조회), generated_output(저장되지 않는 생성 결과), local_change(앱 내부 변경), external_side_effect(외부 서비스 변경), persistent_automation(지속 실행)으로 구분합니다. confirmation=required는 Host가 실행 전 확인을 받으며, never도 사용자의 요청 범위를 넓히거나 누락된 동의를 대신하지 않습니다.
+- 확인 정책은 Host가 action 선언과 실행 효과에 따라 결정하므로 모델이 requires_confirmation을 정하거나 생략 여부로 우회하지 않습니다.
+- 등록된 action으로 요청을 이행할 수 없으면 actions는 빈 배열 []로 반환하고 unsupported 경로를 선택합니다.
 
 [라우트 선택]
-- BlogGenius 기능 실행은 route="agent"와 actions 또는 route="legacy"와 legacy_actions 중 하나로 반환하세요.
+- BlogGenius 기능 실행은 route="agent"와 actions로 반환하세요.
 - 사용자의 일반 질문, 인사, 의견 교환, 설명 요청은 route="reply"로 직접 답하세요. 실행 action을 추측하지 마세요.
-- 기능 실행이 불가능하거나 요청이 불명확하면 route="unsupported"로 현재 가능한 범위와 다음 선택지를 자연스럽게 설명하세요.
+- 필수 정보가 빠졌거나 후보가 겹쳐 안전하게 선택할 수 없으면 action을 실행하지 말고 route="reply"로 필요한 내용을 묻는 짧은 질문 하나를 하세요.
+- 입력 스키마의 필수 값은 MUST입니다. 누락된 필수 값을 기억이나 기본값으로 추정하지 말고 질문하세요. 후보가 하나로 명확하고 필수 값이 모두 있으면 불필요한 확인 질문을 하지 마세요.
+- 선택 값은 NICE to do입니다. action을 막지 말고 action descriptor의 선택 정보 제안을 짧게 안내하세요. 선택 정보를 필수처럼 되묻지 마세요.
+- 등록된 기능으로 수행할 수 없는 요청이면 route="unsupported"로 현재 가능한 범위와 다음 선택지를 자연스럽게 설명하세요.
 - 직접 답변만 있을 때 reply의 text에 답을 넣습니다. 실행 요청에도 도움이 되는 짧은 설명을 붙일 수 있습니다.
 - 요청한 일에 먼저 답한 뒤, 도움이 될 추천이 있을 때만 reply의 recommendation에 이유와 함께 씁니다. 추천은 실행하지 않으며, 요청을 대체하지 않습니다.
-- legacy 동작을 기존 범위보다 넓히지 마세요. actions와 legacy_actions를 동시에 채우지 마세요.
 
 [파라미터 규칙]
-- 시간은 반드시 "HH:MM"
-- 블로그 자동 포스팅 시간대 변경은 params에 { "start_time": "09:00", "end_time": "18:00" }
-- 카테고리 추가/삭제는 params에 { "category": "..." }
-- 활성화 변경은 params에 { "enabled": true | false }
-- "지금 바꾸려는 설정이 뭐였지", "확인 대기 중인 요청 뭐야" 같은 질의는 agent.pending.get 으로 해석
-- "그거 적용해", "그거 취소해", "아까 그거 적용", "방금 대기 중인 거 취소" 같은 질의는 agent.pending.apply_latest / agent.pending.reject_latest 로 해석
-- "넌 누구니", "너 뭐하는 봇이야", "사용법이 어떻게 돼", "어떻게 써?", "지금 몇시야?" 같은 질의는 agent.meta.get_identity / agent.meta.get_help / agent.meta.get_current_time 로 해석
-- "내 성향 알려줘", "내 선호 요약 보여줘", "내가 어떤 설정을 선호하는지 알려줘" 같은 질의는 agent.preferences.get_summary 로 해석
-- "추천해줘", "지금 기준으로 추천할 것 있어?", "다음에 뭘 하면 좋을까?" 같은 질의는 agent.recommendations.get 으로 해석
-- "글감 추천해줘", "새로운 글감 하나 추천해줄래?", "주제 아이디어 줘", "콘텐츠 아이디어 추천해줘" 같은 질의는 content.idea.suggest 로 해석
-- 글감 추천은 params에 { "limit": 1~5, "query": "사용자 요청에서 추출한 주제나 원문" } 형태로 작성
+- 각 action의 입력 형식, 필수 값, 허용 값은 catalog에 함께 제공된 inputSchema를 따릅니다.
+- 필요 값이 문맥에서 확인되지 않으면 임의로 추정하지 말고 위 규칙대로 focused clarification을 합니다.
+- 사용자가 특정 문구를 앞으로의 실행 규칙으로 저장해 달라고 명시하면 agent.user_rules.create를 선택합니다. 연결 대상은 현재 catalog에 표시된 action_id를 action.action_id로 그대로 전달하는 단일 action이어야 하며, 입력은 그 action의 inputSchema에 맞춥니다. 등록되지 않은 기능이나 여러 action을 조합하는 규칙은 저장하지 말고 먼저 설명하거나 질문합니다.
+- 저장 규칙은 사용자가 승인한 뒤에만 활성화됩니다. 등록된 트리거와 메시지가 정확히 일치할 때만 저장 인자 그대로 실행하며, 대상 action의 현재 확인 정책도 그대로 적용됩니다.
+- 사용자가 저장 규칙을 확인·삭제·일시 중지·재활성화해 달라고 하면 해당 agent.user_rules action을 선택하고, 어떤 규칙인지 모호하면 먼저 확인합니다.
 
 [최근 메모리]
 ${recentEvents.length > 0 ? recentEvents.map((item) => {
@@ -282,19 +244,13 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
   "version": "1.0",
   "conversation_id": "${conversationId}",
   "message_id": "${messageId}",
-  "route": "agent | legacy | reply | unsupported",
+  "route": "agent | reply | unsupported",
   "actions": [
     {
-      "id": "act_1",
-      "type": "agent.query | agent.command | setting.query | setting.update | job.run | content.generate",
-      "domain": "agent.pending | agent.meta | agent.preferences | agent.recommendations | content.idea | settings.chat_model",
-      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest",
+      "action_id": "선택한 catalog action의 action_id",
       "params": {},
       "reason": "간단한 한국어 설명"
     }
-  ],
-  "legacy_actions": [
-    { "action": "register_topic | publish_article | update_config | run_job | query_data", "params": {} }
   ],
   "meta": { "explicit_params": [] },
   "reply": { "text": "직접 답변 또는 실행 전 설명", "recommendation": "선택적 추천; 없으면 빈 문자열" }
@@ -315,32 +271,78 @@ ${messageText}`;
 
     try {
         const parsed = JSON.parse(jsonText);
-        const route = ['agent', 'legacy', 'reply', 'unsupported'].includes(parsed?.route)
-            ? parsed.route
-            : (Array.isArray(parsed?.actions) && parsed.actions.length > 0 ? 'agent' : 'unsupported');
         const actions = Array.isArray(parsed?.actions) ? parsed.actions : [];
-        const legacyActions = normalizeLegacyActions(parsed?.legacy_actions);
+        const route = ['agent', 'reply', 'unsupported'].includes(parsed?.route)
+            ? parsed.route
+            : (actions.length > 0 ? 'agent' : 'unsupported');
         const reply = parsed?.reply && typeof parsed.reply === 'object' ? parsed.reply : {};
 
+        const allowedCapabilityIds = new Set(agentActions.map((item) => item.action_id));
+        if (route === 'agent' && actions.some((action) => !allowedCapabilityIds.has(String(action?.action_id || '').trim()))) {
+            logger.debug('[AgentParser] Model selected a capability outside the runtime catalog.');
+            return buildEnvelope(conversationId, messageId, []);
+        }
+
         if (route === 'agent' && actions.length === 0) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'legacy' && legacyActions.length === 0) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'agent' && legacyActions.length > 0) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'legacy' && actions.length > 0) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'legacy' && legacyActions.some((item) => !item)) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'reply' && (actions.length > 0 || legacyActions.length > 0)) return buildEnvelope(conversationId, messageId, []);
-        if (route === 'unsupported' && (actions.length > 0 || legacyActions.length > 0)) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'agent' && actions.length === 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'reply' && actions.length > 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'unsupported' && actions.length > 0) return buildEnvelope(conversationId, messageId, []);
+
+        let recommendation = String(reply.recommendation || '').trim();
+        if (route === 'agent' && typeof context.capabilityRegistry?.getAgentAction === 'function') {
+            const candidateActions = actions.map((action, index) => ({
+                id: String(action?.id || `inv_${index + 1}`).trim(),
+                action_id: String(action?.action_id || '').trim(),
+                params: action?.params && typeof action.params === 'object' && !Array.isArray(action.params) ? action.params : {},
+                reason: String(action?.reason || '').trim()
+            }));
+            const validation = validateActionEnvelope({
+                version: '1.0', conversation_id: conversationId, message_id: messageId,
+                actions: candidateActions
+            }, context.capabilityRegistry);
+            const missingFields = Array.from(new Set(validation.errors.flatMap((error) =>
+                [...String(error).matchAll(/must have required property '([^']+)'/g)].map((match) => match[1])
+            )));
+            if (missingFields.length > 0) {
+                const capability = context.capabilityRegistry.getAgentAction(candidateActions[0]?.action_id);
+                const questions = capability?.agentExposure?.requiredInputQuestions || {};
+                const question = missingFields.map((field) => questions[field]).find((item) => String(item || '').trim());
+                return {
+                    ...buildEnvelope(conversationId, messageId),
+                    route: 'reply',
+                    reply: {
+                        text: String(question || '요청을 진행하는 데 필요한 정보를 확인하지 못했어요. 필요한 조건을 조금 더 알려주시겠어요?').trim(),
+                        recommendation: ''
+                    }
+                };
+            }
+
+            for (const action of candidateActions) {
+                const capability = context.capabilityRegistry.getAgentAction(action.action_id);
+                const suggestions = capability?.agentExposure?.optionalInputSuggestions || {};
+                for (const [field, message] of Object.entries(suggestions)) {
+                    if (!Object.prototype.hasOwnProperty.call(action.params, field) && String(message || '').trim()) {
+                        recommendation = [recommendation, String(message).trim()].filter(Boolean).join('\n');
+                    }
+                }
+            }
+        }
 
         return {
             version: '1.0',
             conversation_id: conversationId,
             message_id: messageId,
             route,
-            actions: route === 'agent' ? actions : [],
-            legacy_actions: route === 'legacy' ? legacyActions : [],
+            actions: route === 'agent' ? actions.map((action, index) => ({
+                id: String(action?.id || `inv_${index + 1}`).trim(),
+                action_id: String(action?.action_id || '').trim(),
+                params: action?.params && typeof action.params === 'object' && !Array.isArray(action.params) ? action.params : {},
+                reason: String(action?.reason || '').trim()
+            })) : [],
             meta: parsed?.meta && typeof parsed.meta === 'object' ? parsed.meta : {},
             reply: {
                 text: String(reply.text || '').trim(),
-                recommendation: String(reply.recommendation || '').trim()
+                recommendation
             }
         };
     } catch (error) {
@@ -351,5 +353,7 @@ ${messageText}`;
 
 module.exports = {
     routeTelegramMessage,
-    tryParseDeterministicEnvelope
+    tryParseDeterministicEnvelope,
+    listAgentActions,
+    matchUserRuleEnvelope
 };

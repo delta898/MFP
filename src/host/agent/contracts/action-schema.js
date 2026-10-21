@@ -1,21 +1,38 @@
-const { buildCapabilityId } = require('../../../capabilities/capability-id');
+const Ajv2020 = require('ajv/dist/2020');
 
 const MAX_ACTIONS_PER_MESSAGE = 3;
 
-const ALLOWED_ACTION_TYPES = new Set([
-    'agent.query',
-    'agent.command',
-    'setting.query',
-    'setting.update',
-    'job.run',
-    'content.register',
-    'content.publish',
-    'content.generate'
-]);
+const agentInputValidators = new WeakMap();
+const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, allowUnionTypes: true, validateFormats: false });
+
+function validateAgentInput(action, capability, prefix, errors) {
+    const schema = capability?.agentExposure?.inputSchema;
+    if (!schema) return;
+
+    let validate = agentInputValidators.get(capability);
+    if (!validate) {
+        try {
+            validate = ajv.compile({
+                $schema: 'https://json-schema.org/draft/2020-12/schema',
+                ...schema
+            });
+            agentInputValidators.set(capability, validate);
+        } catch (error) {
+            errors.push(`${prefix}의 Agent inputSchema가 올바르지 않습니다: ${error.message}`);
+            return;
+        }
+    }
+
+    if (!validate(action.params)) {
+        const issues = (validate.errors || []).map((item) => `${item.instancePath || '/'} ${item.message}`).join('; ');
+        errors.push(`${prefix}.params가 action inputSchema와 일치하지 않습니다: ${issues}`);
+    }
+}
 
 function normalizeAction(action = {}) {
     return {
         id: String(action.id || '').trim(),
+        action_id: String(action.action_id || '').trim(),
         type: String(action.type || '').trim(),
         domain: String(action.domain || '').trim(),
         name: String(action.name || '').trim(),
@@ -46,33 +63,32 @@ function validateActionEnvelope(envelope = {}, capabilityRegistry) {
         errors.push(`actions는 최대 ${MAX_ACTIONS_PER_MESSAGE}개까지 허용됩니다.`);
     }
 
-    const distinctDomains = new Set();
-
     normalized.actions.forEach((action, index) => {
         const prefix = `actions[${index}]`;
 
-        if (!action.type || !ALLOWED_ACTION_TYPES.has(action.type)) {
-            errors.push(`${prefix}.type이 허용되지 않습니다.`);
-        }
-        if (!action.domain) errors.push(`${prefix}.domain이 필요합니다.`);
-        if (!action.name) errors.push(`${prefix}.name이 필요합니다.`);
+        if (!action.action_id) errors.push(`${prefix}.action_id가 필요합니다.`);
         if (!action.id) errors.push(`${prefix}.id가 필요합니다.`);
         if (action.params === null || typeof action.params !== 'object' || Array.isArray(action.params)) {
             errors.push(`${prefix}.params는 object여야 합니다.`);
         }
 
-        if (action.domain) distinctDomains.add(action.domain);
-
-        const capabilityId = buildCapabilityId(action.domain, action.name);
-        const capability = capabilityRegistry?.get ? capabilityRegistry.get(capabilityId) : null;
+        const capabilityId = action.action_id;
+        const capability = capabilityRegistry?.getAgentAction
+            ? capabilityRegistry.getAgentAction(capabilityId)
+            : capabilityRegistry?.get ? capabilityRegistry.get(capabilityId) : null;
         if (!capability) {
             errors.push(`${prefix}가 등록되지 않은 capability를 참조합니다: ${capabilityId}`);
             return;
         }
-
-        if (capability.type && capability.type !== action.type) {
-            errors.push(`${prefix}.type이 capability 정의와 일치하지 않습니다.`);
+        if (!capability.agentExposure) {
+            errors.push(`${prefix}는 Agent action catalog에 등록되지 않은 capability입니다.`);
+            return;
         }
+
+        action.type = String(capability.type || '').trim();
+        action.domain = String(capability.domain || '').trim();
+        action.name = String(capability.name || '').trim();
+        validateAgentInput(action, capability, prefix, errors);
 
         if (capability.confirmPolicy === 'required') {
             action.requires_confirmation = true;
@@ -80,10 +96,6 @@ function validateActionEnvelope(envelope = {}, capabilityRegistry) {
             action.requires_confirmation = false;
         }
     });
-
-    if (distinctDomains.size > 3) {
-        errors.push('한 요청에서 3개를 초과하는 서로 다른 domain을 동시에 사용할 수 없습니다.');
-    }
 
     return {
         ok: errors.length === 0,
@@ -94,7 +106,6 @@ function validateActionEnvelope(envelope = {}, capabilityRegistry) {
 
 module.exports = {
     MAX_ACTIONS_PER_MESSAGE,
-    ALLOWED_ACTION_TYPES,
     normalizeAction,
     normalizeEnvelope,
     validateActionEnvelope

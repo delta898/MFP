@@ -102,6 +102,7 @@ const { createSnsAutomationApplication } = require('../applications/sns/distribu
 const { createContentActionHandlers } = require('../adapters/ui/content/content-api/action-handlers');
 const { createShoppingQuickPublishHandler } = require('../adapters/ui/shopping/publishing/quick-publish-handler');
 const { createBlogManualPublishingApplication } = require('../applications/blog/publishing/manual-publishing-application');
+const { createBlogExecutionCoordinator } = require('../applications/blog/execution/execution-coordinator');
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');
 const { createUiApiRuntime } = require('./api/ui-api-runtime');
@@ -375,6 +376,7 @@ const recordActivityLifecycle = createActivityLifecycleRecorder({
     Logger
 });
 const topicRecommendationEventStore = getAgentEventStore({ baseDir: CONFIG.ROOT_DIR });
+const blogNextExecutionCoordinator = createBlogExecutionCoordinator();
 const topicRecommendationKnowledgeRuntime = createKnowledgeRuntime({ CONFIG, Logger, License, axios });
 const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     ...topicRecommendationKnowledgeRuntime,
@@ -382,6 +384,7 @@ const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     CONFIG,
     Logger,
     GoogleSheets,
+    blogNextExecutionCoordinator,
     blogWritingApplication: blogWritingSystem.application,
     keywordResearchApplication,
     License,
@@ -467,6 +470,7 @@ const {
 const syncAutoRunnerWithConfig = syncSnsAutomationWithConfig;
 const mcpCapabilityDependencies = {
     modelConfiguration,
+    blogNextExecutionCoordinator,
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,
     syncAutoRunnerWithConfig
@@ -952,6 +956,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     fetchReferenceContent,
     findImageByPrefix,
     GoogleSheets,
+    blogNextExecutionCoordinator,
     BrowserLauncher,
     fs,
     path,

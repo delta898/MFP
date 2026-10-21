@@ -8,9 +8,21 @@ function createChatModelCapabilities(deps = {}) {
     return [
         {
             id: 'settings.chat_model.get_summary',
+            effect: 'read_only',
             type: 'setting.query',
             domain: 'settings.chat_model',
             confirmPolicy: 'never',
+            agentExposure: {
+                category: '설정 조회',
+                title: 'Chat Model 확인',
+                description: '현재 대화에 사용하는 AI 모델의 설정 요약을 확인합니다.',
+                useWhen: '사용자가 현재 대화용 AI 모델 설정을 확인합니다.',
+                avoidWhen: '사용자가 모델을 바꾸거나 키·비밀값을 확인하라고 합니다.',
+                inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+                outputDescription: 'Chat Model의 설정 요약을 민감한 키 값 없이 반환합니다.',
+                availabilityNote: '모델이 설정되지 않은 경우 미설정 상태를 알려드립니다.',
+                examples: ['현재 Chat Model이 뭐야?']
+            },
             validate() {
                 return { ok: true, errors: [], normalizedParams: {} };
             },

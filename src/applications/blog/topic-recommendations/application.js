@@ -1,9 +1,14 @@
-const { createTopicCandidateGenerator } = require('../../../services/recommendations/topic-candidate-generator');
+const {
+    createTopicCandidateGenerator,
+    matchesExplicitTopic,
+    stableCandidateId
+} = require('../../../services/recommendations/topic-candidate-generator');
 const { rankTopicCandidates } = require('../../../services/recommendations/topic-ranking-policy');
 const {
     createRecommendationRunId,
     buildRecommendationContext
 } = require('../../../services/recommendations/topic-recommendation-learning');
+const { enforceTopicConstraint } = require('./topic-idea-policy');
 const LoggerDefault = require('../../../utilities/logging/logger');
 
 function compactLog(value, maxLength = 180) {
@@ -30,6 +35,33 @@ function collectRecentRecommendationCandidateIds(input = {}, artifacts = []) {
         .slice(0, 9)
         .map((artifact) => artifact?.payload?.recommendation?.candidate_id);
     return [...new Set([...explicit, ...recent].map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function buildGenerationCandidates(selectedCandidates = [], query = '', limit = 3) {
+    const selected = Array.isArray(selectedCandidates) ? selectedCandidates.slice(0, limit) : [];
+    if (!String(query || '').trim()) return selected;
+
+    const explicitSeed = selected.find((candidate) => candidate.candidate_type === 'request_seed');
+    if (!explicitSeed) return selected;
+    const generationCandidates = [...selected];
+    const existingIds = new Set(generationCandidates.map((candidate) => String(candidate.id || '')));
+    for (let index = 1; generationCandidates.length < limit; index += 1) {
+        const id = `${explicitSeed.id}:variant:${index}`;
+        if (existingIds.has(id)) continue;
+        generationCandidates.push({
+            ...explicitSeed,
+            id,
+            variant_index: index,
+            ranking: {
+                ...(explicitSeed.ranking || {}),
+                rank: generationCandidates.length + 1,
+                selection_reason: 'explicit_topic_variant'
+            },
+            explanation: `${explicitSeed.explanation} (요청 주제의 ${index}번째 관점)`
+        });
+        existingIds.add(id);
+    }
+    return generationCandidates;
 }
 
 function createBlogTopicRecommendationsApplication(options = {}) {
@@ -65,6 +97,26 @@ function createBlogTopicRecommendationsApplication(options = {}) {
                 // Keep enough candidates for every source pool before ranking.
                 limit: Math.max(30, requestedLimit * 4)
             });
+            const requestedTopic = String(input.query || '').trim();
+            const candidatePool = requestedTopic
+                ? (Array.isArray(candidateSet.candidates) ? candidateSet.candidates : []).filter((candidate) => (
+                    matchesExplicitTopic(candidate?.topic_seed, requestedTopic)
+                ))
+                : (Array.isArray(candidateSet.candidates) ? candidateSet.candidates : []);
+            if (requestedTopic && !candidatePool.some((candidate) => candidate?.candidate_type === 'request_seed')) {
+                candidatePool.unshift({
+                    schema_version: 1,
+                    id: stableCandidateId('request_seed', requestedTopic),
+                    candidate_type: 'request_seed',
+                    topic_seed: requestedTopic,
+                    source_refs: [{ kind: 'request', id: 'current_request' }],
+                    owner_matches: { keywords: [], categories: [] },
+                    trend: null,
+                    evidence_features: { explicit_request: true, owner_keyword_evidence: 0 },
+                    semantic_context: '',
+                    explanation: '현재 사용자가 직접 요청한 주제입니다.'
+                });
+            }
             Logger.debug(`🧭 [Content Ideas] 추천 후보 pool 구성 시작 (run=${recommendationRunId}, query=${compactLog(input.query || '새로운 글감 추천', 120)})`);
             Logger.debug(`🧭 [Content Ideas] 후보 pool=${candidateSet.candidates.length}건, 외부 지식=${knowledge.length}건, source_counts=${JSON.stringify(candidateSet.source_counts || {})}, 최근 글 제외=${Number(candidateSet.excluded_recent_count || 0)}건, 이전 추천 후보 제외=${Number(candidateSet.excluded_previous_count || 0)}건`);
             if (candidateSet.focus) {
@@ -72,7 +124,7 @@ function createBlogTopicRecommendationsApplication(options = {}) {
             }
             Logger.debug(`🧭 [Content Ideas] 후보 pool 상세 (run=${recommendationRunId}): ${candidateSet.candidates.map(formatCandidate).join(' || ') || '없음'}`);
             const ranking = candidateRanker({
-                candidates: candidateSet.candidates,
+                candidates: candidatePool,
                 ownerProfile: ownerMemory.profile || {},
                 limit: requestedLimit,
                 preferredCandidateTypes: input.query
@@ -84,15 +136,16 @@ function createBlogTopicRecommendationsApplication(options = {}) {
             if (ranking.deferred.length > 0) {
                 Logger.debug(`⏸️ [Content Ideas] 보류 후보 (run=${recommendationRunId}): ${ranking.deferred.map((candidate) => `${compactLog(candidate.topic_seed)} [${candidate.ranking?.deferred_reason || 'unknown'}]`).join(' || ')}`);
             }
-            const rankedCandidates = new Map(ranking.selected.map((candidate) => [String(candidate.id || '').trim(), candidate]));
+            const generationCandidates = buildGenerationCandidates(ranking.selected, input.query, requestedLimit);
+            const rankedCandidates = new Map(generationCandidates.map((candidate) => [String(candidate.id || '').trim(), candidate]));
 
             for (const provider of providers) {
                 if (!provider || typeof provider.generate !== 'function') continue;
-                Logger.debug(`🤖 [Content Ideas] provider=${provider.id || 'unknown'} 에 최종 후보 ${ranking.selected.length}건 전달 (run=${recommendationRunId})`);
+                Logger.debug(`🤖 [Content Ideas] provider=${provider.id || 'unknown'} 에 최종 후보 ${generationCandidates.length}건 전달 (run=${recommendationRunId})`);
                 const result = await provider.generate(input, {
                     ...context,
                     knowledge,
-                    recommendationCandidates: ranking.selected
+                    recommendationCandidates: generationCandidates
                 });
                 if (Array.isArray(result?.ideas)) {
                     ideas.push(...result.ideas);
@@ -119,7 +172,8 @@ function createBlogTopicRecommendationsApplication(options = {}) {
                 });
             });
 
-            const enrichedIdeas = deduped.map((idea) => {
+            const constrainedIdeas = enforceTopicConstraint(deduped, generationCandidates, input.query, requestedLimit);
+            const enrichedIdeas = constrainedIdeas.map((idea) => {
                 const candidate = rankedCandidates.get(idea.candidate_id);
                 return {
                     ...idea,
@@ -139,7 +193,7 @@ function createBlogTopicRecommendationsApplication(options = {}) {
             return {
                 ideas: enrichedIdeas.slice(0, requestedLimit),
                 knowledge,
-                candidates: ranking.selected,
+                candidates: generationCandidates,
                 recommendation_run: {
                     schema_version: 1,
                     id: recommendationRunId,
@@ -149,6 +203,7 @@ function createBlogTopicRecommendationsApplication(options = {}) {
                     policy: ranking.policy,
                     input_count: ranking.input_count,
                     selected_count: ranking.selected_count,
+                    generation_candidate_count: generationCandidates.length,
                     deferred_count: ranking.deferred_count
                 }
             };

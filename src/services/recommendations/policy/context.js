@@ -1,4 +1,4 @@
-const { buildCapabilityId } = require('../../../capabilities/capability-id');
+const { buildCapabilityId } = require('../../agent-actions/capability-id');
 const { RECOMMENDATION_PRESENTATION_SURFACES, RECOMMENDATION_STATES } = require('../core/contract');
 const { IDENTIFIER_PATTERN } = require('../core/validators');
 const { validateLicenseFeaturePolicy } = require('../../licensing/feature-policy');

@@ -1,4 +1,5 @@
 const LoggerDefault = require('../../../utilities/logging/logger');
+const { createTopicConstrainedFallbackIdea } = require('./topic-idea-policy');
 
 function stripCodeFence(raw) {
     return String(raw || '')
@@ -56,9 +57,22 @@ function buildFallbackIdeas(input = {}, context = {}) {
     for (const candidate of candidates.slice(0, 5)) {
         const topicSeed = String(candidate?.topic_seed || '').trim();
         if (!topicSeed) continue;
+        if (query) {
+            const constrainedIdea = createTopicConstrainedFallbackIdea(candidate, Number(candidate?.variant_index || ideas.length));
+            if (constrainedIdea) ideas.push(constrainedIdea);
+            continue;
+        }
+        const variantIndex = Number(candidate?.variant_index || 0);
+        const variantTitles = [
+            `${topicSeed} 준비 전에 확인할 핵심 정보`,
+            `${topicSeed} 일정과 비용을 알차게 계획하는 방법`,
+            `${topicSeed}에서 놓치기 쉬운 경험과 실전 팁`
+        ];
         ideas.push({
-            title: `${topicSeed} 관련해서 지금 정리해볼 핵심 포인트`,
-            summary: `${topicSeed} 관련 정보를 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
+            title: variantIndex > 0 ? variantTitles[(variantIndex - 1) % variantTitles.length] : `${topicSeed} 관련해서 지금 정리해볼 핵심 포인트`,
+            summary: variantIndex > 0
+                ? `${topicSeed}을 중심으로 ${variantIndex}번째 관점에서 독자가 활용할 수 있는 정보를 정리합니다.`
+                : `${topicSeed} 관련 정보를 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
             reason: String(candidate?.explanation || '사용자 기억과 최신 지식 근거를 반영했습니다.'),
             keywords: [topicSeed],
             source: 'candidate_fallback',
@@ -141,7 +155,13 @@ function keepIdeasWithinCandidates(ideas = [], candidates = [], input = {}, cont
     const allowedCandidates = Array.isArray(candidates) ? candidates : [];
     if (allowedCandidates.length === 0) return ideas;
     const allowedIds = new Set(allowedCandidates.map((candidate) => String(candidate?.id || '').trim()).filter(Boolean));
-    const accepted = ideas.filter((idea) => idea.candidate_id && allowedIds.has(idea.candidate_id));
+    const usedCandidateIds = new Set();
+    const accepted = ideas.filter((idea) => {
+        const candidateId = String(idea?.candidate_id || '').trim();
+        if (!candidateId || !allowedIds.has(candidateId) || usedCandidateIds.has(candidateId)) return false;
+        usedCandidateIds.add(candidateId);
+        return true;
+    });
     const acceptedIds = new Set(accepted.map((idea) => idea.candidate_id));
     const missingCandidates = allowedCandidates.filter((candidate) => !acceptedIds.has(String(candidate?.id || '').trim()));
     if (missingCandidates.length === 0) return accepted;
@@ -222,11 +242,13 @@ function createAiMemoryContentIdeaProvider(options = {}) {
 - summary: 한 문장, 90자 이내
 - keywords: 2~3개
 - 제공된 문맥과 다른 동음이의어, 인물, 작품, 브랜드 또는 제품으로 주제를 바꾸지 않기
+- 사용자가 명시한 주제가 있으면 모든 결과가 그 주제를 유지해야 합니다. 사용자 활동은 주제와 일치할 때만 보조 근거로 사용하세요.
+- 후보에 추천 각도가 표시되면 서로 다른 글감으로 작성하되, 각도보다 사용자가 지정한 주제를 우선합니다.
 - 자연스러운 한국어만 사용하고 '을(를)' 같은 placeholder는 사용 금지
 - JSON 외의 텍스트와 Markdown은 금지
 
 [선택된 후보]
-${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.id} | 주제=${item.topic_seed} | 문맥=${item.semantic_context || '추가 문맥 없음'}`).join('\n') : `- id 없음 | 주제=${query || '새 글감'}`}`;
+${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.id} | 주제=${item.topic_seed} | 추천 각도=${item.variant_index || '후보 근거'} | 문맥=${item.semantic_context || '추가 문맥 없음'}`).join('\n') : `- id 없음 | 주제=${query || '새 글감'}`}`;
 
             const buildFallbackResult = (reason) => {
                 const ideas = applyArtifactFeedback(

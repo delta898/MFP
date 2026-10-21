@@ -8,6 +8,7 @@ const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('../
 const { buildOwnerActivitySignalSummary } = require('../../../services/memory/owner-activity-signals');
 const { buildOwnerProfileProjection } = require('../../../services/memory/owner-profile');
 const { buildMemoryCollectionAudit } = require('../../../services/memory/collection-audit');
+const { normalizeTrigger } = require('../../../services/memory/user-command-rules');
 const { SQLiteDatabase } = require('./sqlite-database');
 
 const SQLITE_MEMORY_GENERATION = 2;
@@ -166,13 +167,60 @@ class SQLiteEventStore extends MemoryPayloadCodec {
                 confidence REAL NOT NULL, evidence_count INTEGER NOT NULL, updated_at TEXT NOT NULL
             ) STRICT;
             CREATE INDEX IF NOT EXISTS idx_preferences_user_time ON preferences(user_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS user_command_rules (
+                id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, user_id TEXT NOT NULL,
+                trigger TEXT NOT NULL, normalized_trigger TEXT NOT NULL,
+                action_id TEXT NOT NULL,
+                action_params_json TEXT NOT NULL, status TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                UNIQUE(user_id, normalized_trigger),
+                FOREIGN KEY(owner_id) REFERENCES owners(id) ON DELETE CASCADE
+            ) STRICT;
+            CREATE INDEX IF NOT EXISTS idx_user_command_rules_user_status ON user_command_rules(user_id, status, updated_at DESC);
             CREATE TABLE IF NOT EXISTS domain_knowledge (
                 id TEXT PRIMARY KEY, domain TEXT NOT NULL, canonical_value TEXT NOT NULL,
                 aliases_json TEXT NOT NULL, confidence REAL NOT NULL, evidence_count INTEGER NOT NULL, updated_at TEXT NOT NULL
             ) STRICT;
             CREATE INDEX IF NOT EXISTS idx_domain_knowledge_domain_time ON domain_knowledge(domain, updated_at DESC);
         `);
+        this._migrateUserCommandRuleActionIdentity();
         this._migrateLegacySuggestionTables();
+    }
+
+    _migrateUserCommandRuleActionIdentity() {
+        const columns = this.database.all('PRAGMA table_info(user_command_rules)');
+        const columnNames = new Set(columns.map((column) => column.name));
+        const hasActionId = columnNames.has('action_id');
+        const hasLegacyIdentity = columnNames.has('action_domain')
+            || columnNames.has('action_name')
+            || columnNames.has('action_type');
+        if (hasActionId && !hasLegacyIdentity) return;
+
+        const hasLegacyActionParts = columnNames.has('action_domain') && columnNames.has('action_name');
+        const actionIdExpression = hasActionId
+            ? (hasLegacyActionParts
+                ? "COALESCE(NULLIF(action_id, ''), action_domain || '.' || action_name)"
+                : 'action_id')
+            : "action_domain || '.' || action_name";
+        this.database.transaction(() => {
+            this.database.exec('ALTER TABLE user_command_rules RENAME TO user_command_rules_previous');
+            this.database.exec(`CREATE TABLE user_command_rules (
+                id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, user_id TEXT NOT NULL,
+                trigger TEXT NOT NULL, normalized_trigger TEXT NOT NULL,
+                action_id TEXT NOT NULL, action_params_json TEXT NOT NULL, status TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                UNIQUE(user_id, normalized_trigger),
+                FOREIGN KEY(owner_id) REFERENCES owners(id) ON DELETE CASCADE
+            ) STRICT`);
+            this.database.exec(`INSERT INTO user_command_rules(
+                id, owner_id, user_id, trigger, normalized_trigger, action_id,
+                action_params_json, status, created_at, updated_at
+            ) SELECT id, owner_id, user_id, trigger, normalized_trigger, ${actionIdExpression},
+                action_params_json, status, created_at, updated_at
+                FROM user_command_rules_previous`);
+            this.database.exec('DROP TABLE user_command_rules_previous');
+            this.database.exec('CREATE INDEX idx_user_command_rules_user_status ON user_command_rules(user_id, status, updated_at DESC)');
+        });
     }
 
     _migrateLegacySuggestionTables() {
@@ -749,6 +797,99 @@ class SQLiteEventStore extends MemoryPayloadCodec {
     async listUserPreferences(userId, limit = 10) {
         await this.initialize();
         return this.database.all('SELECT * FROM preferences WHERE user_id = :id ORDER BY updated_at DESC LIMIT :limit', { id: String(userId || ''), limit: boundedLimit(limit, 10) }).map((r) => ({ ...r, value: json(r.value_json) }));
+    }
+
+    async createUserCommandRule(input = {}) {
+        await this.initialize();
+        const userId = String(input.user_id || input.userId || '').trim();
+        const ownerId = String(input.owner_id || input.ownerId || this.owner?.owner_user_id || '').trim();
+        const trigger = String(input.trigger || '').trim();
+        const normalizedTrigger = normalizeTrigger(input.normalized_trigger || input.trigger);
+        const actionId = String(input.action_id || '').trim();
+        const params = input.action_params && typeof input.action_params === 'object' && !Array.isArray(input.action_params)
+            ? input.action_params
+            : {};
+        if (!userId || !ownerId || !trigger || !normalizedTrigger || !actionId) {
+            throw Object.assign(new Error('사용자 규칙의 소유자와 실행 내용을 확인해 주세요.'), { code: 'USER_RULE_INVALID' });
+        }
+        const paramsJson = JSON.stringify(params);
+        if (Buffer.byteLength(paramsJson, 'utf8') > 10000) {
+            throw Object.assign(new Error('규칙에 저장할 입력값이 너무 큽니다.'), { code: 'USER_RULE_PARAMS_TOO_LARGE' });
+        }
+        this._ensureOwner({ owner_user_id: ownerId });
+        await this.ensureUser({ id: userId, channel: input.channel || 'telegram', username: input.username || '' });
+        const id = String(input.id || `rule_${crypto.randomUUID()}`).trim();
+        const timestamp = iso(input.timestamp);
+        try {
+            this.database.run(`INSERT INTO user_command_rules(
+                id, owner_id, user_id, trigger, normalized_trigger,
+                action_id, action_params_json, status, created_at, updated_at
+            ) VALUES (:id, :owner_id, :user_id, :trigger, :normalized_trigger,
+                :action_id, :action_params_json, 'active', :created_at, :updated_at)`, {
+                id, owner_id: ownerId, user_id: userId, trigger, normalized_trigger: normalizedTrigger,
+                action_id: actionId,
+                action_params_json: paramsJson, created_at: timestamp, updated_at: timestamp
+            });
+        } catch (error) {
+            if (String(error?.message || '').includes('UNIQUE constraint failed: user_command_rules.user_id, user_command_rules.normalized_trigger')) {
+                throw Object.assign(new Error('같은 실행 문구의 규칙이 이미 있습니다. 기존 규칙을 수정하거나 다른 문구를 사용해 주세요.'), { code: 'USER_RULE_TRIGGER_CONFLICT' });
+            }
+            throw error;
+        }
+        return this.getUserCommandRule(userId, id);
+    }
+
+    async getUserCommandRule(userId, ruleId) {
+        await this.initialize();
+        const row = this.database.get('SELECT * FROM user_command_rules WHERE user_id = :user_id AND id = :id LIMIT 1', {
+            user_id: String(userId || ''), id: String(ruleId || '')
+        });
+        return row ? this._userCommandRule(row) : null;
+    }
+
+    async getUserCommandRuleByTrigger(userId, trigger) {
+        await this.initialize();
+        const row = this.database.get('SELECT * FROM user_command_rules WHERE user_id = :user_id AND normalized_trigger = :trigger LIMIT 1', {
+            user_id: String(userId || ''), trigger: normalizeTrigger(trigger)
+        });
+        return row ? this._userCommandRule(row) : null;
+    }
+
+    _userCommandRule(row) {
+        if (!row) return null;
+        return {
+            id: row.id, user_id: row.user_id, trigger: row.trigger, normalized_trigger: row.normalized_trigger,
+            action_id: row.action_id, action_params: json(row.action_params_json),
+            status: row.status, created_at: row.created_at, updated_at: row.updated_at
+        };
+    }
+
+    async listUserCommandRules(userId, options = {}) {
+        await this.initialize();
+        const activeOnly = options.activeOnly === true;
+        return this.database.all(`SELECT * FROM user_command_rules WHERE user_id = :user_id ${activeOnly ? "AND status = 'active'" : ''}
+            ORDER BY updated_at DESC LIMIT :limit`, {
+            user_id: String(userId || ''), limit: boundedLimit(options.limit, 20, 100)
+        }).map((row) => this._userCommandRule(row));
+    }
+
+    async setUserCommandRuleStatus(userId, ruleId, status) {
+        await this.initialize();
+        const normalizedStatus = String(status || '').trim().toLowerCase();
+        if (!['active', 'disabled'].includes(normalizedStatus)) throw new Error('사용자 규칙 상태가 올바르지 않습니다.');
+        const result = this.database.run(`UPDATE user_command_rules SET status = :status, updated_at = :updated_at
+            WHERE user_id = :user_id AND id = :id`, {
+            status: normalizedStatus, updated_at: iso(), user_id: String(userId || ''), id: String(ruleId || '')
+        });
+        return Number(result.changes || 0) > 0 ? this.getUserCommandRule(userId, ruleId) : null;
+    }
+
+    async deleteUserCommandRule(userId, ruleId) {
+        await this.initialize();
+        const result = this.database.run('DELETE FROM user_command_rules WHERE user_id = :user_id AND id = :id', {
+            user_id: String(userId || ''), id: String(ruleId || '')
+        });
+        return Number(result.changes || 0) > 0;
     }
 
     getLocalOwnerIdentity() { return this.owner ? { ...this.owner } : this.ownerIdentity.resolve(); }

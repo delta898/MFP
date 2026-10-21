@@ -1,8 +1,8 @@
 const {
     LIVE_PUBLISH_BLOCKED_MESSAGE,
     isLivePublishAllowed
-} = require('../../services/runtime-environment/effects');
-const { getInternalUiOrigin } = require('../../utilities/network/internal-ui-origin');
+} = require('../../../services/runtime-environment/effects');
+const { getInternalUiOrigin } = require('../../../utilities/network/internal-ui-origin');
 
 function normalizeArray(value) {
     if (!Array.isArray(value)) return [];

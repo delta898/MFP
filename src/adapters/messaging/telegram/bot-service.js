@@ -4,21 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { createAgentRuntime } = require('../../../host/agent/runtime');
-const { createPlanner } = require('../../../host/agent/planning/planner');
 const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
 const { createCapabilityRuntime } = require('../../../composition/capability-runtime');
 const { createKnowledgeRuntime } = require('../../../composition/knowledge-runtime');
 const { createMemoryRetrievalService } = require('../../../services/memory/retrieval-service');
-const { generateUserInsight } = require('../../../services/memory/insight-generation');
 const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./agent-parser');
-const {
-    mapLegacyTelegramContentRequest,
-    isCanonicalContentRequestBundle,
-    applyContentRequestToggle,
-    isPublishExecutionEnabled
-} = require('./content-request-mapper');
 const TelegramAgentRenderer = require('./agent-renderer');
-const { getInternalUiOrigin } = require('../../../utilities/network/internal-ui-origin');
 const { getAgentEventStore } = require('../../../host/memory/runtime');
 const { recordRecommendationFeedback } = require('../../../services/recommendations/adapters/recommendation-feedback-adapter');
 const {
@@ -27,16 +18,30 @@ const {
     formatTelegramDiagnostic
 } = require('./network-policy');
 
+function summarizeAgentActionIds(actions = []) {
+    return (Array.isArray(actions) ? actions : [])
+        .map(action => String(action?.action_id || action?.capability_id || [action?.domain, action?.name].filter(Boolean).join('.') || '').trim())
+        .filter(Boolean)
+        .join(',') || 'none';
+}
+
+function summarizeAgentResults(results = []) {
+    return (Array.isArray(results) ? results : [])
+        .map(item => `${String(item?.capability_id || item?.action_id || 'unknown')}:${item?.result?.success === false ? 'failed' : 'ok'}`)
+        .join(',') || 'none';
+}
+
+function getSafeAgentErrorCode(error) {
+    return String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
+}
+
 class TelegramBotService {
     static CONFIG = {};
     static GoogleSheets = null;
     static License = null;
     static bot = null;
     static isInitialized = false;
-    static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
-    static chatContext = new Map(); // chatId별 마지막 성공 토픽 주제 저장용
     static agentRuntime = null;
-    static agentPlanner = null;
     static agentEventStore = null;
     static agentRetrieval = null;
     static agentCapabilityRegistry = null;
@@ -147,37 +152,6 @@ class TelegramBotService {
     }
 
     static init() {
-        // [Fun Factor] 상황별 다양한 메시지 정의
-        this.messages = {
-            topic_added: [
-                '✅ 글감이 시트 대기열에 성공적으로 등록되었습니다! 곧 발행 프로세스가 시작됩니다 🚀',
-                '✅ 오케이! 시트 대기열에 담아뒀어요. 잠시만 기다려 주시면 발행 뚝딱 해드릴게요! 👩‍🍳',
-                '✅ 접수 완료! 토픽 리스트에 잘 올려두었습니다. 곧 원고 작성을 시작할게요 ✨',
-                '✅ 글감 등록 성공! 이제 제가 바빠질 차례네요. 조금만 기다려 주세요! 🏃‍♂️💨'
-            ],
-            publishing_start: [
-                '⚙️ 자동 발행 파이프라인에 시동을 걸었습니다. 발행이 완료되면 알려드릴게요!',
-                '⚙️ 뚝딱뚝딱... 글을 굽기 시작했어요! 완료 소식 금방 들고 올게요 🥧',
-                '⚙️ 엔진 가동! 선택하신 플랫폼으로 발행을 시작합니다. 잠시만요! 🚀',
-                '⚙️ 원고 작성 및 발행 루틴을 시작합니다. 결과는 바로 보고드릴게요! 📈'
-            ],
-            busy: [
-                '⏳ 현재 백그라운드에서 다른 자동 발행이 진행 중입니다. 지금 등록하신 건은 앞선 작업이 끝나는 대로 이어서 처리해 드릴게요! 😉',
-                '⏳ 봇 엔진이 열일 중입니다! (다른 작업 진행 중) 조금만 기다려 주시면 순서대로 발행해 드릴게요. 🙇‍♂️',
-                '⏳ 앞서 요청하신 작업이 진행 중이네요. 이번 건도 대기열에 잘 넣어두었으니 걱정 마세요! 📋'
-            ],
-            welcome: [
-                `📖 *블로그 자동 발행 비서 안내*
-                
-안녕하세요! 원격으로 블로그 글 발행을 도와드리는 비서입니다. 
-원하시는 주제나 키워드를 편하게 말씀해 주시면 제가 알아서 정리해서 발행을 준비해 드릴게요. 😉`,
-                `✨ *반가워요! 당신의 블로그 도우미입니다*
-
-주제만 툭 던져주시면 인공지능이 맥락을 파악해 글을 써드려요. 
-"아까 그 주제로 워드프레스에도 올려줘" 같은 똑똑한 명령도 알아듣는답니다! 🧠`
-            ]
-        };
-
         if (this.isInitialized && this.bot) {
             // Logger.info('🔄 [TelegramBot] 기존 봇 인스턴스가 이미 실행 중입니다.');
             return;
@@ -274,19 +248,18 @@ class TelegramBotService {
             buildDefaultConfigTemplate,
             syncAutoRunnerWithConfig,
             resolveNaverAutoCategoryCatalog,
-            modelConfiguration: dependencies.modelConfiguration
+            modelConfiguration: dependencies.modelConfiguration,
+            agentActionProviders: dependencies.agentActionProviders
         });
 
         this.agentRuntime = createAgentRuntime({
             capabilityRegistry,
             confirmationStore: new ConfirmationStore(),
-            eventStore: this.agentEventStore
+            eventStore: this.agentEventStore,
+            CONFIG,
+            Logger
         });
         this.agentCapabilityRegistry = capabilityRegistry;
-        this.agentPlanner = createPlanner({
-            capabilityRegistry,
-            CONFIG
-        });
         this.agentRetrieval = createMemoryRetrievalService({
             eventStore: this.agentEventStore,
             confirmationStore: this.agentRuntime.confirmationStore
@@ -313,21 +286,6 @@ class TelegramBotService {
         };
     }
 
-    static buildContentExecutionContext(chatId, msgOrQuery = {}, canonicalRequest = {}) {
-        const context = this.buildAgentContext(chatId, msgOrQuery);
-        const conversationId = String(canonicalRequest?.conversation_id || '').trim();
-        const sourceMessageId = String(canonicalRequest?.context_refs?.message_id || '').trim();
-        if (conversationId) context.conversation.id = conversationId;
-        if (sourceMessageId) context.messageId = sourceMessageId;
-        context.metadata = {
-            ...(context.metadata || {}),
-            request_id: String(canonicalRequest?.request_id || '').trim(),
-            source: 'telegram_legacy_parser',
-            transport_message_id: String(msgOrQuery?.message_id || msgOrQuery?.id || '').trim()
-        };
-        return context;
-    }
-
     static async handleRoutedTelegramMessage(chatId, text, msg, options = {}) {
         const runtime = this.ensureAgentRuntime();
         const baseContext = this.buildAgentContext(chatId, msg);
@@ -340,13 +298,9 @@ class TelegramBotService {
 
         if (earlyDeterministicEnvelope?.actions?.length === 1
             && String(earlyDeterministicEnvelope.actions[0]?.domain || '').trim() === 'agent.meta') {
-            const planResult = await this.agentPlanner.buildPlan(earlyDeterministicEnvelope, baseContext);
-            if (!planResult.ok) {
-                await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
-                return { handled: true };
-            }
-
-            const outcome = await runtime.handlePlan(planResult.plan, baseContext);
+            const actionIds = summarizeAgentActionIds(earlyDeterministicEnvelope.actions);
+            const outcome = await runtime.handleEnvelope(earlyDeterministicEnvelope, baseContext);
+            Logger.info(`🧭 [TelegramAgent] deterministic action=${actionIds} status=${outcome.status || (outcome.ok ? 'completed' : 'rejected')}`);
             if (!outcome.ok) {
                 await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
                 return { handled: true };
@@ -376,9 +330,11 @@ class TelegramBotService {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory,
-            modelCaller: this.runtimeDependencies?.generateChatText
+            modelCaller: this.runtimeDependencies?.generateChatText,
+            capabilityRegistry: this.agentCapabilityRegistry
         });
         Logger.info(`⏱️ [TelegramRouter] ${Date.now() - parserStartedAt}ms`);
+        Logger.info(`🧭 [TelegramAgent] route=${String(envelope?.route || 'unknown')} actions=${summarizeAgentActionIds(envelope?.actions)}`);
         const parserNote = [
             String(envelope?.reply?.text || '').trim(),
             String(envelope?.reply?.recommendation || '').trim()
@@ -402,36 +358,24 @@ class TelegramBotService {
             return { handled: true };
         }
 
-        if (envelope?.route === 'legacy') {
-            if (parserNote) await this.bot.sendMessage(chatId, parserNote);
-            return {
-                handled: false,
-                parsedData: {
-                    actions: envelope.legacy_actions,
-                    meta: envelope.meta || {}
-                }
-            };
-        }
 
         if (!Array.isArray(envelope?.actions) || envelope.actions.length === 0) {
             await this.bot.sendMessage(chatId, '요청을 처리할 방법을 찾지 못했어요. 원하신 결과를 조금 더 설명해 주시겠어요?');
             return { handled: true };
         }
 
-        const plannerStartedAt = Date.now();
-        const planResult = await this.agentPlanner.buildPlan(envelope, context);
-        Logger.info(`⏱️ [TelegramAgent] planner ${Date.now() - plannerStartedAt}ms`);
-        if (!planResult.ok) {
-            Logger.debug(`⚠️ [TelegramBot] Agent plan rejected: ${(planResult.errors || []).join(' | ')}`);
-            await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
-            return { handled: true };
-        }
-
         const runtimeStartedAt = Date.now();
-        const outcome = await runtime.handlePlan(planResult.plan, context);
-        Logger.info(`⏱️ [TelegramAgent] runtime ${Date.now() - runtimeStartedAt}ms`);
+        let outcome;
+        try {
+            outcome = await runtime.handleEnvelope(envelope, context);
+        } catch (error) {
+            Logger.error(`❌ [TelegramAgent] execution threw actions=${summarizeAgentActionIds(envelope.actions)} code=${getSafeAgentErrorCode(error)}`);
+            throw error;
+        }
+        const plannedActionIds = summarizeAgentActionIds(outcome.plan?.steps?.map(step => step.action) || envelope.actions);
+        Logger.info(`⏱️ [TelegramAgent] runtime ${Date.now() - runtimeStartedAt}ms status=${outcome.status || (outcome.ok ? 'completed' : 'rejected')} actions=${summarizeAgentResults(outcome.results)}`);
         if (!outcome.ok) {
-            Logger.debug(`⚠️ [TelegramBot] Agent runtime rejected: ${(outcome.errors || []).join(' | ')}`);
+            Logger.warn(`⚠️ [TelegramAgent] runtime rejected actions=${plannedActionIds} error_count=${(outcome.errors || []).length}`);
             await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
             return { handled: true };
         }
@@ -440,6 +384,7 @@ class TelegramBotService {
 
         if (outcome.status === 'confirmation_required') {
             const confirmationId = outcome.confirmation?.id;
+            Logger.info(`🛂 [TelegramAgent] confirmation requested id=${String(confirmationId || 'unknown')} actions=${plannedActionIds}`);
             const message = TelegramAgentRenderer.formatPreviewMessage(outcome.confirmation, outcome.previews);
             const sent = await this.bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
@@ -490,11 +435,21 @@ class TelegramBotService {
             if (inlineKeyboard.length > 0) {
                 options.reply_markup = JSON.stringify({ inline_keyboard: inlineKeyboard });
             }
-            await this.bot.sendMessage(chatId, TelegramAgentRenderer.formatExecutionMessage(outcome.results), options);
+            const executionMessage = TelegramAgentRenderer.formatExecutionMessage(outcome.results);
+            await this.bot.sendMessage(chatId, executionMessage, options);
+            if (typeof this.agentEventStore?.recordInteractionMessage === 'function') {
+                await this.agentEventStore.recordInteractionMessage(
+                    context,
+                    outcome.results.map((item) => String(item?.result?.message || '')).filter(Boolean).join('\n\n') || executionMessage,
+                    'AGENT_RESPONSE',
+                    'AGENT'
+                ).catch(() => { });
+            }
             return { handled: true };
         }
 
-        return { handled: false };
+        await this.bot.sendMessage(chatId, '요청을 연결할 수 있는 기능을 찾지 못했습니다. /help에서 현재 사용할 수 있는 기능을 확인해 주세요.');
+        return { handled: true };
     }
 
     static async handleAgentCallback(chatId, messageId, data, query) {
@@ -589,7 +544,21 @@ class TelegramBotService {
         context.messageId = String(messageId || '').trim();
 
         const decision = verb === 'agent_confirm' ? 'approve' : 'reject';
-        const outcome = await runtime.handleConfirmationDecision({ confirmationId: targetId, decision }, context);
+        const confirmation = runtime.confirmationStore.get(targetId);
+        const pendingActions = confirmation?.plan?.steps?.map(step => step.action)
+            || confirmation?.actions
+            || [];
+        const actionIds = summarizeAgentActionIds(pendingActions);
+        const confirmationStartedAt = Date.now();
+        Logger.info(`🛂 [TelegramAgent] confirmation decision=${decision} id=${targetId} actions=${actionIds}`);
+        let outcome;
+        try {
+            outcome = await runtime.handleConfirmationDecision({ confirmationId: targetId, decision }, context);
+        } catch (error) {
+            Logger.error(`❌ [TelegramAgent] confirmed execution threw actions=${actionIds} code=${getSafeAgentErrorCode(error)}`);
+            throw error;
+        }
+        Logger.info(`⏱️ [TelegramAgent] confirmation ${Date.now() - confirmationStartedAt}ms status=${outcome.status || (outcome.ok ? 'completed' : 'rejected')} actions=${summarizeAgentResults(outcome.results)}`);
 
         if (!outcome.ok) {
             await this.bot.answerCallbackQuery(query.id, { text: outcome.message || '처리하지 못했습니다.', show_alert: true });
@@ -606,11 +575,20 @@ class TelegramBotService {
         }
 
         if (outcome.status === 'executed') {
-            await this.bot.editMessageText(TelegramAgentRenderer.formatExecutionMessage(outcome.results), {
+            const executionMessage = TelegramAgentRenderer.formatExecutionMessage(outcome.results);
+            await this.bot.editMessageText(executionMessage, {
                 chat_id: chatId,
                 message_id: messageId,
                 parse_mode: 'Markdown'
             });
+            if (typeof this.agentEventStore?.recordInteractionMessage === 'function') {
+                await this.agentEventStore.recordInteractionMessage(
+                    context,
+                    outcome.results.map((item) => String(item?.result?.message || '')).filter(Boolean).join('\n\n') || executionMessage,
+                    'AGENT_RESPONSE',
+                    'AGENT'
+                ).catch(() => { });
+            }
             await this.bot.answerCallbackQuery(query.id);
             return true;
         }
@@ -678,7 +656,7 @@ class TelegramBotService {
 
             // 2. 명령어 처리 (/help 등)
             if (text.startsWith('/')) {
-                await this.handleCommand(chatId, text);
+                await this.handleCommand(chatId, text, msg);
                 return;
             }
 
@@ -694,107 +672,11 @@ class TelegramBotService {
                     loadingMsg = await this.startLoadingIndicator(chatId);
                 }
 
-                const routedOutcome = await this.handleRoutedTelegramMessage(chatId, text, msg, {
+                await this.handleRoutedTelegramMessage(chatId, text, msg, {
                     preParsedEnvelope: deterministicEnvelope
                 });
-                if (routedOutcome.handled) {
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-                    return;
-                }
-
-                const parsedData = routedOutcome.parsedData || { actions: [], meta: {} };
-                const { actions, meta } = parsedData;
-
-                if (!actions || actions.length === 0) {
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-                    await this.callTelegramApi('sendMessage', [chatId, '요청을 처리할 방법을 찾지 못했어요. 원하신 결과를 조금 더 설명해 주시겠어요?'], { retries: 1, silent: true });
-                    return;
-                }
-
-                const hasRegister = actions.some(a => a.action === 'register_topic');
-                const hasPublish = actions.some(a => a.action === 'publish_article');
-                const hasConfig = actions.some(a => a.action === 'update_config');
-                const hasJob = actions.some(a => a.action === 'run_job');
-                const hasQuery = actions.some(a => a.action === 'query_data');
-                Logger.info(
-                    `🧭 [TelegramBot] Legacy intent 분류: actions=${actions.map((action) => String(action?.action || 'unknown')).join(',')}`
-                    + `${hasQuery ? ` query_type=${String(actions.find((action) => action.action === 'query_data')?.params?.query_type || 'missing')}` : ''}`
-                );
-
-                // 인텐트별 분기 처리 (Dispatcher)
-                if (hasRegister || hasPublish) {
-                    const contentContext = this.buildAgentContext(chatId, msg);
-                    const requestBundle = await mapLegacyTelegramContentRequest(parsedData, contentContext, {
-                        capabilityRegistry: this.agentCapabilityRegistry
-                    });
-                    const confirmMsg = TelegramAgentRenderer.formatContentRequestMessage(requestBundle);
-                    const keyboard = TelegramAgentRenderer.buildContentRequestKeyboard(requestBundle);
-
-                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, {
-                        parse_mode: 'Markdown',
-                        reply_markup: JSON.stringify({ inline_keyboard: keyboard })
-                    });
-
-                    // [Universal Memory] 에이전트 답변 기록
-                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
-
-                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, requestBundle);
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-                } else if (hasConfig) {
-                    // 설정 변경은 중요하므로 확인 절차 거침
-                    const configAction = actions.find(a => a.action === 'update_config');
-                    const updates = configAction.params?.config_updates || {};
-                    let summary = '';
-                    for (const [k, v] of Object.entries(updates)) {
-                        summary += `• \`${k}\` ➔ \`${v}\`\n`;
-                    }
-
-                    const confirmMsg = `⚙️ *시스템 설정 변경 요청이 감지되었습니다.*\n\n${summary}\n정말 변경할까요? (즉시 반영됩니다)`;
-                    const options = {
-                        parse_mode: 'Markdown',
-                        reply_markup: JSON.stringify({
-                            inline_keyboard: [
-                                [{ text: '✅ 예, 변경합니다', callback_data: 'config_confirm' }],
-                                [{ text: '❌ 취소', callback_data: 'publish_cancel' }]
-                            ]
-                        })
-                    };
-                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
-
-                    // [Universal Memory] 에이전트 답변 기록
-                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
-
-                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-
-                } else if (hasJob) {
-                    // 요청된 에이전트 작업 실행
-                    const jobAction = actions.find(a => a.action === 'run_job');
-                    const jobName = jobAction.params?.job_name || '알 수 없는 작업';
-                    const confirmMsg = `🚀 *시스템 작업을 실행할까요?*\n\n작업: \`${jobName}\`\n\n(완료 후 알림을 보내드릴게요)`;
-                    const options = {
-                        parse_mode: 'Markdown',
-                        reply_markup: JSON.stringify({
-                            inline_keyboard: [
-                                [{ text: '✅ 실행하기', callback_data: 'job_confirm' }],
-                                [{ text: '❌ 취소', callback_data: 'publish_cancel' }]
-                            ]
-                        })
-                    };
-                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
-
-                    // [Universal Memory] 에이전트 답변 기록
-                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
-
-                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-
-                } else if (hasQuery) {
-                    // 데이터 조회는 즉시 실행
-                    const queryAction = actions.find(a => a.action === 'query_data');
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-                    await this.handleQueryIntent(chatId, queryAction.params || {});
-                }
+                await this.stopLoadingIndicator(chatId, loadingMsg);
+                return;
 
 	            } catch (err) {
 	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
@@ -824,209 +706,12 @@ class TelegramBotService {
 
             if (allowedChatId && chatId !== allowedChatId) return;
 
-            const requestKey = `${chatId}_${messageId}`;
-
             try {
                 if (String(data || '').startsWith('agent_confirm:') || String(data || '').startsWith('agent_reject:')) {
                     const handled = await this.handleAgentCallback(chatId, messageId, data, query);
                     if (handled) return;
                 }
 
-                if (data === 'publish_cancel') {
-                    this.pendingRequests.delete(requestKey);
-                    await this.bot.editMessageText('❌ 요청이 취소되었습니다.', {
-                        chat_id: chatId,
-                        message_id: messageId
-                    });
-                } else if (data === 'toggle_image' || data === 'toggle_extref' || data === 'toggle_autotrigger' || data === 'toggle_poststatus') {
-                    const pending = this.pendingRequests.get(requestKey);
-                    if (!isCanonicalContentRequestBundle(pending)) return;
-
-                    const nextBundle = applyContentRequestToggle(pending, data);
-                    this.pendingRequests.set(requestKey, nextBundle);
-                    const newMsg = TelegramAgentRenderer.formatContentRequestMessage(nextBundle);
-                    const newKeyboard = TelegramAgentRenderer.buildContentRequestKeyboard(nextBundle);
-
-                    await this.bot.editMessageText(newMsg, {
-                        chat_id: chatId,
-                        message_id: messageId,
-                        parse_mode: 'Markdown',
-                        reply_markup: JSON.stringify({ inline_keyboard: newKeyboard })
-                    });
-                } else if (data === 'publish_confirm') {
-                    const requestBundle = this.pendingRequests.get(requestKey);
-                    if (!isCanonicalContentRequestBundle(requestBundle)) {
-                        await this.bot.answerCallbackQuery(query.id, { text: '세션이 만료되었거나 이미 처리된 요청입니다.', show_alert: true });
-                        return;
-                    }
-
-                    const axios = require('axios');
-                    const CONFIG = this.CONFIG;
-
-                    const registerPayload = requestBundle.register_request?.payload || null;
-                    const publishPayload = requestBundle.publish_request?.payload || null;
-                    const shouldExecutePublish = isPublishExecutionEnabled(requestBundle);
-                    let addedRowIndices = [];
-
-                    if (registerPayload) {
-                        const pData = registerPayload;
-                        const registerContext = this.buildContentExecutionContext(
-                            chatId,
-                            query.message,
-                            requestBundle.register_request
-                        );
-                        if (!this.agentCapabilityRegistry) {
-                            throw new Error('Telegram Agent capability registry is not initialized.');
-                        }
-                        const registerResult = await this.agentCapabilityRegistry.executeAction({
-                            id: `${requestBundle.register_request.request_id}:execute`,
-                            type: 'content.register',
-                            domain: 'content.register_topic',
-                            name: 'execute',
-                            params: pData
-                        }, registerContext);
-
-                        addedRowIndices = registerResult?.data?.rowIndices || [];
-
-                        if (pData.theme) {
-                            this.chatContext.set(chatId, pData.theme);
-                            Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
-
-                            void generateUserInsight(chatId, {
-                                eventStore: this.agentEventStore,
-                                generateText: this.runtimeDependencies?.generateChatText,
-                                logger: Logger
-                            });
-                        }
-                    }
-
-                    this.pendingRequests.delete(requestKey);
-
-                    let confirmationText = '✅ 요청을 접수했습니다.';
-                    if (registerPayload && shouldExecutePublish) {
-                        confirmationText = this.getRandomMessage('topic_added');
-                    } else if (registerPayload) {
-                        confirmationText = '✅ 글감이 시트 대기열에 성공적으로 등록되었습니다!';
-                    } else if (shouldExecutePublish) {
-                        confirmationText = '✅ 발행 요청을 접수했습니다.';
-                    }
-
-                    await this.bot.editMessageText(confirmationText, {
-                        chat_id: chatId,
-                        message_id: messageId
-                    });
-
-                    if (shouldExecutePublish && publishPayload) {
-                        try {
-                            const publishContext = this.buildContentExecutionContext(
-                                chatId,
-                                query.message,
-                                requestBundle.publish_request
-                            );
-                            let publishResult = null;
-                            const publishParams = {
-                                ...publishPayload,
-                                targetRowIndices: addedRowIndices.length > 0
-                                    ? addedRowIndices
-                                    : (publishPayload.targetRowIndices || [])
-                            };
-
-                            if (this.agentCapabilityRegistry) {
-                                publishResult = await this.agentCapabilityRegistry.executeAction({
-                                    id: `${requestBundle.publish_request.request_id}:execute`,
-                                    type: 'content.publish',
-                                    domain: 'content.publish',
-                                    name: 'execute',
-                                    params: publishParams
-                                }, publishContext);
-                            }
-
-                            if (publishResult?.success === false && publishResult?.data?.running === true) {
-                                await this.bot.sendMessage(chatId, this.getRandomMessage('busy'));
-                            } else if (publishResult?.success) {
-                                await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
-                            } else {
-                                const internalUiOrigin = getInternalUiOrigin(CONFIG);
-                                await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
-                                const postData = {
-                                    settingsOverrides: {
-                                        PUBLISH_AUTO_HEADLESS: true,
-                                        ...((publishPayload && publishPayload.settingsOverrides) || {})
-                                    }
-                                };
-                                if (addedRowIndices.length > 0) {
-                                    postData.targetRowIndices = addedRowIndices;
-                                } else if (Array.isArray(publishPayload.targetRowIndices) && publishPayload.targetRowIndices.length > 0) {
-                                    postData.targetRowIndices = publishPayload.targetRowIndices;
-                                }
-                                axios.post(`${internalUiOrigin}/api/v1/auto/publish/run`, postData).catch(e => {
-                                    Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패 (code=${e.code || 'UNKNOWN'}): ${e.message}`);
-                                });
-                            }
-                        } catch (apiErr) {
-                            Logger.error(`❌ [TelegramBot] 상태 확인 또는 발행 루틴 호출 실패: ${apiErr.message}`);
-                        }
-                    }
-                } else if (data === 'config_confirm') {
-                    const parsedData = this.pendingRequests.get(requestKey);
-                    const configAction = parsedData?.actions?.find(a => a.action === 'update_config');
-                    if (!parsedData || !configAction || !configAction.params?.config_updates) {
-                        await this.bot.answerCallbackQuery(query.id, { text: '설정 정보가 없거나 세션이 만료되었습니다.', show_alert: true });
-                        return;
-                    }
-
-                    const axios = require('axios');
-                    const CONFIG = this.CONFIG;
-                    const internalUiOrigin = getInternalUiOrigin(CONFIG);
-
-                    try {
-                        // Settings API 호출 (Major 설정을 통해 JSON 구조 업데이트)
-                        // 주의: AI가 보낸 키-값 쌍을 API 스펙에 맞춰 전달해야 함.
-                        // 여기서는 단순화를 위해 /api/v1/settings/major 에 직접 필드를 보냄.
-                        await axios.post(`${internalUiOrigin}/api/v1/settings/major`, parsedData.data.config_updates);
-
-                        this.pendingRequests.delete(requestKey);
-                        await this.bot.editMessageText('✅ 시스템 설정이 성공적으로 변경되었습니다. (즉시 반영됨)', {
-                            chat_id: chatId,
-                            message_id: messageId
-                        });
-                    } catch (err) {
-                        Logger.error(`❌ [TelegramBot] 설정 변경 요청 실패: ${err.message}`);
-                        await this.bot.sendMessage(chatId, '❌ 설정을 변경하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
-                    }
-
-                } else if (data === 'job_confirm') {
-                    const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData || !parsedData.data || !parsedData.data.job_name) {
-                        await this.bot.answerCallbackQuery(query.id, { text: '작업 정보가 없거나 세션이 만료되었습니다.', show_alert: true });
-                        return;
-                    }
-
-                    const axios = require('axios');
-                    const CONFIG = this.CONFIG;
-                    const internalUiOrigin = getInternalUiOrigin(CONFIG);
-                    const jobName = parsedData.data.job_name.toLowerCase();
-
-                    let endpoint = '';
-                    if (jobName.includes('publish') || jobName.includes('shopping')) endpoint = '/api/v1/auto/publish/run';
-
-                    if (!endpoint) {
-                        await this.bot.sendMessage(chatId, `❌ 알 수 없는 작업입니다: ${jobName}`);
-                        return;
-                    }
-
-                    try {
-                        await axios.post(`${internalUiOrigin}${endpoint}`, parsedData.data.job_params || {});
-                        this.pendingRequests.delete(requestKey);
-                        await this.bot.editMessageText(`🚀 \`${jobName}\` 작업이 시작되었습니다. 결과는 알림으로 보고드릴게요!`, {
-                            chat_id: chatId,
-                            message_id: messageId
-                        });
-                    } catch (err) {
-                        Logger.error(`❌ [TelegramBot] 작업 실행 요청 실패: ${err.message}`);
-                        await this.bot.sendMessage(chatId, '❌ 작업을 실행하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
-                    }
-                }
 
                 // 버튼 로딩 해제
                 await this.bot.answerCallbackQuery(query.id);
@@ -1039,123 +724,23 @@ class TelegramBotService {
 
 
 
-    static async handleCommand(chatId, commandText) {
-        const cmd = commandText.split(' ')[0].toLowerCase();
+    static async handleCommand(chatId, commandText, msg = {}) {
+        const cmd = commandText.split(' ')[0].split('@')[0].toLowerCase();
 
         try {
             if (cmd === '/start' || cmd === '/help') {
-                let helpMsg = this.getRandomMessage('welcome') + '\n\n' +
-                    `*에이전트에게 이렇게 명령해 보세요:*\n` +
-                    `📝 *콘텐츠 발행*\n` +
-                    `💬 _"경주 맛집에 대해 블로그 글 하나 써줘"_\n` +
-                    `💬 _"아까 그 주제로 워드프레스에도 올려줄래?"_\n\n` +
-                    `⚙️ *시스템 제어*\n` +
-                    `💬 _"발행 브라우저를 보이게 실행해줘"_\n\n` +
-                    `📊 *상태 조회*\n` +
-                    `💬 _"지금 시스템 상태 어때?"_\n` +
-                    `💬 _"대기 중인 글감 몇 개인지 알려줘"_\n\n` +
-                    `무엇이든 편하게 말씀해 보세요! 🚀`;
-
-                await this.bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+                const context = this.buildAgentContext(chatId, msg);
+                const preParsedEnvelope = tryParseDeterministicEnvelope(commandText, {
+                    conversationId: context.conversation.id,
+                    messageId: String(msg?.message_id || '').trim()
+                });
+                await this.handleRoutedTelegramMessage(chatId, commandText, msg, { preParsedEnvelope });
             } else {
                 await this.bot.sendMessage(chatId, `알 수 없는 명령어입니다: ${cmd}\n/help 를 입력해보세요.`);
             }
         } catch (err) {
             Logger.error(`❌ [TelegramBot] 명령 응답 실패: ${err.message}`);
         }
-    }
-
-    /**
-     * [Universal Agent] 데이터 조회 처리
-     */
-    static async handleQueryIntent(chatId, data) {
-        const queryType = String(data.query_type || '').trim().toLowerCase();
-        const params = data.query_params || {};
-        const axios = require('axios');
-        const CONFIG = this.CONFIG;
-        const internalUiOrigin = getInternalUiOrigin(CONFIG);
-        // 공통 지능형 메모리 및 서비스 상태 조회
-
-        const supportedQueryTypes = new Set(['status', 'system', 'topics', 'shopping', 'stats', 'insight']);
-        if (!queryType || !supportedQueryTypes.has(queryType)) {
-            Logger.warn(`⚠️ [TelegramBot] 데이터 조회 intent 거부 (query_type=${queryType || 'missing'})`);
-            await this.bot.sendMessage(chatId, '어떤 정보를 조회할까요? 예: “현재 상태 알려줘”, “최근 글감 보여줘”');
-            return;
-        }
-
-        Logger.info(`🧭 [TelegramBot] 데이터 조회 실행 (query_type=${queryType})`);
-
-        try {
-            if (queryType === 'status' || queryType === 'system') {
-                const res = await axios.get(`${internalUiOrigin}/api/v1/auto/status`);
-                const s = res.data?.data;
-                const statusMsg = `📊 *자동 작업 현황*\n\n` +
-                    `• *블로그 글감 발행:* ${s.blog?.running ? '🟢 실행 중' : '⚪️ 정지'}\n` +
-                    `• *SNS 자동 처리:* ${s.sns?.status === 'running' ? '🟢 실행 중' : (s.sns?.status === 'waiting' ? '🟡 대기 중' : '⚪️ 정지')}\n` +
-                    `• *다음 SNS 처리:* ${this.escapeMarkdown(s.sns?.nextRunAt || '없음')}\n` +
-                    `• *블로그 글감 발행 실행:* ${s.blog?.cycleCount || 0}회\n` +
-                    `• *메시지:* ${this.escapeMarkdown(s.message || '정상')}`;
-                await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
-
-            } else if (queryType === 'topics') {
-                const results = await this.agentEventStore.getTopicSummary(chatId, params);
-                if (results.length === 0) {
-                    await this.bot.sendMessage(chatId, "📝 아직 기록된 토픽이 없습니다.");
-                } else {
-                    let msg = `📝 *최근 등록된 토픽 (${results.length}건)*\n\n`;
-                    results.forEach(t => {
-                        msg += `• [${t.category || '일반'}] *${t.subject}*\n  (소스: ${t.source})\n`;
-                    });
-                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
-                }
-
-            } else if (queryType === 'shopping') {
-                const results = await this.agentEventStore.getShoppingSummary(chatId, params);
-                if (results.length === 0) {
-                    await this.bot.sendMessage(chatId, "🛍️ 등록된 쇼핑 아이템이 없습니다.");
-                } else {
-                    let msg = `🛍️ *최근 쇼핑 아이템 (${results.length}건)*\n\n`;
-                    results.forEach(s => {
-                        msg += `• *${s.name}*\n  가격: ${s.price} | 몰: ${s.mall}\n`;
-                    });
-                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
-                }
-
-            } else if (queryType === 'stats') {
-                const s = await this.agentEventStore.getGlobalStats();
-                const msg = `📈 *지능형 메모리 통계*\n\n` +
-                    `• 전체 사용자: ${s.users}명\n` +
-                    `• 총 대화량: ${s.messages}건\n` +
-                    `• 등록된 토픽: ${s.topics}건\n` +
-                    `• 쇼핑 아이템: ${s.shopping}건\n\n` +
-                    `_지능형 메모리는 이 기기에 안전하게 기록되고 있습니다._`;
-                await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
-
-            } else if (queryType === 'insight') {
-                const insight = await this.agentEventStore.getUserInsight(chatId);
-                if (!insight) {
-                    await this.bot.sendMessage(chatId, "🤔 아직 분석된 성향 정보가 부족합니다. 대화를 조금 더 나누어 볼까요?");
-                } else {
-                    const msg = `✨ *에이전트가 파악한 사용자 인사이트*\n\n"${insight}"`;
-                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
-                }
-
-            } else {
-                await this.bot.sendMessage(chatId, `ℹ️ 요청하신 \`${queryType}\` 조회 기능은 현재 준비 중입니다. 곧 만나보실 수 있어요!`);
-            }
-        } catch (err) {
-            Logger.error(`❌ [TelegramBot] 쿼리 요청 실패 (query_type=${queryType}, code=${err.code || 'UNKNOWN'}): ${err.message}`);
-            await this.bot.sendMessage(chatId, '❌ 데이터를 조회하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
-        }
-    }
-
-    /**
-     * [Fun Factor] 랜덤 메시지 추출기
-     */
-    static getRandomMessage(type) {
-        if (!this.messages || !this.messages[type]) return '명령을 확인했습니다.';
-        const list = this.messages[type];
-        return list[Math.floor(Math.random() * list.length)];
     }
 
     /**
@@ -1221,18 +806,7 @@ class TelegramBotService {
         }
     }
 
-    /**
-     * Telegram Markdown(V1) 특수문자 이스케이프
-     * _, *, [, ` 등 마크다운 예약 문자를 처리합니다.
-     */
-    static escapeMarkdown(text) {
-        if (!text) return '';
-        return String(text)
-            .replace(/_/g, '\\_')
-            .replace(/\*/g, '\\*')
-            .replace(/\[/g, '\\[')
-            .replace(/`/g, '\\`');
-    }
+
 }
 
 module.exports = TelegramBotService;

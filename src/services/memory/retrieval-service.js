@@ -27,6 +27,7 @@ function createMemoryRetrievalService(options = {}) {
             let recentJobRuns = [];
             let recentArtifacts = [];
             let preferences = [];
+            let userRules = [];
 
             if (eventStore && conversationId) {
                 try {
@@ -52,6 +53,10 @@ function createMemoryRetrievalService(options = {}) {
                         preferences = await eventStore.listUserPreferences(userId, Math.min(10, limit));
                     }
                 } catch (_ignore) { }
+            }
+
+            if (eventStore && userId && typeof eventStore.listUserCommandRules === 'function') {
+                userRules = await readOr([], () => eventStore.listUserCommandRules(userId, { activeOnly: true, limit: 20 }));
             }
 
             const localOwner = eventStore && typeof eventStore.getLocalOwnerIdentity === 'function'
@@ -109,6 +114,7 @@ function createMemoryRetrievalService(options = {}) {
                 recent_job_runs: Array.isArray(recentJobRuns) ? recentJobRuns : [],
                 recent_artifacts: Array.isArray(recentArtifacts) ? recentArtifacts : [],
                 preferences: Array.isArray(preferences) ? preferences : [],
+                user_rules: Array.isArray(userRules) ? userRules : [],
                 pending_confirmations: Array.isArray(pendingConfirmations) ? pendingConfirmations.map((item) => ({
                     id: item.id,
                     status: item.status,
