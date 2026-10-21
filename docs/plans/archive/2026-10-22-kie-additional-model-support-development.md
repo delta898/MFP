@@ -3,7 +3,7 @@
 - Branch: `codex/kie-additional-model-support`
 - Base/parent: `release/v0.7.0`
 - Start date: 2026-10-22
-- Status: implementation and focused verification complete; pending merge into `release/v0.7.0`
+- Status: implementation and focused verification complete; merged into `release/v0.7.0` at `9d3cb232`
 
 ## User need and goal
 
@@ -65,7 +65,7 @@ Model availability and display ordering belong in the Supabase AI model catalog.
 - Actual generation against KIE is billable and is left for the user to perform.
 - `git diff --check` passed.
 - KIE live generation remains user-verified; the closest supported `3:4` fallback for FLUX 3 and Grok Imagine has not been separately confirmed with a billable live call.
-- Implementation commits: `689c698b` and `c7149d97`; no push or tag was created.
+- Implementation commits: `689c698b`, `c7149d97`, and `9d3cb232`; merged by fast-forward into `release/v0.7.0`. No push or tag was created.
 
 ## KIE documentation consulted
 
