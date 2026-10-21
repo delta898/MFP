@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev3] - 2026-10-22
+
+### Improved
+- **기존 설정과 원고를 새 데이터 위치로 안전하게 이어가기**: Windows와 macOS 패키지에서 설정·로그·작업공간·앱 데이터를 사용자 데이터 경로에 모읍니다. 기존 설치 위치에 있던 데이터는 새 위치로 옮기고, 같은 파일이 있으면 기존 대상 파일을 migration archive에 보관합니다.
+- **실행 환경에 맞는 AI 모델 목록 표시**: 개발 앱은 Development Supabase 카탈로그를, 운영 앱은 Production 카탈로그를 조회합니다. 앱 업데이트 채널 설정과 AI 모델 목록 환경을 분리했습니다.
+
 ## [0.7.0-dev2] - 2026-10-21
 
 ### Improved

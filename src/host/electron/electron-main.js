@@ -11,7 +11,17 @@ app.setPath('userData', existingUserDataPath);
 
 const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
+const { resolveRuntimeRoots } = require('../configuration/runtime-paths');
+const { migrateLegacyUserData } = require('../configuration/user-data-migration');
 const { buildSafeModeArgs, isSafeMode, isStartupProbe, isShortLivedCommand } = require('./startup-policy');
+
+const runtimeRootOverride = String(process.env.BLOGGENIUS_RUNTIME_ROOT || '').trim();
+const userDataRoot = runtimeRootOverride
+    ? path.resolve(runtimeRootOverride)
+    : (process.platform === 'win32'
+        ? path.join(process.env.LOCALAPPDATA || app.getPath('appData'), 'BlogGenius')
+        : path.join(app.getPath('appData'), 'blog-genius', 'BlogGenius'));
+process.env.BLOG_GENIUS_USER_DATA = userDataRoot;
 
 const startup = createStartupBootstrap();
 const runtimeNetworkPolicy = applyRuntimeNetworkPolicy();
@@ -136,8 +146,29 @@ startupWatchdog.unref?.();
 // 🚀 [Environment Setup] GUI 전용 실행 환경 설정 (Require 이전에 수행)
 process.env.BLOG_GENIUS_GUI_MODE = 'true';
 try {
-    process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
     startup.write('USER_DATA_READY', { path: process.env.BLOG_GENIUS_USER_DATA });
+    const runtimeRoots = resolveRuntimeRoots({ env: process.env, platform: process.platform });
+    const migrationLogger = {
+        info: (message) => startup.write('USER_DATA_MIGRATION', { message }),
+        warn: (message) => startup.write('USER_DATA_MIGRATION_WARNING', { message })
+    };
+    if (runtimeRoots.isPackaged) {
+        migrateLegacyUserData({ appRoot: runtimeRoots.activeRoot, userDataRoot, logger: migrationLogger });
+    }
+    if (runtimeRoots.isPackaged && process.platform === 'darwin') {
+        migrateLegacyUserData({
+            appRoot: path.join(app.getPath('userData'), 'BlogGenius'),
+            userDataRoot,
+            directories: ['logs'],
+            logger: migrationLogger
+        });
+        migrateLegacyUserData({
+            appRoot: path.join(require('node:os').tmpdir(), 'BlogGenius'),
+            userDataRoot,
+            directories: ['logs'],
+            logger: migrationLogger
+        });
+    }
 } catch (error) {
     process.env.BLOG_GENIUS_USER_DATA = startup.rootDir;
     startup.write('USER_DATA_FALLBACK', { path: startup.rootDir, ...formatError(error) });

@@ -10,7 +10,7 @@ begin;
 create table if not exists public.ai_model_catalog_versions (
     version text primary key,
     schema_version integer not null default 1 check (schema_version > 0),
-    channel text not null default 'stable',
+    channel text not null default 'production',
     status text not null default 'draft'
         check (status in ('draft', 'published', 'retired')),
     payload jsonb not null,
@@ -48,7 +48,7 @@ as $$
 $$;
 
 create or replace function public.get_ai_model_catalog(
-    p_channel text default 'stable',
+    p_channel text default 'production',
     p_app_version text default '0.0.0'
 )
 returns jsonb
@@ -66,7 +66,7 @@ as $$
     )
       from public.ai_model_catalog_versions
      where status = 'published'
-       and channel = coalesce(nullif(trim(p_channel), ''), 'stable')
+       and channel = coalesce(nullif(trim(p_channel), ''), 'production')
        and public.ai_catalog_version_tuple(minimum_app_version)
            <= public.ai_catalog_version_tuple(p_app_version)
      order by published_at desc nulls last, created_at desc
@@ -90,7 +90,7 @@ insert into public.ai_model_catalog_versions (
 values (
     '2026-08-21.1',
     1,
-    'stable',
+    'production',
     'published',
     '{
       "schema_version": 1,

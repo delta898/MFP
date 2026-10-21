@@ -30,13 +30,11 @@ function resolveRuntimeRoots({ env = process.env, execPath = process.execPath ||
     const activeRoot = platform === 'darwin' && execPath.includes('.app/Contents/MacOS/')
         ? path.resolve(path.dirname(execPath), '../../..')
         : (isPackaged ? path.dirname(execPath) : cwd);
-    const localConfigDir = path.join(activeRoot, 'config');
-    const hasLocalConfig = fs.existsSync(localConfigDir);
     const userDataDir = env.BLOG_GENIUS_USER_DATA || '';
     const explicitRoot = String(env.BLOGGENIUS_RUNTIME_ROOT || '').trim();
     const rootDir = explicitRoot
         ? path.resolve(explicitRoot)
-        : ((hasLocalConfig || !userDataDir) ? activeRoot : userDataDir);
+        : (userDataDir ? path.resolve(userDataDir) : activeRoot);
 
     return Object.freeze({
         isPackaged,

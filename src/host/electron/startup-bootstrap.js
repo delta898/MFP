@@ -8,12 +8,16 @@ function resolveDiagnosticRoot(options = {}) {
     const env = options.env || process.env;
     const platform = options.platform || process.platform;
     const tmpDir = options.tmpDir || os.tmpdir();
+    const runtimeRoot = String(env.BLOGGENIUS_RUNTIME_ROOT || '').trim();
+    if (runtimeRoot) return path.resolve(runtimeRoot);
     const explicit = String(env.BLOGGENIUS_DIAGNOSTIC_ROOT || '').trim();
     if (explicit && path.isAbsolute(explicit)) return explicit;
-    const preferred = platform === 'win32'
-        ? String(env.LOCALAPPDATA || '').trim()
-        : String(env.BLOG_GENIUS_USER_DATA || '').trim();
-    return path.join(preferred || tmpDir, 'BlogGenius');
+    if (platform === 'win32') {
+        const preferred = String(env.LOCALAPPDATA || '').trim();
+        return path.join(preferred || tmpDir, 'BlogGenius');
+    }
+    const preferred = String(env.BLOG_GENIUS_USER_DATA || '').trim();
+    return preferred || path.join(tmpDir, 'BlogGenius');
 }
 
 function ensureDirectory(fsImpl, directory) {

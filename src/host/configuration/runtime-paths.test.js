@@ -24,6 +24,20 @@ test('development runtime root honors explicit launcher configuration and preser
     assert.equal(roots.userDataDir, path.join(os.tmpdir(), 'bloggenius-user-data'));
 });
 
+test('packaged macOS runtime uses its unified user-data root instead of the app bundle', () => {
+    const userDataRoot = path.join(os.tmpdir(), 'bloggenius-packaged-user-data');
+    const roots = resolveRuntimeRoots({
+        env: { BLOG_GENIUS_USER_DATA: userDataRoot },
+        execPath: '/Applications/BlogGenius.app/Contents/MacOS/BlogGenius',
+        cwd: '/Applications/BlogGenius.app/Contents/MacOS',
+        platform: 'darwin'
+    });
+
+    assert.equal(roots.isPackaged, true);
+    assert.equal(roots.rootDir, userDataRoot);
+    assert.equal(roots.activeRoot, '/Applications');
+});
+
 test('runtime path configuration resolves moved bundled prompt assets and portable config paths', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-runtime-paths-'));
     const config = createRuntimePathConfiguration({

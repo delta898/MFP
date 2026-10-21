@@ -51,6 +51,8 @@
 - `architecture/cloudflare-workers-oauth-permissions.md` (Workers OAuth scope experiments, the tested Admin scope set, API Token distinction, and Production follow-up)
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
+- `decisions/2026-10-21-ai-model-catalog-channel-names.md` (runtime environment-based catalog channel names and Supabase rollout)
+- `decisions/2026-10-21-unified-desktop-user-data-root.md` (packaged user-data roots and development runtime override)
 - `architecture/chat-model-role.md`
 - `architecture/development-environment-inventory.md`
 - `architecture/runtime-environment-profiles.md`

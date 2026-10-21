@@ -125,6 +125,8 @@ function prepareProductionSourceEnvironment(options = {}) {
         throw new Error('Production Supabase project ref와 URL host가 일치하지 않습니다.');
     }
 
+    const runtimeRoot = normalizeText(env.BLOGGENIUS_RUNTIME_ROOT);
+
     return Object.freeze({
         branch,
         projectName,
@@ -133,7 +135,7 @@ function prepareProductionSourceEnvironment(options = {}) {
         env: Object.freeze({
             ...env,
             BLOGGENIUS_ENV: 'production',
-            BLOGGENIUS_RUNTIME_ROOT: repoRoot
+            ...(runtimeRoot ? { BLOGGENIUS_RUNTIME_ROOT: path.resolve(runtimeRoot) } : {})
         })
     });
 }

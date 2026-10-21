@@ -116,6 +116,12 @@ Their Base URL is entered and confirmed by the user rather than supplied remotel
 
 ## Catalog Loading
 
+Catalog channel selection follows the resolved runtime environment, not the
+application updater setting: `development` and `local` runtimes request the
+`development` catalog; `production` requests `production`. The independent
+`system.update_channel` setting controls app update eligibility only. Supabase
+project selection remains environment-profile-owned.
+
 The AI Gateway owns refresh coordination, TTL, in-flight request coalescing, and
 last-known-good behavior. In BlogGenius, Composition injects the Host-owned
 Supabase RPC and local-cache ports and uses the Plugin catalog registry for

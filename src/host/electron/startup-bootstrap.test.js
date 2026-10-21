@@ -28,6 +28,20 @@ test('launcher-provided absolute diagnostic root takes precedence', () => {
     );
 });
 
+test('runtime root places startup logs, crash reports, and diagnostics under one directory', () => {
+    const root = path.join(os.tmpdir(), 'bloggenius-runtime-root');
+    const bootstrap = createStartupBootstrap({
+        platform: 'darwin',
+        env: { BLOGGENIUS_RUNTIME_ROOT: root },
+        tmpDir: os.tmpdir()
+    });
+
+    assert.equal(bootstrap.rootDir, root);
+    assert.equal(bootstrap.logDir, path.join(root, 'logs'));
+    assert.equal(bootstrap.crashDir, path.join(root, 'crashes'));
+    assert.equal(bootstrap.diagnosticsDir, path.join(root, 'diagnostics'));
+});
+
 test('bootstrap writes phase evidence and an absolute readiness marker', () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-bootstrap-'));
     const readyPath = path.join(tempRoot, 'startup', 'ready.json');

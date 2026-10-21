@@ -66,7 +66,7 @@ test('Production source environment loads only explicit public targets and share
     assert.equal(prepared.profile.environment, 'production');
     assert.equal(prepared.profile.supabase.endpointHost, 'productionref.supabase.co');
     assert.equal(prepared.profile.trendsApi.endpointHost, 'trendapi.example.com');
-    assert.equal(prepared.env.BLOGGENIUS_RUNTIME_ROOT, path.resolve('/repo'));
+    assert.equal(prepared.env.BLOGGENIUS_RUNTIME_ROOT, undefined);
     assert.equal(prepared.env.GOOGLE_OAUTH_CLIENT_ID, 'production-google-id');
     assert.equal(prepared.env.GOOGLE_OAUTH_CLIENT_SECRET, 'production-google-secret');
     assert.equal(prepared.env.CLOUDFLARE_OAUTH_CLIENT_ID, 'production-cloudflare-id');

@@ -9,6 +9,8 @@ Recommended format:
 
 ## Current Decisions
 
+- [AI Model Catalog channel names](./2026-10-21-ai-model-catalog-channel-names.md)
+- [Unified desktop user data root](./2026-10-21-unified-desktop-user-data-root.md)
 - [Blog 포스팅 용어](./2026-10-08-blog-posting-terminology.md)
 - [Site Hosting 연결 해제와 삭제 안전성](./2026-10-06-site-hosting-teardown-safety.md)
 - [Digital Garden 발행일·피드·증분 빌드 논의](./2026-10-06-digital-garden-published-date-and-feed-policy.md)

@@ -148,7 +148,9 @@ function prepareDevelopmentEnvironment(options = {}) {
     }
     return Object.freeze({
         ...env,
-        BLOGGENIUS_RUNTIME_ROOT: repoRoot
+        BLOGGENIUS_RUNTIME_ROOT: path.resolve(
+            normalizeText(env.BLOGGENIUS_RUNTIME_ROOT) || repoRoot
+        )
     });
 }
 
