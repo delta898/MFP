@@ -512,6 +512,9 @@ async function settingsNextLoadStatuses({ force = false } = {}) {
       onFailure();
     } finally {
       settingsNextStatusChecks[key] = false;
+      if (key === 'naver' && settingsNextNaverStatus) {
+        settingsNextRenderNaverStatus(settingsNextNaverStatus);
+      }
       settingsNextRenderReadiness();
     }
   };

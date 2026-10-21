@@ -38,6 +38,7 @@ test('Settings loads saved models separately from cached connection status check
     assert.match(script, /void settingsNextLoadStatuses\(\)/);
     assert.match(script, /if \(settingsNextStatusesLoaded && !force\) return/);
     assert.match(script, /settingsNextStatusChecks\.account \? '확인 중…'/);
+    assert.match(script, /settingsNextStatusChecks\[key\] = false;[\s\S]{0,160}if \(key === 'naver' && settingsNextNaverStatus\) \{\s*settingsNextRenderNaverStatus\(settingsNextNaverStatus\);/);
     assert.match(script, /const refresh = button\.dataset\.settingsNextRefresh === 'hosting'[\s\S]*settingsNextLoadStatuses\(\{ force: true \}\)[\s\S]*refresh\.finally/);
     assert.match(script, /if \(settingsNextStatusesLoading\) \{/);
     assert.match(script, /settingsNextForcedStatusRefresh = settingsNextStatusesLoading/);
