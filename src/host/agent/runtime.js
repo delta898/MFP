@@ -188,9 +188,11 @@ function createAgentRuntime(options = {}) {
             const normalizedSteps = [];
             for (const step of normalizedPlan.steps) {
                 let action = step.action;
-                const registeredCapability = action.action_id
+                const registeredCapability = action.action_id && typeof capabilityRegistry.getAgentAction === 'function'
                     ? capabilityRegistry.getAgentAction(action.action_id)
-                    : capabilityRegistry.get(buildCapabilityId(action.domain, action.name));
+                    : typeof capabilityRegistry.get === 'function'
+                        ? capabilityRegistry.get(buildCapabilityId(action.domain, action.name))
+                        : null;
                 const preferenceResult = applyUserActionPreferences(
                     action,
                     registeredCapability,

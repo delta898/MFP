@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createChatModelCapabilities } = require('./chat-model');
-const { createAiModelConfiguration } = require('../../composition/ai-model-configuration');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 
 test('Chat Model summary capability reports the resolved writing-model role', async () => {
     const [capability] = createChatModelCapabilities({
