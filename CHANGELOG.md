@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev6] - 2026-10-22
+
+### Improved
+- **업데이트 진행 상태와 취소 동작을 한곳에서 확인**: 다운로드 진행 표시 안에 취소 버튼을 배치해 업데이트 중 상태와 조작을 함께 볼 수 있습니다.
+- **깨끗한 설치에서도 기본 설정을 안전하게 준비**: Windows와 macOS 패키지의 설치 위치에 사용자 데이터 폴더를 만들지 않고, 첫 실행 시 사용자 데이터 경로에서 기본 설정과 이미지를 준비합니다.
+
 ## [0.7.0-dev3] - 2026-10-22
 
 ### Improved

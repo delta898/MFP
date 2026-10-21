@@ -216,11 +216,8 @@ jobs:
           ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
           ROOT_OUT="dist/${ROOT_NAME}"
           PORTABLE_ZIP_NAME="BlogGenius-${{ matrix.suffix }}.zip"
-          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/data"
-
-          # 2. 필수 리소스 복사
-          cp config/config.json.sample "${ROOT_OUT}/config/config.json.sample"
-          cp -r config/images/* "${ROOT_OUT}/config/images/" || true
+          # 2. 기본 설정/이미지는 앱 리소스에 포함되어 첫 실행 시 사용자 데이터 루트에 준비됩니다.
+          # 설치 폴더 최상위에 config/, data/를 두면 구버전 사용자 데이터 마이그레이션 대상으로 오인될 수 있습니다.
           [ -f "README.md" ] && cp README.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
           
           # 3. GUI 배치

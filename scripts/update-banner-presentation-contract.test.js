@@ -14,6 +14,8 @@ test('update banner exposes semantic states without inline or JavaScript-owned p
 
   assert.match(banner, /data-update-state="available"/);
   assert.match(banner, /<progress id="update-progress-bar"[^>]*max="100"[^>]*value="0"/);
+  assert.match(banner, /id="update-progress-bar"[\s\S]*?<\/div>\s*<button id="update-cancel-btn"/);
+  assert.doesNotMatch(banner, /class="update-banner-actions"[\s\S]*?id="update-cancel-btn"/);
   assert.doesNotMatch(banner, /\sstyle=/);
   assert.doesNotMatch(runtime, /\.style\b|setAttribute\(['"]style/);
   assert.match(runtime, /function setUpdateBannerState\(state = 'available'\)/);

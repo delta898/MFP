@@ -147,18 +147,20 @@
         </div>
         <!-- Progress state: shown while applying update -->
         <div id="update-banner-progress" class="update-banner-progress">
-          <div class="update-progress-heading">
-            <span id="update-progress-icon" class="update-progress-icon">⏳</span>
-            <span id="update-progress-message" class="update-progress-message">업데이트
-              준비 중...</span>
-            <span id="update-progress-percent" class="update-progress-percent"></span>
+          <div class="update-progress-main">
+            <div class="update-progress-heading">
+              <span id="update-progress-icon" class="update-progress-icon">⏳</span>
+              <span id="update-progress-message" class="update-progress-message">업데이트
+                준비 중...</span>
+              <span id="update-progress-percent" class="update-progress-percent"></span>
+            </div>
+            <progress id="update-progress-bar" class="update-progress-bar" max="100" value="0"
+              aria-label="업데이트 진행률"></progress>
           </div>
-          <progress id="update-progress-bar" class="update-progress-bar" max="100" value="0"
-            aria-label="업데이트 진행률"></progress>
+          <button id="update-cancel-btn" class="secondary compact">취소</button>
         </div>
         <div class="update-banner-actions">
           <button id="update-now-btn" class="primary compact">지금 업데이트</button>
-          <button id="update-cancel-btn" class="secondary compact">취소</button>
           <button id="update-close-btn" class="close-btn">&times;</button>
         </div>
       </div>
