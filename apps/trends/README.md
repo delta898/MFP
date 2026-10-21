@@ -48,3 +48,6 @@ The legacy Docker runbooks remain under `trends-api/docker/deployment/`.
 Production script는 인자 없이 실행하면 한 번 수집한 payload를 요약한 뒤 `PRODUCTION` 확인을
 받습니다. `--dry-run`은 무변경, `--confirm-production`은 CI/cron을 위한 명시적 실제 반영
 모드이며 둘을 함께 쓸 수 없습니다.
+
+Production Trends API 연결은 `npm run trends:api:production:readonly-smoke`로 확인합니다.
+이 검사는 `/health`와 인증 없는 metadata GET만 호출하며, 기본 단위 테스트와 분리되어 있습니다.

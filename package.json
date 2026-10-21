@@ -32,6 +32,7 @@
     "trends:collector:production": "node ./bin/run-trends-tool.js collector --environment production",
     "trends:env:status": "node ./bin/trends-env-status",
     "trends:api:local:container-smoke": "node ./scripts/trends-local-container-smoke.js",
+    "trends:api:production:readonly-smoke": "node ./scripts/trends-production-readonly-smoke.js",
     "trends:development:preflight": "node ./scripts/trends-development-preflight.js",
     "trends:production:transition:preflight": "node ./scripts/trends-production-transition-preflight.js",
     "env:preflight": "node scripts/environment/preflight.js check",
