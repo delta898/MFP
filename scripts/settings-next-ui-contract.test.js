@@ -92,6 +92,10 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 11);
     assert.match(html, /id="settings-next-panel-plugins"[\s\S]*?data-settings-next-plugin-tab="core">Core/);
     assert.match(html, /id="settings-next-plugin-list"[\s\S]*id="settings-next-plugin-detail"/);
+    assert.doesNotMatch(html, /data-settings-next-plugins-refresh/);
+    const pluginsScript = read('ui/scripts/features/settings/plugins.js');
+    assert.doesNotMatch(pluginsScript, /현재 실행 중인 작업/);
+    assert.match(pluginsScript, /async function settingsNextPluginsLoad\(\) \{\s*if \(settingsNextPluginsState\.loading\) return/);
     assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
     assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
     assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);

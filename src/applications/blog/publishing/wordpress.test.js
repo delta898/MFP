@@ -40,7 +40,7 @@ test('Application composes media, category, and post Plugin operations', async (
             }
         }
     });
-    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'social-publisher', 'ai-gateway', 'astro-site-hosting', 'hello-world']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'social-publisher', 'ai-gateway', 'astro-site-hosting']);
     assert.deepEqual(system.pluginHost.listPlugins().map((item) => item.id), ['wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map((item) => item.operationId), [
         'categories.list', 'connection.inspect', 'media.upload', 'posts.create'
@@ -132,7 +132,7 @@ test('runtime operation visibility follows Host enable state rather than a separ
     });
 
     await system.pluginHost.setEnabled('wordpress-publisher', false);
-    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'social-publisher', 'ai-gateway', 'astro-site-hosting', 'hello-world']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'social-publisher', 'ai-gateway', 'astro-site-hosting']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id, state }) => ({ id, state })), [
         { id: 'wordpress-publisher', state: 'disabled' }
     ]);

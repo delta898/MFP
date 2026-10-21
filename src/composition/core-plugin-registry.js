@@ -39,8 +39,7 @@ const CORE_PLUGIN_REGISTRATIONS = Object.freeze([
     bundledPackage('wordpress-publisher'),
     bundledPackage('social-publisher'),
     bundledPackage('ai-gateway'),
-    bundledPackage('astro-site-hosting'),
-    bundledPackage('hello-world')
+    bundledPackage('astro-site-hosting')
 ]);
 
 function validateRegistrations(registrations) {

@@ -754,7 +754,6 @@ function initSettingsNext() {
     initSettingsNextExternalConnections();
     initSettingsNextSiteHosting();
     initSettingsNextAppEnvironment();
-    if (typeof initSettingsNextPlugins === 'function') initSettingsNextPlugins();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],

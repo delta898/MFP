@@ -1,5 +1,4 @@
 const settingsNextPluginsState = {
-  loaded: false,
   loading: false,
   plugins: [],
   selectedId: '',
@@ -97,11 +96,6 @@ function settingsNextPluginRenderDetail(plugin) {
     note.className = 'ui-settings-card-detail settings-next-plugin-runtime-note';
     note.textContent = '현재 공용 Host에 아직 등록되지 않았습니다. 새 Plugin 실행 경로에 연결되기 전 상태이며 오류를 뜻하지 않습니다.';
     root.append(note);
-  } else {
-    const activeCount = document.createElement('p');
-    activeCount.className = 'ui-settings-card-detail';
-    activeCount.textContent = `현재 실행 중인 작업 ${Number(plugin.activeExecutions) || 0}개`;
-    root.append(activeCount);
   }
 
   const operationsHeading = document.createElement('h4');
@@ -148,8 +142,8 @@ async function settingsNextPluginSelect(pluginId) {
   }
 }
 
-async function settingsNextPluginsLoad(force = false) {
-  if (settingsNextPluginsState.loading || (settingsNextPluginsState.loaded && !force)) return;
+async function settingsNextPluginsLoad() {
+  if (settingsNextPluginsState.loading) return;
   settingsNextPluginsState.loading = true;
   const browser = document.querySelector('.settings-next-plugin-browser');
   browser?.setAttribute('aria-busy', 'true');
@@ -158,7 +152,6 @@ async function settingsNextPluginsLoad(force = false) {
     const result = await fetchJson('/api/v1/plugins/core');
     const plugins = Array.isArray(result?.plugins) ? result.plugins : [];
     settingsNextPluginsState.plugins = plugins;
-    settingsNextPluginsState.loaded = true;
     settingsNextPluginSetFeedback(`${plugins.length}개 Core Plugin`, 'success');
     if (!plugins.some((plugin) => plugin.id === settingsNextPluginsState.selectedId)) {
       settingsNextPluginsState.selectedId = plugins[0]?.id || '';
@@ -173,10 +166,4 @@ async function settingsNextPluginsLoad(force = false) {
     settingsNextPluginsState.loading = false;
     browser?.setAttribute('aria-busy', 'false');
   }
-}
-
-function initSettingsNextPlugins() {
-  document.querySelector('[data-settings-next-plugins-refresh]')?.addEventListener('click', () => {
-    void settingsNextPluginsLoad(true);
-  });
 }
