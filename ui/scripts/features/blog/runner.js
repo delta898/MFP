@@ -37,7 +37,12 @@ function showBlogNextExecutionStatusAtTop(target, fallback = null) {
   if (!panel || panel.hidden || (typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'quick')) return;
   blogNextStatusReturnScrollContainer = document.querySelector('.main') || document.scrollingElement;
   blogNextStatusReturnScrollTop = Number(blogNextStatusReturnScrollContainer?.scrollTop || 0);
-  panel.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'start' });
+  const scrollContainer = blogNextStatusReturnScrollContainer;
+  if (scrollContainer?.scrollTo) {
+    scrollContainer.scrollTo({ top: 0, behavior: blogNextStatusScrollBehavior() });
+  } else if (scrollContainer) {
+    scrollContainer.scrollTop = 0;
+  }
   panel.focus({ preventScroll: true });
 }
 

@@ -307,7 +307,9 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /image: '이미지 업로드 중'/);
     assert.match(runnerScript, /renderBlogNextCompletionLinks\(status\)/);
     assert.match(runnerScript, /noopener noreferrer/);
-    assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
+    assert.match(runnerScript, /scrollContainer\.scrollTo\(\{ top: 0, behavior: blogNextStatusScrollBehavior\(\) \}\)/);
+    assert.match(runnerScript, /scrollContainer\.scrollTop = 0/);
+    assert.doesNotMatch(runnerScript, /panel\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
     assert.match(runnerScript, /panel\.focus\(\{ preventScroll: true \}\)/);
     assert.match(runnerScript, /scrollContainer\.scrollTop = blogNextStatusReturnScrollTop/);
     assert.match(runnerScript, /target\.focus\(\{ preventScroll: true \}\)/);
@@ -322,8 +324,8 @@ test('Naver browser milestones cross the publishing engine as structured progres
     const publishRuntime = read('src/applications/blog/publishing/manual-publishing-application.js');
     const contentService = read('src/adapters/ui/content/content-api/service.js');
     const naverPlugin = read('packages/plugins/core/naver-publisher/index.js');
-    assert.match(naverPlugin, /report\(context, 'working', 'body', bodyDone, bodyTotal\)/);
-    assert.match(naverPlugin, /report\(context, 'uploading', 'image', imageDone, imageIndexes\.length\)/);
+    assert.match(naverPlugin, /report\(context, 'working', 'body', bodyDone, bodyTotal, \{/);
+    assert.match(naverPlugin, /report\(context, 'uploading', 'image', imageDone, imageIndexes\.length, \{/);
     assert.match(publishRuntime, /onProgress: requestBody\?\.onNaverProgress/);
     assert.match(contentService, /presentNaverPublishProgress\(progress, fallbackPostStatus\)/);
 });
