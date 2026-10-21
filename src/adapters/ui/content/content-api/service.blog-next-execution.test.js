@@ -236,6 +236,43 @@ test('WordPress manuscript publication selects Plugin publisher and preserves th
     assert.equal(result.archiveSnapshot.success, true);
 });
 
+test('WordPress manuscript draft allows unresolved image prompts and reaches the publisher', async () => {
+    const coordinator = createBlogExecutionCoordinator();
+    const published = [];
+    const service = createService(coordinator, async (input) => {
+        published.push(input);
+        input.onPreparationComplete();
+        return {
+            success: true,
+            data: {
+                status: '임시저장 완료', postStatus: 'draft',
+                results: { wordpress: { success: true, status: 'draft', postId: 'wp-draft-1' } }
+            }
+        };
+    }, { WORDPRESS_URL: 'https://example.test' }, {
+        manuscriptDraftService: {
+            assertNotPublished() {},
+            async preparePublishPayload() {
+                return {
+                    folderName: '원고',
+                    selectedFiles: [{ name: 'contents.md', textContent: '# 원고\\n\\n본문\\n\\n[[IMAGE_0\\ntitle: 바다\\nprompt: ocean\\n]]' }],
+                    settings: { targets: ['wordpress'], postStatus: 'draft', imageMode: 'prompt_only' },
+                    publishPolicy: { draftRevision: 3, unresolvedImageCount: 1 }
+                };
+            },
+            markPublished() { return { draftId: 'draft-1', revision: 3 }; },
+            persistPublicationSnapshot() { return { success: true, publicationId: 'pub-draft-1' }; }
+        }
+    });
+
+    const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 2 });
+
+    assert.equal(published.length, 1);
+    assert.equal(published[0].usePluginPublisher, true);
+    assert.equal(published[0].postStatus, 'draft');
+    assert.equal(result.status, '임시저장 완료');
+});
+
 test('failed WordPress Plugin publication keeps the editable draft unmarked', async () => {
     const coordinator = createBlogExecutionCoordinator();
     let marked = 0;

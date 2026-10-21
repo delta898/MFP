@@ -248,6 +248,63 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
     assert.doesNotMatch(calls[0].request.content, /\[\[IMAGE_0/);
 });
 
+test('WordPress Plugin draft preserves unresolved image prompts as editable manuscript content', async (t) => {
+    const calls = [];
+    const logs = [];
+    let tempDir = '';
+    const rawMarkdown = '# 초안\n\n본문입니다.\n\n[[IMAGE_0\ntitle: 바다 풍경\nprompt: ocean\n]]';
+    const runtime = createTestPublishActionsRuntime({
+        fs,
+        path,
+        CONFIG: {},
+        Logger: { info(message) { logs.push(message); }, warn(message) { logs.push(message); }, error() {} },
+        Utils: {
+            parseMarkdown() {
+                return { contents: [{ type: 'image', index: 0, text: '바다 풍경', raw: '[[IMAGE_0\ntitle: 바다 풍경\nprompt: ocean\n]]' }] };
+            },
+            findImageByPrefix() { return null; }
+        },
+        blogPublishingApplication: {
+            async publishWordPressManuscript() { throw new Error('Plugin publisher expected'); },
+            async publishWordPressPlugin(request) {
+                calls.push(request);
+                return { success: true, postId: 904, status: 'draft' };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: {} }; },
+            async reservePublishQuota() { return { success: true }; },
+            async commitPublishQuota() { return { success: true }; }
+        },
+        toFeatureMap,
+        getFeatureBool,
+        buildLocalMarkdownPreview: () => ({
+            title: '초안', rawMarkdown, validation: { ok: true, errors: [] },
+            images: [{ index: 0, title: '바다 풍경', exists: false }],
+            source: { fileName: 'contents.md', folderName: '원고' }
+        }),
+        materializeSelectedFilesToWorkspace() {
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-wp-prompt-draft-'));
+            return { tempDir };
+        }
+    });
+    t.after(() => { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); });
+
+    const result = await runtime.executeLocalMarkdownPublish({
+        markdownText: rawMarkdown, targets: ['wordpress'], postStatus: 'draft',
+        imageMode: 'prompt_only', usePluginPublisher: true
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].status, 'draft');
+    assert.equal(calls[0].assets.length, 0);
+    assert.match(calls[0].content, /IMAGE_0/);
+    assert.match(calls[0].content, /prompt: ocean/);
+    assert.ok(result.data.results.wordpress.warnings.some((warning) => warning.includes('이미지 프롬프트 1개')));
+    assert.ok(logs.some((message) => message.includes('이미지 프롬프트 1개')));
+});
+
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
     let dedupeInput = null;

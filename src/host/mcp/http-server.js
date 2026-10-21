@@ -5,13 +5,13 @@ async function main() {
     const Logger = require('../../utilities/logging/logger');
     const { createLicensingRuntime } = require('../../composition/licensing');
     const { License } = createLicensingRuntime({ config: CONFIG });
-    const { createMcpPrototypeRuntime } = require('../../composition/mcp-runtime');
+    const { createMcpAgentRuntime } = require('../../composition/mcp-runtime');
     const { startHttpMcpServer } = require('../../adapters/messaging/mcp/server/http-server');
     Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
     return startHttpMcpServer({
         config: CONFIG,
         logger: Logger,
-        services: createMcpPrototypeRuntime({ config: CONFIG, License })
+        services: createMcpAgentRuntime({ config: CONFIG, License, Logger })
     });
 }
 

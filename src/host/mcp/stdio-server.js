@@ -18,11 +18,11 @@ async function main() {
     const CONFIG = require('../configuration/runtime-config');
     const { createLicensingRuntime } = require('../../composition/licensing');
     const { License } = createLicensingRuntime({ config: CONFIG });
-    const { createMcpPrototypeRuntime } = require('../../composition/mcp-runtime');
+    const { createMcpAgentRuntime } = require('../../composition/mcp-runtime');
     const { startServer } = require('../../adapters/messaging/mcp/server/stdio-server');
     return startServer({
-        services: createMcpPrototypeRuntime({ config: CONFIG, License }),
-        serverInfo: { name: 'naver-auto-blog-mcp-prototype', version: pkg.version }
+        services: createMcpAgentRuntime({ config: CONFIG, License, Logger: console }),
+        serverInfo: { name: 'bloggenius-mcp', version: pkg.version }
     });
 }
 

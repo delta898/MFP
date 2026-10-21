@@ -42,6 +42,28 @@ function normalizeCapability(capability) {
     };
 }
 
+function schemaRequiresField(schema, field) {
+    if (!schema || typeof schema !== 'object') return false;
+    if (Array.isArray(schema.required) && schema.required.includes(field)) return true;
+    return Object.values(schema.properties || {}).some((property) => schemaRequiresField(property, field))
+        || ['anyOf', 'oneOf', 'allOf'].some((key) => (
+        Array.isArray(schema[key]) && schema[key].some((branch) => schemaRequiresField(branch, field))
+    )) || schemaRequiresField(schema.then, field) || schemaRequiresField(schema.items, field);
+}
+
+function schemaHasTopLevelRequired(schema, field) {
+    return Boolean(Array.isArray(schema?.required) && schema.required.includes(field));
+}
+
+function schemaDefinesField(schema, field) {
+    if (!schema || typeof schema !== 'object') return false;
+    if (Object.prototype.hasOwnProperty.call(schema.properties || {}, field)) return true;
+    return Object.values(schema.properties || {}).some((property) => schemaDefinesField(property, field))
+        || ['anyOf', 'oneOf', 'allOf'].some((key) => (
+            Array.isArray(schema[key]) && schema[key].some((branch) => schemaDefinesField(branch, field))
+        )) || schemaDefinesField(schema.then, field);
+}
+
 function validateAgentActionDescriptor(capability) {
     const exposure = capability?.agentExposure;
     if (!exposure) return;
@@ -63,6 +85,34 @@ function validateAgentActionDescriptor(capability) {
             }
             if (!semantics || typeof semantics !== 'object' || !roles.has(String(semantics.role || ''))) {
                 throw new TypeError(`Agent action ${capability.id} input ${parameter} must declare a supported semantic role.`);
+            }
+        }
+    }
+    if (exposure.inputPolicy !== undefined) {
+        if (!exposure.inputPolicy || typeof exposure.inputPolicy !== 'object' || Array.isArray(exposure.inputPolicy)) {
+            throw new TypeError(`Agent action ${capability.id} inputPolicy must be an object.`);
+        }
+        for (const [field, policy] of Object.entries(exposure.inputPolicy)) {
+            if (!schemaDefinesField(exposure.inputSchema, field)) {
+                throw new TypeError(`Agent action ${capability.id} inputPolicy declares unknown input ${field}.`);
+            }
+            if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+                throw new TypeError(`Agent action ${capability.id} inputPolicy for ${field} must be an object.`);
+            }
+            if (policy.kind === 'required') {
+                if (!schemaRequiresField(exposure.inputSchema, field) || !String(policy.question || '').trim()) {
+                    throw new TypeError(`Agent action ${capability.id} required input ${field} must be required by inputSchema and include a question.`);
+                }
+            } else if (policy.kind === 'conditional_required') {
+                if (!schemaRequiresField(exposure.inputSchema, field) || !String(policy.question || '').trim()) {
+                    throw new TypeError(`Agent action ${capability.id} conditional input ${field} must be required by inputSchema and include a question.`);
+                }
+            } else if (policy.kind === 'optional') {
+                if (schemaHasTopLevelRequired(exposure.inputSchema, field) || !String(policy.prompt || '').trim()) {
+                    throw new TypeError(`Agent action ${capability.id} optional input ${field} must be optional in inputSchema and include a prompt.`);
+                }
+            } else {
+                throw new TypeError(`Agent action ${capability.id} inputPolicy for ${field} must use kind required, conditional_required, or optional.`);
             }
         }
     }

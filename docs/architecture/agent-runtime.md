@@ -73,7 +73,7 @@ The agent runtime turns channel input into validated actions, manages confirmati
 - Core Plugin manifest actions and live Plugin readiness are not yet dynamically contributed to the Agent Action Catalog.
 - Typed output-to-input binding between atomic actions is not implemented; use an Application workflow for dependent sequences.
 - Pending confirmation handling is only partially rule-driven.
-- MCP surface is still limited to content prepare/confirm only.
+- MCP surface currently projects Blog topic, queue, and manuscript Agent actions, with session-bound confirmation, status lookup, and validated updates to pending optional action parameters.
 - Remote MCP is still prototype-grade: a dedicated app-managed remote service now exists, but SSE/resumability and broader tool coverage are not finished.
 
 ## Current Planner Coverage

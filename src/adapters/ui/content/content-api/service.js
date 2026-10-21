@@ -1116,7 +1116,8 @@ function createContentApiService(deps = {}) {
                 if (target === 'wordpress' && snapshot.settings?.postStatus === 'schedule') {
                     throw createApiError(400, 'WORDPRESS_PLUGIN_STATUS_UNSUPPORTED', '현재 WordPress Plugin 발행 경로는 임시 저장과 즉시 발행만 지원합니다.');
                 }
-                if (target === 'wordpress' && snapshot.publishPolicy?.unresolvedImageCount > 0) {
+                if (target === 'wordpress' && snapshot.publishPolicy?.unresolvedImageCount > 0
+                    && snapshot.settings?.postStatus !== 'draft') {
                     throw createApiError(400, 'WORDPRESS_IMAGE_UNRESOLVED', '아직 이미지가 준비되지 않은 원고입니다. 이미지 생성을 완료하거나 해당 이미지 블록을 제외한 뒤 다시 시도해 주세요.');
                 }
                 if (typeof draftService.assertNotPublished === 'function') {

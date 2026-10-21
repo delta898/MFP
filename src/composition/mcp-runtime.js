@@ -1,71 +1,24 @@
-const fs = require('fs');
+'use strict';
+
 const path = require('path');
-const axios = require('axios');
+const { createAgentControlPlane } = require('./agent-control-plane');
+const { createMcpAgentActionAdapter } = require('../adapters/messaging/mcp/agent-action-adapter');
+const GoogleSheets = require('../adapters/storage/google-sheets/operations');
 
-const { createAgentRuntime } = require('../host/agent/runtime');
-const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
-const { createCapabilityRuntime } = require('./capability-runtime');
-const { createKnowledgeRuntime } = require('./knowledge-runtime');
-const { createMcpPrototypeAdapter } = require('../adapters/messaging/mcp/prototype-adapter');
-const { createAiModelConfiguration } = require('./ai-model-configuration');
-
-const NullLogger = {
-    debug() { },
-    info() { },
-    warn() { },
-    error() { }
-};
-
-function createMcpPrototypeRuntime(options = {}) {
-    const CONFIG = options.config || {};
-    const License = options.License;
-    if (!License) throw new Error('MCP runtime requires an injected licensing port.');
-    const confirmationPersistPath = process.env.MCP_CONFIRMATION_STORE_PATH
+function createMcpAgentRuntime(options = {}) {
+    const confirmationPersistPath = options.confirmationPersistPath
+        || process.env.MCP_CONFIRMATION_STORE_PATH
         || path.resolve(__dirname, '..', '..', '.tmp', 'mcp-confirmations.json');
-    const capabilityDependencies = options.capabilityDependencies || {};
-    const resolveWritableConfigPath = capabilityDependencies.resolveWritableConfigPath
-        || (() => CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
-    const buildDefaultConfigTemplate = capabilityDependencies.buildDefaultConfigTemplate || (() => '{}');
-    const syncAutoRunnerWithConfig = capabilityDependencies.syncAutoRunnerWithConfig || (() => { });
-    const resolveNaverAutoCategoryCatalog = capabilityDependencies.resolveNaverAutoCategoryCatalog || null;
-
-    const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger: NullLogger, axios });
-    const capabilityRegistry = createCapabilityRuntime({
-        ...knowledgeRuntime,
-        fs,
-        path,
-        axios,
-        Logger: NullLogger,
-        CONFIG,
-        License,
-        eventStore: null,
-        resolveWritableConfigPath,
-        buildDefaultConfigTemplate,
-        syncAutoRunnerWithConfig,
-        resolveNaverAutoCategoryCatalog,
-        modelConfiguration: capabilityDependencies.modelConfiguration || createAiModelConfiguration()
+    if (!options.GoogleSheets && !options.capabilityDependencies?.GoogleSheets) {
+        GoogleSheets.configureRuntime({ config: options.config || {} });
+    }
+    const controlPlane = createAgentControlPlane({
+        ...options,
+        GoogleSheets: options.GoogleSheets || options.capabilityDependencies?.GoogleSheets || GoogleSheets,
+        confirmationPersistPath
     });
-
-    const runtime = createAgentRuntime({
-        capabilityRegistry,
-        confirmationStore: new ConfirmationStore({
-            persistPath: confirmationPersistPath
-        }),
-        eventStore: null
-    });
-
-    const adapter = createMcpPrototypeAdapter({
-        capabilityRegistry,
-        runtime
-    });
-
-    return {
-        capabilityRegistry,
-        runtime,
-        adapter
-    };
+    const adapter = createMcpAgentActionAdapter(controlPlane);
+    return { ...controlPlane, adapter };
 }
 
-module.exports = {
-    createMcpPrototypeRuntime
-};
+module.exports = { createMcpAgentRuntime };

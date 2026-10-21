@@ -37,12 +37,13 @@ implementation.
 | `utilities/<capability>/` | Reusable technical operations without product policy. |
 | `utilities/browser/` | Shared local Playwright browser startup and launch-option normalization; no product workflow or provider authentication policy. |
 | `host/agent/` | Host-owned request interpretation, planning, confirmation orchestration, and capability dispatch. It does not own channel-specific parsers or persistence adapters. |
-| `host/agent/planning/content-requests/` | MCP content-request preparation and preview planning contract. Telegram natural-language requests use the Agent Action Catalog directly. |
+| `host/agent/` | Channel-neutral Agent planning, validation, confirmation, and execution. Telegram and MCP enter through the same runtime. |
 | `host/mcp/` | Remote MCP service lifecycle and stdio/HTTP executable bootstraps; concrete MCP transports and runtime services are supplied through composition. |
 | `host/configuration/mcp-remote-config.js` | MCP runtime configuration projection and bearer-token generation; pure settings normalization is in `services/mcp/`. |
 | `services/mcp/` | Provider-neutral MCP remote endpoint configuration defaults and normalization. |
 | `adapters/messaging/telegram/` | Telegram request parsing against the runtime Agent Action Catalog, protocol handling, and Telegram-specific response/keyboard rendering. |
-| `adapters/messaging/mcp/` | MCP protocol/transports under `server/`, tool request translation, and confirmation-token serialization. |
+| `adapters/messaging/mcp/` | MCP protocol/transports under `server/`, Agent Action Catalog tool projection, and session-bound confirmation translation. |
+| `composition/agent-control-plane.js` | Shared Agent Runtime, capability catalog, memory retrieval, and confirmation-store wiring for Telegram and MCP. |
 | `adapters/storage/confirmations/` | Confirmation state storage, expiry, correlation, and optional JSON persistence. Inject into Host Agent Runtime. |
 | `host/agent/capability-registry/` | Composes and validates the runtime Agent Action Catalog from Host Agent actions and owning Application contributions. |
 | `services/agent-actions/capability-id.js` | Canonical capability identifier contract shared by the Agent Host and recommendation policy. |

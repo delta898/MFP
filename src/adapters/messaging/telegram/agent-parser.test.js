@@ -140,6 +140,7 @@ test('Telegram router prompt derives allowable Agent actions from the runtime re
                     useWhen: '사용자가 블로그 글감 후보를 요청합니다.',
                     avoidWhen: '사용자가 키워드 지표나 실제 저장을 요청합니다.',
                     inputSchema: { type: 'object', properties: { limit: { type: 'integer', maximum: 5 } }, additionalProperties: false },
+                    inputPolicy: { limit: { kind: 'optional', prompt: '결과 개수를 지정할 수 있습니다.' } },
                     outputDescription: '주제에 맞는 글감 후보를 반환합니다.',
                     examples: []
                 }
@@ -156,6 +157,7 @@ test('Telegram router prompt derives allowable Agent actions from the runtime re
     assert.match(prompt, /사용하지 않을 때=사용자가 키워드 지표나 실제 저장을 요청합니다/);
     assert.match(prompt, /effect=generated_output, confirmation=never/);
     assert.match(prompt, /inputSchema=.*"limit"/);
+    assert.match(prompt, /사용자가 선택 항목을 지정했지만 값이 불명확하면 먼저 물어보고/);
     assert.match(prompt, /주제에 맞는 글감 후보를 반환합니다/);
     assert.match(prompt, /다른 action의 결과를 임의로 다음 입력에 연결하지 않습니다/);
     assert.doesNotMatch(prompt, /content\.title\.suggest/);
@@ -225,7 +227,7 @@ test('Telegram semantic routing can choose a matching action or ask before resol
     assert.match(prompts[1], /사용 시점=/);
     assert.match(prompts[1], /사용하지 않을 때=/);
     assert.match(prompts[1], /MUST/);
-    assert.match(prompts[1], /NICE to do/);
+    assert.match(prompts[1], /선택 항목/);
 });
 
 test('Telegram router converts missing required action input into a focused clarification', async () => {

@@ -239,8 +239,9 @@ function createSessionStore() {
             id: sessionId,
             state,
             callContext: {
-                user_id: `mcp-http:${sessionId}`,
-                conversation_id: `mcp:http:${sessionId}`
+                userId: `mcp-http:${sessionId}`,
+                conversationId: `mcp:http:${sessionId}`,
+                transport: 'streamable_http'
             }
         };
         sessions.set(sessionId, session);

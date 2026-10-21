@@ -427,6 +427,75 @@ function createAgentRuntime(options = {}) {
             return this.handleEnvelope(envelope, context);
         },
 
+        async updatePendingConfirmation(input = {}, context = {}) {
+            const confirmationId = String(input.confirmationId || '').trim();
+            const item = confirmationStore.get(confirmationId);
+            if (!item || item.channel !== String(context?.channel || '').trim()
+                || item.userId !== String(context?.user?.id || '').trim()
+                || item.conversationId !== String(context?.conversation?.id || '').trim()) {
+                return { ok: false, status: 'not_found', message: '현재 세션에서 수정할 확인 요청을 찾지 못했습니다.' };
+            }
+            if (item.status !== 'pending') {
+                return { ok: false, status: item.status, message: '대기 중인 확인 요청만 수정할 수 있습니다.' };
+            }
+
+            const parameters = input.parameters && typeof input.parameters === 'object' && !Array.isArray(input.parameters)
+                ? input.parameters : null;
+            if (!parameters || Object.keys(parameters).length === 0) {
+                return { ok: false, status: 'invalid_input', message: '변경할 옵션을 하나 이상 전달해 주세요.' };
+            }
+
+            const steps = Array.isArray(item.plan?.steps) ? item.plan.steps : [];
+            const candidates = steps.map((step, index) => ({ step, index })).filter(({ step }) => step?.action);
+            const requestedActionId = String(input.actionId || '').trim();
+            const selected = requestedActionId
+                ? candidates.find(({ step }) => String(step.action.action_id || '') === requestedActionId)
+                : candidates.length === 1 ? candidates[0] : null;
+            if (!selected) {
+                return { ok: false, status: 'invalid_input', message: candidates.length > 1
+                    ? '수정할 action_id를 지정해 주세요.'
+                    : '수정할 작업을 확인 요청에서 찾지 못했습니다.' };
+            }
+
+            const action = {
+                ...selected.step.action,
+                params: { ...(selected.step.action.params || {}), ...parameters }
+            };
+            const validation = await capabilityRegistry.validateAction(action, context);
+            if (!validation.ok) {
+                return {
+                    ok: false,
+                    status: 'invalid_input',
+                    message: (validation.errors || ['입력값을 확인해 주세요.']).join(' '),
+                    ...(validation.correctionProposal ? { correction: validation.correctionProposal } : {})
+                };
+            }
+            const normalizedAction = { ...action, params: validation.normalizedParams };
+            const updatedSteps = steps.map((step, index) => index === selected.index
+                ? { ...step, action: normalizedAction }
+                : step);
+            const plan = { ...item.plan, steps: updatedSteps };
+            const actions = updatedSteps.map((step) => step.action).filter(Boolean);
+            const previews = [];
+            for (const nextAction of actions) {
+                const preview = await capabilityRegistry.previewAction(nextAction, context);
+                previews.push({
+                    action_id: nextAction.id,
+                    capability_id: buildCapabilityId(nextAction.domain, nextAction.name),
+                    preview
+                });
+            }
+            const updated = confirmationStore.updatePlan(confirmationId, { plan, actions, previews });
+            if (!updated) return { ok: false, status: 'invalid_state', message: '확인 요청이 이미 처리되어 수정할 수 없습니다.' };
+            return {
+                ok: true,
+                status: 'confirmation_required',
+                message: `옵션을 반영했습니다. ${previews.map((entry) => String(entry.preview?.summary || '').trim()).filter(Boolean).join(' ')} 미리보기를 확인한 뒤 승인 또는 거절해 주세요.`,
+                confirmation: updated,
+                previews
+            };
+        },
+
         async handleConfirmationDecision(input = {}, context = {}) {
             const confirmationId = String(input.confirmationId || '').trim();
             const decision = String(input.decision || '').trim().toLowerCase();
@@ -475,7 +544,14 @@ function createAgentRuntime(options = {}) {
             const acceptedActions = Array.isArray(accepted?.plan?.steps)
                 ? accepted.plan.steps.map((step) => step.action).filter(Boolean)
                 : (accepted.actions || []);
-            const results = await executeActions(acceptedActions, context, accepted?.plan || null);
+            let results;
+            try {
+                results = await executeActions(acceptedActions, context, accepted?.plan || null);
+            } catch (error) {
+                const errorCode = String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
+                confirmationStore.markExecutionFailed?.(confirmationId, errorCode);
+                throw error;
+            }
             if (accepted?.correction) {
                 await recordEvent({
                     event_type: 'domain.alias.accepted',
@@ -488,8 +564,8 @@ function createAgentRuntime(options = {}) {
                     conversation: context?.conversation
                 });
             }
-            confirmationStore.markExecuted(confirmationId);
-            return { ok: true, status: 'executed', confirmation: accepted, results };
+            const executedConfirmation = confirmationStore.markExecuted(confirmationId, results);
+            return { ok: true, status: 'executed', confirmation: executedConfirmation || accepted, results };
         }
     };
 }

@@ -34,18 +34,33 @@ function buildJsonRpcError(id, code, message, data = undefined) {
 }
 
 function buildToolResultPayload(result = {}) {
-    const ok = result?.ok !== false;
+    const actionMessages = (Array.isArray(result?.results) ? result.results : [])
+        .map((item) => String(item?.result?.message || '').trim()).filter(Boolean);
+    const actionFailed = (Array.isArray(result?.results) ? result.results : [])
+        .some((item) => item?.result?.success === false);
+    const ok = result?.ok !== false && !actionFailed;
     const summary = (() => {
         if (ok && result?.status === 'needs_clarification') {
             return String(result?.message || 'More information is needed before execution.').trim();
         }
+        if (ok && result?.status === 'confirmation_required') {
+            const preview = (Array.isArray(result?.previews) ? result.previews : [])
+                .map((item) => String(item?.preview?.summary || '').trim()).filter(Boolean).join(' ');
+            const confirmationId = String(result?.confirmation?.id || '').trim();
+            const nextStep = confirmationId
+                ? `Review the preview. If the user wants to add or change options, call blog_confirmation_update with confirmation_id="${confirmationId}" and the changed parameters, then review the updated preview. Otherwise call blog_confirmation_decide with confirmation_id="${confirmationId}" and decision="approve" or "reject". Approval returns an acknowledgment while execution continues; call blog_confirmation_status with the same ID for progress and the final result. Do not repeat the original action.`
+                : 'A confirmation is required, but the response did not include a confirmation ID. Do not retry the action; request help.';
+            return `Confirmation required.${confirmationId ? ` Confirmation ID: ${confirmationId}.` : ''}${preview ? ` ${preview}` : ''} ${nextStep}`;
+        }
+        if (actionMessages.length > 0) return actionMessages.join('\n');
+        if (result?.message) return String(result.message).trim();
         if (ok) {
             return `Tool completed: ${result.status || 'ok'}`;
         }
         return `Tool failed: ${Array.isArray(result?.errors) ? result.errors.join('; ') : (result?.message || 'error')}`;
     })();
 
-    return {
+    const payload = {
         content: [
             {
                 type: 'text',
@@ -55,6 +70,10 @@ function buildToolResultPayload(result = {}) {
         structuredContent: result,
         isError: !ok
     };
+    if (payload.structuredContent && typeof payload.structuredContent === 'object') {
+        payload.structuredContent = JSON.parse(JSON.stringify(payload.structuredContent));
+    }
+    return payload;
 }
 
 function resolveServerInfo(options = {}) {
@@ -63,7 +82,7 @@ function resolveServerInfo(options = {}) {
         : {};
 
     return {
-        name: String(serverInfo.name || 'naver-auto-blog-mcp-prototype').trim() || 'naver-auto-blog-mcp-prototype',
+        name: String(serverInfo.name || 'bloggenius-mcp').trim() || 'bloggenius-mcp',
         version: String(serverInfo.version || pkg.version).trim() || pkg.version
     };
 }

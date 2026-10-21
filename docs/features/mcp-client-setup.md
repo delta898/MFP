@@ -1,7 +1,7 @@
 # MCP Client Setup
 
 ## Purpose
-현재 저장소에는 register/publish 중심의 prototype MCP server가 포함되어 있다.
+MCP는 Telegram과 같은 Agent Action Catalog와 Agent Runtime을 사용한다. MCP 도구는 런타임에서 사용 가능한 Blog 액션 설명자로부터 생성되며, 별도 비즈니스 실행 경로를 두지 않는다.
 
 엔트리 포인트:
 - `src/host/mcp/stdio-server.js` (Host bootstrap; delegates MCP wire handling to the adapter)
@@ -14,19 +14,19 @@ npm run mcp:stdio
 npm run mcp:http
 ```
 
-현재 노출되는 tool:
-- `content_request_prepare`
-- `confirmation_decide`
+현재 Blog 도구:
+- 글감 저장 또는 발행 대기열 등록
+- 글감/대기열 조회, 이동, 수정
+- 원고 생성, 저장된 원고 포스팅, 생성 후 포스팅
+- 확인이 필요한 액션은 세션에 묶인 확인 도구로 승인/거부
 
-핵심 입력 철학:
-- MCP는 글감 등록/발행에 필요한 핵심 필드만 다룬다
-- 주로 사용하는 입력은 `theme(주제)`, `keywords`, `instruction(참고/지시사항)`, `naver_category`, `wordpress_category`, `platforms`, `image_gen`, `external_reference`
-- `image_gen` 기본값은 `true`
-- `external_reference` 기본값은 `true`
-- spreadsheet append는 `content_request_prepare` 시점이 아니라 `confirmation_decide approve` 이후 실행 시점에만 일어난다
-- register + publish를 함께 승인한 경우, publish는 방금 append된 row를 우선 대상으로 삼는다
-- publish approval은 전체 발행 로그가 끝날 때까지 동기 대기하지 않고, `발행 시작` acknowledgement를 먼저 반환한다
-- `theme(주제)`가 없으면 서버는 바로 append하지 않고 `needs_clarification` 결과를 반환해 host가 추가 질문을 하도록 유도한다
+입력과 확인:
+- 필수 질문과 선택 입력 안내는 Telegram과 공유하는 Agent Action descriptor에서 관리한다.
+- MCP 클라이언트는 typed action schema와 입력 안내를 보고 누락된 필수 값이나 사용자가 지정하겠다고 한 불명확한 옵션을 확인한 뒤 도구를 호출한다. 언급하지 않은 선택 옵션은 해당 action의 기본값을 따른다.
+- 원고 생성·포스팅은 키워드, 이미지 방식, 외부 참고, 추가 요청, 네이버/워드프레스 카테고리를 지원한다.
+- 확인이 필요한 액션은 Agent Runtime이 preview와 confirmation ID를 돌려주며, 명시 승인 후 같은 런타임에서 실행된다.
+- confirmation ID는 발급된 MCP 세션과 연결되어 다른 세션에서 재사용할 수 없다.
+- 승인 도구가 시간 초과되거나 결과가 불분명하면 `blog_confirmation_status`로 진행 상태와 최종 결과를 조회한다. 원래 액션이나 승인을 반복해 확인하지 않는다.
 
 ## What This Supports Today
 - `initialize`
@@ -169,18 +169,22 @@ reverse proxy 사용 시 원칙:
 1. `initialize`
 2. `notifications/initialized` 또는 `mcp-session-id` 저장
 3. `tools/list`
-4. `tools/call` with `content_request_prepare`
-5. `tools/call` with `confirmation_decide`
+4. `tools/list`에서 `blog_`로 시작하는 Blog action tools 확인
+5. 읽기 전용 확인은 `blog_content_queue_list_topics` 호출
+6. 변경 옵션이 있으면 승인 전에 `blog_confirmation_update`로 pending confirmation을 갱신하고 새 preview를 확인
+7. preview를 확인한 뒤 `blog_confirmation_decide`에 ID와 `approve` 또는 `reject` 전달
+8. 승인은 빠르게 접수 응답을 반환하며 실행은 백그라운드에서 진행된다. `blog_confirmation_status`를 조회해 진행 상태와 최종 결과 확인
 
 ## Current Limitations
-- prototype MCP server이며 full production transport hardening 단계는 아직 아니다.
-- content domain만 우선 노출한다.
+- Blog 글감·대기열·원고 액션을 노출한다. 새 액션은 Agent descriptor와 composition이 노출할 때 도구 목록에도 반영된다.
+- MCP 클라이언트가 자연어 대화를 처리하고 필요한 필드를 확인한다. 서버는 typed tool call을 검증·실행한다.
+- confirmation preview 뒤에도 `blog_confirmation_update`로 사용자가 추가한 옵션을 검증·반영할 수 있다. 갱신된 preview를 확인하기 전에는 승인하지 않는다.
 - settings / jobs / suggestions tool surface는 아직 추가하지 않았다.
 - remote auth는 shared bearer token 수준의 최소 전략만 있다.
 - Streamable HTTP 중 SSE / resumability / multi-session persistence는 아직 없다.
 
 ## Recommended Next Steps
-- Codex/Claude 실제 클라이언트에 remote endpoint 연결 smoke test
-- single-user / single-client 가정 기준 confirmation fallback 단순화 점검
+- OpenCode에서 HTTP endpoint 연결 후 읽기 전용 글감 조회 확인
+- development 데이터로 글감 저장/거부와 대기열 목록 확인
 - `settings` / `jobs` tool 추가
-- tool input schema를 더 엄격한 JSON schema로 보강
+- stdio host 실행은 애플리케이션 런타임의 인증/환경 설정이 필요하다.

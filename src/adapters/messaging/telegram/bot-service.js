@@ -3,15 +3,12 @@ const Logger = require('../../../utilities/logging/logger');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { createAgentRuntime } = require('../../../host/agent/runtime');
-const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
-const { createCapabilityRuntime } = require('../../../composition/capability-runtime');
-const { createKnowledgeRuntime } = require('../../../composition/knowledge-runtime');
-const { createMemoryRetrievalService } = require('../../../services/memory/retrieval-service');
+const { createAgentControlPlane } = require('../../../composition/agent-control-plane');
 const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./agent-parser');
 const TelegramAgentRenderer = require('./agent-renderer');
 const { getAgentEventStore } = require('../../../host/memory/runtime');
 const { recordRecommendationFeedback } = require('../../../services/recommendations/adapters/recommendation-feedback-adapter');
+const { getActionInputPolicy } = require('../../../services/agent-actions/input-policy');
 const {
     calculateTelegramPollingBackoffMs,
     describeTelegramError,
@@ -33,6 +30,23 @@ function summarizeAgentResults(results = []) {
 
 function getSafeAgentErrorCode(error) {
     return String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
+}
+
+function buildOptionalInputPrompt(action = {}) {
+    const definitions = getActionInputPolicy(action).optionalDefinitions;
+    const lines = Object.values(definitions).map((field) => {
+        const label = String(field.label || '').trim();
+        if (!label) return '';
+        const choices = Array.isArray(field.choices) && field.choices.length > 0
+            ? field.choices.join(' / ')
+            : String(field.example || '선택');
+        return `${label}: ${choices}`;
+    }).filter(Boolean);
+    return [
+        '원하는 값만 채워 보내 주세요. 비워 둔 항목은 현재 설정을 유지합니다.',
+        '',
+        ...lines
+    ].join('\n');
 }
 
 class TelegramBotService {
@@ -225,46 +239,19 @@ class TelegramBotService {
         this.agentEventStore = getAgentEventStore();
 
         const dependencies = this.runtimeDependencies || {};
-        const resolveWritableConfigPath = dependencies.resolveWritableConfigPath
-            || (() => this.CONFIG.CONFIG_SOURCE_PATH || this.CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
-        const buildDefaultConfigTemplate = dependencies.buildDefaultConfigTemplate || (() => '{}');
-        const syncAutoRunnerWithConfig = dependencies.syncAutoRunnerWithConfig || (() => { });
-        const resolveNaverAutoCategoryCatalog = dependencies.resolveNaverAutoCategoryCatalog || null;
-
         const License = TelegramBotService.License;
         if (!License) throw new Error('Telegram runtime requires an injected licensing port.');
-        const CONFIG = this.CONFIG;
-        const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger, axios });
-        const capabilityRegistry = createCapabilityRuntime({
-            ...knowledgeRuntime,
-            fs,
-            path,
-            axios,
-            Logger,
-            CONFIG,
+        const controlPlane = createAgentControlPlane({
+            config: this.CONFIG,
             License,
+            Logger,
             GoogleSheets: this.GoogleSheets,
             eventStore: this.agentEventStore,
-            resolveWritableConfigPath,
-            buildDefaultConfigTemplate,
-            syncAutoRunnerWithConfig,
-            resolveNaverAutoCategoryCatalog,
-            modelConfiguration: dependencies.modelConfiguration,
-            agentActionProviders: dependencies.agentActionProviders
+            capabilityDependencies: dependencies
         });
-
-        this.agentRuntime = createAgentRuntime({
-            capabilityRegistry,
-            confirmationStore: new ConfirmationStore(),
-            eventStore: this.agentEventStore,
-            CONFIG,
-            Logger
-        });
-        this.agentCapabilityRegistry = capabilityRegistry;
-        this.agentRetrieval = createMemoryRetrievalService({
-            eventStore: this.agentEventStore,
-            confirmationStore: this.agentRuntime.confirmationStore
-        });
+        this.agentRuntime = controlPlane.runtime;
+        this.agentCapabilityRegistry = controlPlane.capabilityRegistry;
+        this.agentRetrieval = controlPlane.retrieval;
 
         return this.agentRuntime;
     }
@@ -392,7 +379,7 @@ class TelegramBotService {
                 .filter((action) => {
                     if (action.action_id !== 'content.manuscript.generate_and_publish') return false;
                     const capability = this.agentCapabilityRegistry?.getAgentAction?.(action.action_id);
-                    const suggestions = capability?.agentExposure?.optionalInputSuggestions || {};
+                    const suggestions = getActionInputPolicy(capability).optional;
                     return Object.keys(suggestions).some((field) => !Object.prototype.hasOwnProperty.call(action.params || {}, field));
                 });
             const keyboard = [
@@ -479,8 +466,14 @@ class TelegramBotService {
             }
             this.pendingOptionalInputs.set(String(chatId), targetId);
             await this.bot.answerCallbackQuery(query.id, { text: '추가 정보를 입력해 주세요.' });
+            const manuscriptAction = (confirmation.plan?.steps || [])
+                .map((step) => step.action)
+                .find((action) => action?.action_id === 'content.manuscript.generate_and_publish');
+            const actionDescriptor = manuscriptAction
+                ? this.agentCapabilityRegistry?.getAgentAction?.(manuscriptAction.action_id)
+                : null;
             await this.bot.editMessageText(
-                '원하는 값만 채워서 보내 주세요. 비워 둔 항목은 현재 설정을 유지합니다.\n\n키워드: (예: OpenClaw)\n이미지 생성: 미포함 / 프롬프트만 / 생성\n외부 참고: 사용 / 사용 안 함\n추가 요청: (선택)\n\n예: 키워드: OpenClaw\n이미지 생성: 미포함\n외부 참고: 사용 안 함\n추가 요청: 초보자도 이해하기 쉽게 써줘',
+                buildOptionalInputPrompt(actionDescriptor),
                 {
                     chat_id: chatId,
                     message_id: messageId,
@@ -686,9 +679,11 @@ class TelegramBotService {
         const keywordMatch = raw.match(/(?:키워드|검색어)\s*[:：]\s*([^;\n]+)/i);
         const imageMatch = raw.match(/이미지(?:\s*생성)?\s*[:：]\s*([^;\n]+)/i);
         const referenceMatch = raw.match(/(?:외부\s*참고|참고\s*자료)\s*[:：]\s*([^;\n]+)/i);
+        const naverCategoryMatch = raw.match(/네이버\s*카테고리\s*[:：]\s*([^;\n]+)/i);
+        const wordpressCategoryMatch = raw.match(/워드프레스\s*카테고리\s*[:：]\s*([^;\n]+)/i);
         const instructionMatch = raw.match(/(?:추가\s*요청|추가\s*지시|요청사항)\s*[:：]\s*([^;\n]+)/i);
         if (keywordMatch) params.keywords = keywordMatch[1].split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
-        else if (!imageMatch && !referenceMatch && !instructionMatch) params.keywords = raw.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
+        else if (!imageMatch && !referenceMatch && !instructionMatch && !naverCategoryMatch && !wordpressCategoryMatch) params.keywords = raw.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
         if (imageMatch) {
             const image = imageMatch[1].trim().toLowerCase();
             const explicitlyDisabled = /생성\s*하지\s*않|생성\s*안\s*함|미생성|생성\s*없|포함\s*하지\s*않|포함\s*안\s*함|미포함|없음|사용\s*안|끄기|\bno\b|\bfalse\b|\boff\b/i.test(image);
@@ -700,6 +695,8 @@ class TelegramBotService {
             params.external_reference = !/아니|미사용|사용\s*안|없음|하지\s*않|\bno\b|\bfalse\b|\boff\b/i.test(reference);
         }
         if (instructionMatch) params.instruction = [String(params.instruction || '').trim(), instructionMatch[1].trim()].filter(Boolean).join('\n\n');
+        if (naverCategoryMatch) params.naver_category = naverCategoryMatch[1].trim();
+        if (wordpressCategoryMatch) params.wordpress_category = wordpressCategoryMatch[1].trim();
         targetStep.action = { ...targetStep.action, params };
         const actions = steps.map((step) => step.action).filter(Boolean);
         const previews = [];
@@ -732,7 +729,7 @@ class TelegramBotService {
             .map((step) => step.action)
             .filter((action) => {
                 if (action?.action_id !== 'content.manuscript.generate_and_publish') return false;
-                const suggestions = this.agentCapabilityRegistry?.getAgentAction?.(action.action_id)?.agentExposure?.optionalInputSuggestions || {};
+                const suggestions = getActionInputPolicy(this.agentCapabilityRegistry?.getAgentAction?.(action.action_id)).optional;
                 return Object.keys(suggestions).some((field) => !Object.prototype.hasOwnProperty.call(action.params || {}, field));
             });
         if (optionalActions.length > 0) keyboard.push([{ text: '➕ 선택 정보 추가', callback_data: `agent_options:${confirmationId}` }]);

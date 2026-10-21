@@ -194,14 +194,12 @@ function createRegisterTopicCapabilities(deps = {}) {
                     platforms: { role: 'selection' },
                     options: { role: 'requested_option' }
                 },
-                requiredInputQuestions: {
-                    theme: '어떤 주제로 글감을 등록할까요?',
-                    action: '글감을 보관함에 저장할까요, 발행 대기열에 넣을까요?',
-                    platforms: '발행 대기열에 넣을 플랫폼을 선택해 주세요. 네이버 블로그와 워드프레스 중 어디인가요?',
-                    schedule_date: '예약 발행으로 설정하려면 언제 발행할지 날짜와 시간을 알려주세요.'
-                },
-                optionalInputSuggestions: {
-                    keywords: '키워드는 선택 사항이지만, 함께 저장하면 나중에 글감 검색과 원고 작성에 도움이 됩니다.'
+                inputPolicy: {
+                    theme: { kind: 'required', question: '어떤 주제로 글감을 등록할까요?' },
+                    action: { kind: 'required', question: '글감을 보관함에 저장할까요, 발행 대기열에 넣을까요?' },
+                    platforms: { kind: 'conditional_required', question: '발행 대기열에 넣을 플랫폼을 선택해 주세요. 네이버 블로그와 워드프레스 중 어디인가요?' },
+                    schedule_date: { kind: 'conditional_required', question: '예약 발행으로 설정하려면 언제 발행할지 날짜와 시간을 알려주세요.' },
+                    keywords: { kind: 'optional', prompt: '키워드는 선택 사항이지만, 함께 저장하면 나중에 글감 검색과 원고 작성에 도움이 됩니다.' }
                 },
                 personalizableParameters: {
                     'options.image_gen': { title: '이미지 생성', allowUserDefault: true },

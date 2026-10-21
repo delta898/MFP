@@ -40,6 +40,7 @@ class ConfirmationStore {
             actions: Array.isArray(item.actions) ? item.actions : [],
             previews: Array.isArray(item.previews) ? item.previews : [],
             correction: item.correction && typeof item.correction === 'object' ? item.correction : null,
+            execution: item.execution && typeof item.execution === 'object' ? item.execution : null,
             correlation: this._normalizeCorrelation(item.correlation),
             supersededConfirmationId: String(item.supersededConfirmationId || '').trim(),
             transportChatId: String(item.transportChatId || '').trim(),
@@ -108,6 +109,7 @@ class ConfirmationStore {
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             previews: Array.isArray(payload.previews) ? payload.previews : [],
             correction: payload.correction && typeof payload.correction === 'object' ? payload.correction : null,
+            execution: null,
             correlation: this._normalizeCorrelation(payload.correlation),
             supersededConfirmationId: String(payload.superseded_confirmation_id || '').trim(),
             transportChatId: String(payload.transport_chat_id || '').trim(),
@@ -150,8 +152,36 @@ class ConfirmationStore {
         return this._updateStatus(id, 'rejected');
     }
 
-    markExecuted(id) {
-        return this._updateStatus(id, 'executed');
+    markExecuted(id, results = []) {
+        this._cleanupExpired();
+        const item = this.items.get(String(id || '').trim());
+        if (!item) return null;
+        item.status = 'executed';
+        item.execution = {
+            success: !results.some((entry) => entry?.result?.success === false),
+            results: results.map((entry) => ({
+                action_id: String(entry?.capability_id || entry?.action_id || '').slice(0, 200),
+                success: entry?.result?.success !== false,
+                message: String(entry?.result?.message || '').slice(0, 1000)
+            }))
+        };
+        this.items.set(item.id, item);
+        this._persist();
+        return { ...item };
+    }
+
+    markExecutionFailed(id, code = 'UNKNOWN') {
+        this._cleanupExpired();
+        const item = this.items.get(String(id || '').trim());
+        if (!item) return null;
+        item.status = 'failed';
+        item.execution = {
+            success: false,
+            errorCode: String(code || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN'
+        };
+        this.items.set(item.id, item);
+        this._persist();
+        return { ...item };
     }
 
     bindTransportMessage(id, payload = {}) {

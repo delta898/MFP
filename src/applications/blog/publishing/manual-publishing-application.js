@@ -80,12 +80,13 @@ function createBlogManualPublishingApplication(deps = {}) {
         return blogPublishingApplication.publishWordPressManuscript(directory, request);
     }
 
-    function buildWordPressPluginContent(markdown, images, tempDir) {
+    function buildWordPressPluginContent(markdown, images, tempDir, options = {}) {
         if (!/\[\[IMAGE(?:_\d+)?(?:\s|\]\]|$)/i.test(String(markdown || ''))) {
             return { contentMarkdown: String(markdown || ''), assets: [] };
         }
         const parsedImages = (parseBlogManuscriptMarkdown(markdown, Logger)?.contents || []).filter((item) => item?.type === 'image');
         const assets = [];
+        let unresolvedImageCount = 0;
         const assetsByIndex = new Map();
         let imagePosition = 0;
         const mimeTypes = {
@@ -106,6 +107,12 @@ function createBlogManualPublishingApplication(deps = {}) {
                 if (assetsByIndex.has(index)) return `{{asset:${key}}}`;
                 const imagePath = findImageByPrefix(tempDir, index);
                 if (!imagePath || !fs?.existsSync?.(imagePath)) {
+                    if (options.allowUnresolvedImages === true) {
+                        unresolvedImageCount += 1;
+                        // Markdown treats square brackets as link syntax; escape them so
+                        // the unresolved prompt remains visible in the WordPress draft.
+                        return String(block).replace(/\[/g, '&#91;').replace(/\]/g, '&#93;');
+                    }
                     const error = new Error(`원고 이미지 ${index + 1}번 파일을 찾을 수 없습니다.`);
                     error.code = 'WORDPRESS_IMAGE_ASSET_MISSING';
                     throw error;
@@ -129,7 +136,7 @@ function createBlogManualPublishingApplication(deps = {}) {
                 return `{{asset:${key}}}`;
             }
         );
-        return { contentMarkdown, assets };
+        return { contentMarkdown, assets, unresolvedImageCount };
     }
 
     async function recordTopicRecommendationOutcome({ requestBody, stage, subject, entityRef, resultRef, platform = '' }) {
@@ -1504,7 +1511,9 @@ function createBlogManualPublishingApplication(deps = {}) {
                 let wpRes;
                 if (requestBody?.usePluginPublisher === true) {
                     const bodyMarkdown = String(previewData.rawMarkdown || '').replace(/^#\s+.+\n?/, '').trim();
-                    const wordpressContent = buildWordPressPluginContent(bodyMarkdown, previewData.images, workspace.tempDir);
+                    const wordpressContent = buildWordPressPluginContent(bodyMarkdown, previewData.images, workspace.tempDir, {
+                        allowUnresolvedImages: postStatus === 'draft'
+                    });
                     const featuredAsset = wordpressContent.assets[0]?.key || '';
                     if (typeof blogPublishingApplication?.publishWordPressPlugin !== 'function') {
                         wordpressContent.assets.forEach((asset, index) => {
@@ -1525,6 +1534,14 @@ function createBlogManualPublishingApplication(deps = {}) {
                     } catch (error) {
                         Logger?.error?.(`[Blog Beta][Publishing] WordPress 발행 실패 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
                         throw error;
+                    }
+                    if (wordpressContent.unresolvedImageCount > 0) {
+                        const warning = `이미지 프롬프트 ${wordpressContent.unresolvedImageCount}개를 원고에 남겨 임시저장했습니다.`;
+                        wpRes = {
+                            ...wpRes,
+                            warnings: [...(Array.isArray(wpRes?.warnings) ? wpRes.warnings : []), warning]
+                        };
+                        Logger?.warn?.(`[Blog Beta][Publishing] ${warning}`);
                     }
                     Logger?.info?.(`[Blog Beta][Publishing] WordPress 발행 완료 (success=${wpRes?.success === true}, requestedAssets=${wordpressContent.assets.length}, warnings=${Array.isArray(wpRes?.warnings) ? wpRes.warnings.length : 0})`);
                 } else {

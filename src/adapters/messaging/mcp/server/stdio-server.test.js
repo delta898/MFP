@@ -1,226 +1,75 @@
+'use strict';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('path');
-const { spawn } = require('node:child_process');
-const readline = require('node:readline');
+const { handleRequest } = require('./stdio-server');
+const { createServerState, buildToolResultPayload } = require('./protocol');
 
-function spawnServer(options = {}) {
-    const serverPath = path.resolve(__dirname, '../../../../../src/host/mcp/stdio-server.js');
-    const child = spawn(process.execPath, [serverPath], {
-        cwd: path.join(__dirname, '..', '..', '..', '..', '..'),
-        env: {
-            ...process.env,
-            ...(options.env || {})
-        },
-        stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    const rl = readline.createInterface({
-        input: child.stdout,
-        crlfDelay: Infinity
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => {
-        stderr += chunk.toString('utf8');
-    });
-
-    const pending = new Map();
-    rl.on('line', (line) => {
-        const message = JSON.parse(line);
-        if (message.id !== undefined && pending.has(message.id)) {
-            const resolver = pending.get(message.id);
-            pending.delete(message.id);
-            resolver(message);
-        }
-    });
-
-    function request(id, method, params = {}) {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                pending.delete(id);
-                reject(new Error(`timeout waiting for response: ${method}`));
-            }, 3000);
-
-            pending.set(id, (message) => {
-                clearTimeout(timeout);
-                resolve(message);
-            });
-
-            child.stdin.write(`${JSON.stringify({
-                jsonrpc: '2.0',
-                id,
-                method,
-                params
-            })}\n`);
-        });
+async function captureRequest(message, state, services = {}) {
+    const chunks = [];
+    const originalWrite = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+        await handleRequest(message, state, services, { name: 'bloggenius-mcp', version: 'test' });
+    } finally {
+        process.stdout.write = originalWrite;
     }
-
-    function notify(method, params = {}) {
-        child.stdin.write(`${JSON.stringify({
-            jsonrpc: '2.0',
-            method,
-            params
-        })}\n`);
-    }
-
-    async function stop() {
-        rl.close();
-        child.kill('SIGTERM');
-        await new Promise((resolve) => child.once('exit', resolve));
-    }
-
-    return {
-        child,
-        request,
-        notify,
-        getStderr() {
-            return stderr;
-        },
-        stop
-    };
+    return JSON.parse(chunks.join(''));
 }
 
-test('stdio mcp server supports initialize, tools/list, and tools/call', async () => {
-    const server = spawnServer();
-
-    try {
-        const initialized = await server.request(1, 'initialize', {
-            protocolVersion: '2025-11-05',
-            capabilities: {},
-            clientInfo: {
-                name: 'test-client',
-                version: '0.0.0'
-            }
-        });
-        assert.equal(initialized.result.protocolVersion, '2025-11-05');
-        assert.equal(initialized.result.serverInfo.name, 'naver-auto-blog-mcp-prototype');
-
-        server.notify('notifications/initialized');
-
-        const tools = await server.request(2, 'tools/list', {});
-        assert.equal(Array.isArray(tools.result.tools), true);
-        assert.equal(tools.result.tools.some((tool) => tool.name === 'content_request_prepare'), true);
-
-        const prepared = await server.request(3, 'tools/call', {
-            name: 'content_request_prepare',
-            arguments: {
-                conversation_id: 'mcp:stdio-test',
-                user_id: 'stdio-user',
-                register_request: {
-                    intent: 'content.register_topic',
-                    payload: {
-                        theme: 'stdio 확인'
-                    }
-                },
-                publish_request: {
-                    intent: 'content.publish',
-                    payload: {
-                        target: 'naver',
-                        auto_trigger: false
-                    }
-                },
-                ui: {
-                    show_publish_options: true
-                }
-            }
-        });
-        assert.equal(prepared.result.isError, false);
-        assert.equal(prepared.result.structuredContent.ok, true);
-        assert.equal(prepared.result.structuredContent.confirmation_token.token_type, 'agent.confirmation');
-        assert.equal(prepared.result.structuredContent.bundle.register_request.payload.theme, 'stdio 확인');
-    } finally {
-        await server.stop();
-    }
-});
-
-test('stdio mcp server can confirm after process restart using persisted confirmation store', async () => {
-    const persistPath = path.join(os.tmpdir(), `naver-autoblog-mcp-test-${Date.now()}.json`);
-    const env = {
-        MCP_CONFIRMATION_STORE_PATH: persistPath
-    };
-
-    let server = spawnServer({ env });
-    try {
-        await server.request(1, 'initialize', {
-            protocolVersion: '2025-11-05',
-            capabilities: {},
-            clientInfo: {
-                name: 'test-client',
-                version: '0.0.0'
-            }
-        });
-        server.notify('notifications/initialized');
-
-        const prepared = await server.request(2, 'tools/call', {
-            name: 'content_request_prepare',
-            arguments: {
-                conversation_id: 'mcp:restart-test',
-                user_id: 'restart-user',
-                register_request: {
-                    theme: '재시작 확인 테스트'
-                }
-            }
-        });
-
-        assert.equal(prepared.result.structuredContent.ok, true);
-    } finally {
-        await server.stop();
-    }
-
-    server = spawnServer({ env });
-    try {
-        await server.request(3, 'initialize', {
-            protocolVersion: '2025-11-05',
-            capabilities: {},
-            clientInfo: {
-                name: 'test-client',
-                version: '0.0.0'
-            }
-        });
-        server.notify('notifications/initialized');
-
-        const decided = await server.request(4, 'tools/call', {
-            name: 'confirmation_decide',
-            arguments: {
-                decision: '거부',
-                conversation_id: 'mcp:restart-test',
-                user_id: 'restart-user'
-            }
-        });
-
-        assert.equal(decided.result.isError, false);
-        assert.equal(decided.result.structuredContent.ok, true);
-        assert.equal(decided.result.structuredContent.status, 'rejected');
-    } finally {
-        await server.stop();
-        fs.rmSync(persistPath, { force: true });
-    }
-});
-
-test('stdio mcp server writes request and response traces to stderr when DEBUG_MCP=1', async () => {
-    const server = spawnServer({
-        env: {
-            DEBUG_MCP: '1'
+test('stdio request handler exposes Agent tools and dispatches MCP tools/call', async () => {
+    const state = createServerState();
+    const calls = [];
+    const services = { adapter: {
+        listTools: () => [{ name: 'blog_content_queue_list_topics', inputSchema: { type: 'object' } }],
+        async callTool(input) {
+            calls.push(input);
+            return { ok: true, status: 'completed', results: [{ result: { success: true } }] };
         }
+    } };
+    const initialized = await captureRequest({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }, state, services);
+    assert.equal(initialized.result.serverInfo.name, 'bloggenius-mcp');
+
+    const tools = await captureRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, state, services);
+    assert.equal(tools.result.tools[0].name, 'blog_content_queue_list_topics');
+
+    const result = await captureRequest({
+        jsonrpc: '2.0', id: 3, method: 'tools/call',
+        params: { name: 'blog_content_queue_list_topics', arguments: { scope: 'queue' } }
+    }, state, services);
+    assert.equal(result.result.isError, false);
+    assert.equal(result.result.structuredContent.status, 'completed');
+    assert.match(result.result.content[0].text, /completed/);
+    assert.equal(calls[0].name, 'blog_content_queue_list_topics');
+});
+
+test('stdio request handler rejects tools before initialize and returns safe tool failures', async () => {
+    const state = createServerState();
+    const services = { adapter: { listTools: () => [], async callTool() { throw new Error('expected failure'); } } };
+    const beforeInitialize = await captureRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, state, services);
+    assert.equal(beforeInitialize.error.code, -32002);
+
+    await captureRequest({ jsonrpc: '2.0', id: 2, method: 'initialize' }, state, services);
+    const failed = await captureRequest({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'fail' } }, state, services);
+    assert.equal(failed.error.code, -32000);
+    assert.equal(failed.error.message, 'expected failure');
+
+    const actionFailure = buildToolResultPayload({
+        ok: true,
+        status: 'completed',
+        results: [{ result: { success: false, message: '원고 생성은 되었지만 포스팅은 실패했습니다.' } }]
     });
+    assert.equal(actionFailure.isError, true);
+    assert.match(actionFailure.content[0].text, /포스팅은 실패/);
 
-    try {
-        await server.request(1, 'initialize', {
-            protocolVersion: '2025-11-05',
-            capabilities: {},
-            clientInfo: {
-                name: 'test-client',
-                version: '0.0.0'
-            }
-        });
-
-        const stderr = server.getStderr();
-        assert.match(stderr, /\[mcp:request\.raw\]/);
-        assert.match(stderr, /\[mcp:request\]/);
-        assert.match(stderr, /\[mcp:response\]/);
-    } finally {
-        await server.stop();
-    }
+    const confirmation = buildToolResultPayload({
+        ok: true,
+        status: 'confirmation_required',
+        confirmation: { id: 'confirm_test-123' },
+        previews: [{ preview: { summary: '네이버 블로그 임시저장' } }]
+    });
+    assert.equal(confirmation.isError, false);
+    assert.match(confirmation.content[0].text, /Confirmation ID: confirm_test-123/);
+    assert.match(confirmation.content[0].text, /blog_confirmation_decide/);
+    assert.match(confirmation.content[0].text, /decision="approve" or "reject"/);
 });

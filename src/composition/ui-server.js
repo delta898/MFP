@@ -57,15 +57,17 @@ const {
     normalizeRemoteMcpPort
 } = require('../host/configuration/mcp-remote-config');
 const remoteMcpService = require('../host/mcp/remote-service');
-const { createMcpPrototypeRuntime } = require('./mcp-runtime');
+const { createMcpAgentRuntime } = require('./mcp-runtime');
 const { startHttpMcpServer } = require('../adapters/messaging/mcp/server/http-server');
 remoteMcpService.configureRemoteMcpService({
     config: CONFIG,
     logger: Logger,
     startServer: startHttpMcpServer,
-    createServices: (config) => createMcpPrototypeRuntime({
+    createServices: (config) => createMcpAgentRuntime({
         config,
         License,
+        Logger,
+        GoogleSheets,
         capabilityDependencies: mcpCapabilityDependencies
     })
 });
@@ -470,6 +472,7 @@ const {
 const syncAutoRunnerWithConfig = syncSnsAutomationWithConfig;
 const mcpCapabilityDependencies = {
     modelConfiguration,
+    GoogleSheets,
     blogNextExecutionCoordinator,
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,

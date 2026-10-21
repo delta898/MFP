@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const { PassThrough } = require('node:stream');
 const { createLicensingRuntime } = require('../../../../composition/licensing');
 const { License } = createLicensingRuntime({ config: {} });
-const { createMcpPrototypeRuntime } = require('../../../../composition/mcp-runtime');
+const { createMcpAgentRuntime } = require('../../../../composition/mcp-runtime');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
     SESSION_HEADER,
@@ -19,7 +22,18 @@ const SilentLogger = {
 };
 
 function createServices() {
-    return createMcpPrototypeRuntime({ config: {}, License });
+    const confirmationPersistPath = path.join(os.tmpdir(), `bloggenius-mcp-http-${Date.now()}-${Math.random()}.json`);
+    const services = createMcpAgentRuntime({
+        config: {}, License, confirmationPersistPath,
+        eventStore: { async appendEvent() {}, async listConversationEvents() { return []; } },
+        GoogleSheets: {
+            async appendGoogleSheetTopics() { throw new Error('Unexpected external write in test'); },
+            async readGoogleSheetTopicsAll() { return { items: [] }; },
+            clearSheetCache() {}
+        }
+    });
+    services.confirmationPersistPath = confirmationPersistPath;
+    return services;
 }
 
 function requestJson(handler, method, path, body = null, options = {}) {
@@ -63,11 +77,12 @@ function requestJson(handler, method, path, body = null, options = {}) {
     }));
 }
 
-test('http mcp server supports initialize, tools/list, prepare, and confirmation within the same session', async () => {
+test('http mcp server projects Agent actions and binds confirmations to the session', async () => {
+    const services = createServices();
     const handler = createHttpMcpHandler({
         authMode: 'none',
         logger: SilentLogger,
-        services: createServices()
+        services
     });
 
     const initialize = await requestJson(handler, 'POST', '/mcp', {
@@ -89,7 +104,7 @@ test('http mcp server supports initialize, tools/list, prepare, and confirmation
     });
 
     assert.equal(initialize.statusCode, 200);
-    assert.equal(initialize.body.result.serverInfo.name, 'naver-auto-blog-mcp-prototype');
+    assert.equal(initialize.body.result.serverInfo.name, 'bloggenius-mcp');
 
     const sessionId = String(initialize.headers[SESSION_HEADER] || '').trim();
     assert.ok(sessionId);
@@ -107,18 +122,17 @@ test('http mcp server supports initialize, tools/list, prepare, and confirmation
     });
 
     assert.equal(tools.statusCode, 200);
-    assert.equal(tools.body.result.tools.some((tool) => tool.name === 'content_request_prepare'), true);
+    assert.equal(tools.body.result.tools.some((tool) => tool.name === 'blog_content_register_topic_execute'), true);
 
     const prepared = await requestJson(handler, 'POST', '/mcp', {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
         params: {
-            name: 'content_request_prepare',
+            name: 'blog_content_register_topic_execute',
             arguments: {
-                register_request: {
-                    theme: 'http 원격 MCP 테스트'
-                }
+                action: 'save',
+                theme: 'http 원격 MCP 테스트'
             }
         }
     }, {
@@ -131,15 +145,17 @@ test('http mcp server supports initialize, tools/list, prepare, and confirmation
     assert.equal(prepared.statusCode, 200);
     assert.equal(prepared.body.result.isError, false);
     assert.equal(prepared.body.result.structuredContent.ok, true);
-    assert.equal(prepared.body.result.structuredContent.bundle.register_request.payload.theme, 'http 원격 MCP 테스트');
+    assert.equal(prepared.body.result.structuredContent.status, 'confirmation_required');
+    const confirmationId = prepared.body.result.structuredContent.confirmation.id;
 
     const decided = await requestJson(handler, 'POST', '/mcp', {
         jsonrpc: '2.0',
         id: 4,
         method: 'tools/call',
         params: {
-            name: 'confirmation_decide',
+            name: 'blog_confirmation_decide',
             arguments: {
+                confirmation_id: confirmationId,
                 decision: 'reject'
             }
         }
@@ -154,6 +170,7 @@ test('http mcp server supports initialize, tools/list, prepare, and confirmation
     assert.equal(decided.body.result.isError, false);
     assert.equal(decided.body.result.structuredContent.ok, true);
     assert.equal(decided.body.result.structuredContent.status, 'rejected');
+    fs.rmSync(services.confirmationPersistPath, { force: true });
 });
 
 test('http mcp server requires bearer auth when configured', async () => {

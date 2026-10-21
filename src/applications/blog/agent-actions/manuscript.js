@@ -23,6 +23,8 @@ function normalizeGenerateParams(params = {}) {
         instruction: String(params.instruction || '').trim(),
         externalReference: (params.external_reference ?? params.externalReference) === true,
         imageMode: ['none', 'prompt_only', 'generate'].includes(imageMode) ? imageMode : 'prompt_only',
+        naverCategory: String(params.naver_category ?? params.naverCategory ?? '').trim(),
+        wordpressCategory: String(params.wordpress_category ?? params.wordpressCategory ?? '').trim(),
         savedTopicRowNumber: Number(params.saved_topic_row_number ?? params.savedTopicRowNumber) || null
     };
 }
@@ -36,7 +38,9 @@ function normalizePublishParams(params = {}) {
         revision: Number(params.revision),
         target,
         postStatus: POST_STATUSES.includes(postStatus) ? postStatus : '',
-        scheduleDate
+        scheduleDate,
+        naverCategory: String(params.naver_category ?? params.naverCategory ?? '').trim(),
+        wordpressCategory: String(params.wordpress_category ?? params.wordpressCategory ?? '').trim()
     };
 }
 
@@ -129,6 +133,14 @@ function createBlogManuscriptCapabilities(deps = {}) {
                 : {}),
             ...(rawParams.image_mode === undefined && rawParams.imageMode === undefined && sourceTopic?.image_mode
                 ? { image_mode: sourceTopic.image_mode }
+                : {}),
+            ...(rawParams.naver_category === undefined && rawParams.naverCategory === undefined
+                && (topicOptions.naver_category || topicOptions.naverCategory)
+                ? { naver_category: topicOptions.naver_category || topicOptions.naverCategory }
+                : {}),
+            ...(rawParams.wordpress_category === undefined && rawParams.wordpressCategory === undefined
+                && (topicOptions.wordpress_category || topicOptions.wordpressCategory)
+                ? { wordpress_category: topicOptions.wordpress_category || topicOptions.wordpressCategory }
                 : {})
         };
         return {
@@ -144,6 +156,8 @@ function createBlogManuscriptCapabilities(deps = {}) {
             instruction: params.instruction,
             externalReference: params.externalReference,
             imageMode: params.imageMode,
+            naverCategory: params.naverCategory,
+            wordpressCategory: params.wordpressCategory,
             targets: [params.target],
             postStatus: 'draft'
         });
@@ -162,7 +176,9 @@ function createBlogManuscriptCapabilities(deps = {}) {
                 revision: params.revision,
                 targets: [params.target],
                 postStatus: params.postStatus,
-                scheduleDate: params.scheduleDate
+                scheduleDate: params.scheduleDate,
+                naverCategory: params.naverCategory,
+                wordpressCategory: params.wordpressCategory
             }
         );
         const updatedDraft = getResponseData(settingsResponse);
@@ -190,9 +206,12 @@ function createBlogManuscriptCapabilities(deps = {}) {
             instruction: { type: 'string', maxLength: 3000 },
             external_reference: { type: 'boolean' },
             image_mode: { type: 'string', enum: ['none', 'prompt_only', 'generate'] },
-            saved_topic_row_number: { type: 'integer', minimum: 2 }
+            saved_topic_row_number: { type: 'integer', minimum: 2 },
+            naver_category: { type: 'string', maxLength: 120 },
+            wordpress_category: { type: 'string', maxLength: 120 }
         },
-        required: [],
+        required: ['target'],
+        anyOf: [{ required: ['subject'] }, { required: ['saved_topic_row_number'] }],
         additionalProperties: false
     };
     const publishSchema = {
@@ -202,7 +221,9 @@ function createBlogManuscriptCapabilities(deps = {}) {
             revision: { type: 'integer', minimum: 1 },
             target: targetSchema,
             post_status: statusSchema,
-            schedule_date: { type: 'string', maxLength: 100 }
+            schedule_date: { type: 'string', maxLength: 100 },
+            naver_category: { type: 'string', maxLength: 120 },
+            wordpress_category: { type: 'string', maxLength: 120 }
         },
         required: ['draft_id', 'revision', 'target', 'post_status'],
         additionalProperties: false
@@ -218,9 +239,12 @@ function createBlogManuscriptCapabilities(deps = {}) {
             instruction: generateSchema.properties.instruction,
             external_reference: generateSchema.properties.external_reference,
             image_mode: generateSchema.properties.image_mode,
-            saved_topic_row_number: generateSchema.properties.saved_topic_row_number
+            saved_topic_row_number: generateSchema.properties.saved_topic_row_number,
+            naver_category: generateSchema.properties.naver_category,
+            wordpress_category: generateSchema.properties.wordpress_category
         },
-        required: ['subject', 'target', 'post_status'],
+        required: ['target', 'post_status'],
+        anyOf: [{ required: ['subject'] }, { required: ['saved_topic_row_number'] }],
         additionalProperties: false
     };
 
@@ -239,12 +263,14 @@ function createBlogManuscriptCapabilities(deps = {}) {
             useWhen: '사용자가 원고 작성이나 초안을 요청하고 외부 발행은 요청하지 않습니다.',
             avoidWhen: '사용자가 바로 외부 블로그에 임시저장, 예약발행 또는 게시까지 요청합니다. 이 경우 생성·발행 workflow를 사용합니다.',
             inputSchema: generateSchema,
-            requiredInputQuestions: { subject: '어떤 주제로 원고를 작성할까요? 글감 저장소의 행 번호를 지정해도 됩니다.' },
-            optionalInputSuggestions: {
-                keywords: '검색 키워드를 알려주시면 원고에 반영할 수 있습니다.',
-                image_mode: '이미지 방식은 기본적으로 프롬프트만 포함합니다. 이미지 생성이나 미포함을 원하면 지정해 주세요.',
-                external_reference: '외부 참고 자료를 활용할지 지정할 수 있습니다.',
-                instruction: '원고에 반영할 추가 요청이 있으면 알려주세요.'
+            inputPolicy: {
+                subject: { kind: 'required', question: '어떤 주제로 원고를 작성할까요? 글감 저장소의 행 번호를 지정해도 됩니다.' },
+                keywords: { kind: 'optional', prompt: '검색 키워드를 알려주시면 원고에 반영할 수 있습니다.', label: '키워드', example: '예: OpenClaw' },
+                image_mode: { kind: 'optional', prompt: '이미지 방식은 기본적으로 프롬프트만 포함합니다. 이미지 생성이나 미포함을 원하면 지정해 주세요.', label: '이미지 생성', choices: ['미포함', '프롬프트만', '생성'] },
+                external_reference: { kind: 'optional', prompt: '외부 참고 자료를 활용할지 지정할 수 있습니다.', label: '외부 참고', choices: ['사용', '사용 안 함'] },
+                instruction: { kind: 'optional', prompt: '원고에 반영할 추가 요청이 있으면 알려주세요.', label: '추가 요청', example: '선택' },
+                naver_category: { kind: 'optional', prompt: '네이버 카테고리를 지정할 수 있습니다.', label: '네이버 카테고리', example: '선택' },
+                wordpress_category: { kind: 'optional', prompt: '워드프레스 카테고리를 지정할 수 있습니다.', label: '워드프레스 카테고리', example: '선택' }
             },
             parameterSemantics: { saved_topic_row_number: { role: 'selection' } },
             outputDescription: '생성된 원고 작업공간의 ID와 제목을 반환합니다.',
@@ -290,7 +316,14 @@ function createBlogManuscriptCapabilities(deps = {}) {
             useWhen: '사용자가 기존 원고 작업을 외부 블로그로 전달하길 요청합니다.',
             avoidWhen: '원고가 아직 없고 이번 요청에서 새 원고 작성도 요청합니다. 이 경우 생성·발행 workflow를 사용합니다.',
             inputSchema: publishSchema,
-            requiredInputQuestions: { draft_id: '어떤 원고를 발행할까요?', revision: '최신 원고 버전을 확인할 수 없습니다. 원고를 다시 선택해 주세요.', target: '발행 대상을 네이버 블로그와 워드프레스 중 어디로 할까요?', post_status: '임시저장, 예약발행, 즉시 게시 중 어떤 방식으로 할까요?' },
+            inputPolicy: {
+                draft_id: { kind: 'required', question: '어떤 원고를 발행할까요?' },
+                revision: { kind: 'required', question: '최신 원고 버전을 확인할 수 없습니다. 원고를 다시 선택해 주세요.' },
+                target: { kind: 'required', question: '발행 대상을 네이버 블로그와 워드프레스 중 어디로 할까요?' },
+                post_status: { kind: 'required', question: '임시저장, 예약발행, 즉시 게시 중 어떤 방식으로 할까요?' },
+                naver_category: { kind: 'optional', prompt: '네이버 카테고리를 지정할 수 있습니다.', label: '네이버 카테고리', example: '선택' },
+                wordpress_category: { kind: 'optional', prompt: '워드프레스 카테고리를 지정할 수 있습니다.', label: '워드프레스 카테고리', example: '선택' }
+            },
             outputDescription: '저장한 발행 설정과 대상 블로그의 결과를 반환합니다.',
             examples: ['선택한 원고를 네이버 블로그에 임시저장해줘']
         },
@@ -328,12 +361,16 @@ function createBlogManuscriptCapabilities(deps = {}) {
             useWhen: '사용자가 주제로 원고를 작성해 네이버 블로그나 워드프레스에 임시저장, 예약발행 또는 게시까지 요청합니다.',
             avoidWhen: '사용자가 원고만 요청하거나, 이미 저장된 원고의 발행만 요청합니다.',
             inputSchema: generateAndPublishSchema,
-            requiredInputQuestions: { subject: '어떤 주제로 작성할까요? 글감 저장소의 행 번호를 지정해도 됩니다.', target: '발행 대상을 네이버 블로그와 워드프레스 중 어디로 할까요?', post_status: '임시저장, 예약발행, 즉시 게시 중 어떤 방식으로 할까요?' },
-            optionalInputSuggestions: {
-                keywords: '검색 키워드를 알려주시면 원고에 반영할 수 있습니다.',
-                image_mode: '이미지 방식은 기본적으로 프롬프트만 포함합니다. 이미지 생성이나 미포함을 원하면 지정해 주세요.',
-                external_reference: '외부 참고 자료를 활용할지 지정할 수 있습니다.',
-                instruction: '추가 요청이 있으면 원고 작성에 반영할 수 있습니다.'
+            inputPolicy: {
+                subject: { kind: 'required', question: '어떤 주제로 작성할까요? 글감 저장소의 행 번호를 지정해도 됩니다.' },
+                target: { kind: 'required', question: '발행 대상을 네이버 블로그와 워드프레스 중 어디로 할까요?' },
+                post_status: { kind: 'required', question: '임시저장, 예약발행, 즉시 게시 중 어떤 방식으로 할까요?' },
+                keywords: { kind: 'optional', prompt: '검색 키워드를 알려주시면 원고에 반영할 수 있습니다.', label: '키워드', example: '예: OpenClaw' },
+                image_mode: { kind: 'optional', prompt: '이미지 방식은 기본적으로 프롬프트만 포함합니다. 이미지 생성이나 미포함을 원하면 지정해 주세요.', label: '이미지 생성', choices: ['미포함', '프롬프트만', '생성'] },
+                external_reference: { kind: 'optional', prompt: '외부 참고 자료를 활용할지 지정할 수 있습니다.', label: '외부 참고', choices: ['사용', '사용 안 함'] },
+                instruction: { kind: 'optional', prompt: '추가 요청이 있으면 원고 작성에 반영할 수 있습니다.', label: '추가 요청', example: '선택' },
+                naver_category: { kind: 'optional', prompt: '네이버 카테고리를 지정할 수 있습니다.', label: '네이버 카테고리', example: '선택' },
+                wordpress_category: { kind: 'optional', prompt: '워드프레스 카테고리를 지정할 수 있습니다.', label: '워드프레스 카테고리', example: '선택' }
             },
             parameterSemantics: { saved_topic_row_number: { role: 'selection' } },
             outputDescription: '생성된 원고와 외부 블로그 전달 결과를 각각 반환합니다.',
@@ -353,6 +390,8 @@ function createBlogManuscriptCapabilities(deps = {}) {
                 keywords: normalized.keywords,
                 image_mode: normalized.imageMode,
                 external_reference: normalized.externalReference,
+                naver_category: normalized.naverCategory,
+                wordpress_category: normalized.wordpressCategory,
                 ...(resolved.sourceTopic ? { source_topic: resolved.sourceTopic } : {})
             };
         },
@@ -370,16 +409,19 @@ function createBlogManuscriptCapabilities(deps = {}) {
                     revision: Number(generatedDraft.revision),
                     target: effectiveParams.target,
                     postStatus: effectiveParams.postStatus,
-                    scheduleDate: effectiveParams.scheduleDate
+                    scheduleDate: effectiveParams.scheduleDate,
+                    naverCategory: effectiveParams.naverCategory,
+                    wordpressCategory: effectiveParams.wordpressCategory
                 });
             } catch (error) {
                 const apiError = error?.response?.data?.error;
                 const reason = String(apiError?.message || error?.message || '대상 블로그가 요청을 거부했습니다.').slice(0, 500);
                 const code = String(apiError?.code || error?.code || 'PUBLISH_FAILED').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80);
+                const statusLabel = effectiveParams.postStatus === 'draft' ? '임시저장' : effectiveParams.postStatus === 'schedule' ? '예약발행' : '게시';
                 Logger?.error?.(`[TelegramAgent][Manuscript] publish failed after draft saved target=${normalized.target} http_status=${Number(error?.response?.status) || 0} error_code=${code} message=${reason}`);
                 return {
                     success: false,
-                    message: `원고 생성은 완료했지만 ${effectiveParams.target === 'wordpress' ? '워드프레스' : '네이버 블로그'} 임시저장에 실패했습니다. 생성된 원고는 BlogGenius 작업공간에 보관되어 있습니다 (원고 ID: ${generatedDraft.draftId}).${resolved.sourceTopic ? ` 글감 저장소 #${resolved.sourceTopic.rowNumber}의 설정을 활용했습니다.` : ''} 실패 사유: ${reason}`,
+                    message: `원고 생성은 완료했지만 ${effectiveParams.target === 'wordpress' ? '워드프레스' : '네이버 블로그'} ${statusLabel}에 실패했습니다. 생성된 원고는 BlogGenius 작업공간에 보관되어 있습니다 (원고 ID: ${generatedDraft.draftId}).${resolved.sourceTopic ? ` 글감 저장소 #${resolved.sourceTopic.rowNumber}의 설정을 활용했습니다.` : ''} 실패 사유: ${reason}`,
                     data: {
                         generation: { draftId: generatedDraft.draftId, revision: generatedDraft.revision, title: generatedDraft.title || generatedDraft.subject || '', ...(resolved.sourceTopic ? { sourceTopic: resolved.sourceTopic } : {}) },
                         publication: { success: false, code, message: reason }
@@ -387,11 +429,16 @@ function createBlogManuscriptCapabilities(deps = {}) {
                     sideEffects: ['manuscript_draft_created']
                 };
             }
+            const actualPostStatus = String(published.postStatus || published.results?.[effectiveParams.target]?.status || effectiveParams.postStatus);
+            const actualStatusLabel = actualPostStatus === 'draft' ? '임시저장' : actualPostStatus === 'schedule' || actualPostStatus === 'future' ? '예약발행' : '게시';
+            const forcedDraftNotice = published.publishPolicy?.forcedDraft === true
+                ? ' 이미지가 준비되지 않아 임시저장으로 전환했습니다.'
+                : '';
             return {
                 success: published.success !== false,
                 message: published.success === false
                     ? (published.message || '원고 생성은 완료했지만 블로그 발행에 실패했습니다. BlogGenius 원고 작업공간에서 생성된 원고를 확인할 수 있습니다.')
-                    : `“${String(generatedDraft.title || generatedDraft.subject || effectiveParams.subject).trim()}” 원고를 작성해 ${effectiveParams.target === 'wordpress' ? '워드프레스' : '네이버 블로그'}에 ${effectiveParams.postStatus === 'draft' ? '임시저장' : effectiveParams.postStatus === 'schedule' ? '예약발행' : '게시'}했습니다.${resolved.sourceTopic ? ` 글감 저장소 #${resolved.sourceTopic.rowNumber}의 설정을 활용했습니다.` : ''}`,
+                    : `“${String(generatedDraft.title || generatedDraft.subject || effectiveParams.subject).trim()}” 원고를 작성해 ${effectiveParams.target === 'wordpress' ? '워드프레스' : '네이버 블로그'}에 ${actualStatusLabel}했습니다.${forcedDraftNotice}${resolved.sourceTopic ? ` 글감 저장소 #${resolved.sourceTopic.rowNumber}의 설정을 활용했습니다.` : ''}`,
                 data: {
                     generation: { draftId: generatedDraft.draftId, revision: generatedDraft.revision, title: generatedDraft.title || generatedDraft.subject || '', ...(resolved.sourceTopic ? { sourceTopic: resolved.sourceTopic } : {}) },
                     publication: published

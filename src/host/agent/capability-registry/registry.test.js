@@ -103,3 +103,32 @@ test('capability registry rejects incomplete or invalid Agent action contracts a
     assert.throws(() => createRegistry([() => [{ ...base, agentExposure: { ...base.agentExposure, avoidWhen: '' } }]]), /when to use and avoid/);
     assert.throws(() => createRegistry([() => [{ ...base, effect: 'external_side_effect' }]]), /must require confirmation/);
 });
+
+test('capability registry validates shared input policy against the action schema', () => {
+    const action = {
+        id: 'example.options', type: 'example.command', domain: 'example', name: 'options',
+        effect: 'read_only', confirmPolicy: 'never',
+        agentExposure: {
+            title: '예시', description: '예시입니다.', useWhen: '요청할 때', avoidWhen: '아닐 때',
+            inputSchema: {
+                type: 'object', properties: { subject: { type: 'string' }, category: { type: 'string' } },
+                anyOf: [{ required: ['subject'] }], additionalProperties: false
+            },
+            inputPolicy: {
+                subject: { kind: 'required', question: '주제를 알려주세요.' },
+                category: { kind: 'optional', prompt: '카테고리를 지정할 수 있습니다.' }
+            },
+            outputDescription: '결과를 반환합니다.'
+        },
+        validate: () => ({ ok: true, errors: [], normalizedParams: {} }),
+        preview: async () => ({}), execute: async () => ({ success: true })
+    };
+
+    assert.ok(createRegistry([() => [action]]).getAgentAction('example.options'));
+    assert.throws(() => createRegistry([() => [{
+        ...action, agentExposure: { ...action.agentExposure, inputPolicy: { missing: { kind: 'optional', prompt: '선택' } } }
+    }]]), /unknown input missing/);
+    assert.throws(() => createRegistry([() => [{
+        ...action, agentExposure: { ...action.agentExposure, inputPolicy: { category: { kind: 'required', question: '필수' } } }
+    }]]), /required by inputSchema/);
+});

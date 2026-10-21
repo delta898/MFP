@@ -1,5 +1,6 @@
 const { matchUserCommandRule } = require('../../../services/memory/user-command-rules');
 const { validateActionEnvelope } = require('../../../host/agent/contracts/action-schema');
+const { getActionInputPolicy, formatInputPolicy } = require('../../../services/agent-actions/input-policy');
 
 function buildEnvelope(conversationId, messageId, actions = []) {
     return {
@@ -48,6 +49,7 @@ function listAgentActions(capabilityRegistry) {
         : [];
     return capabilities
         .map((capability) => {
+            const inputPolicy = getActionInputPolicy(capability);
             const id = String(capability?.id || '').trim();
             const domain = String(capability?.domain || '').trim();
             const name = String(capability?.name || '').trim();
@@ -66,8 +68,7 @@ function listAgentActions(capabilityRegistry) {
                 inputSchema: capability.agentExposure?.inputSchema || { type: 'object', properties: {}, additionalProperties: false },
                 parameterSemantics: capability.agentExposure?.parameterSemantics || {},
                 outputDescription: String(capability.agentExposure?.outputDescription || '').trim(),
-                requiredInputQuestions: capability.agentExposure?.requiredInputQuestions || {},
-                optionalInputSuggestions: capability.agentExposure?.optionalInputSuggestions || {},
+                inputPolicy,
                 personalizableParameters: capability.agentExposure?.personalizableParameters || {},
                 effect: String(capability.effect || '').trim(),
                 confirmationPolicy: String(capability.confirmPolicy || '').trim(),
@@ -86,10 +87,10 @@ function formatAgentActionCatalog(actions = []) {
         const examples = action.examples.length > 0 ? `; 예: ${action.examples.join(' / ')}` : '';
         const output = action.outputDescription ? `; 결과: ${action.outputDescription}` : '';
         const availability = action.availabilityNote ? `; 이용 조건: ${action.availabilityNote}` : '';
-        const requiredQuestions = Object.keys(action.requiredInputQuestions).length > 0 ? `; 필수 정보 질문=${JSON.stringify(action.requiredInputQuestions)}` : '';
-        const optionalSuggestions = Object.keys(action.optionalInputSuggestions).length > 0 ? `; 선택 정보 제안=${JSON.stringify(action.optionalInputSuggestions)}` : '';
+        const inputPolicyText = formatInputPolicy(action.inputPolicy);
+        const inputPolicy = inputPolicyText ? `; 입력 정책=${inputPolicyText}` : '';
         const personalizable = Object.keys(action.personalizableParameters).length > 0 ? `; 사용자가 저장 가능한 기본 설정=${JSON.stringify(action.personalizableParameters)}` : '';
-        return `- action_id=${action.id} (type=${action.type}, kind=${action.kind}, effect=${action.effect}, confirmation=${action.confirmationPolicy}): ${action.title} — ${action.description}; 사용 시점=${action.useWhen}; 사용하지 않을 때=${action.avoidWhen}; inputSchema=${JSON.stringify(action.inputSchema)}; parameterSemantics=${JSON.stringify(action.parameterSemantics)}${requiredQuestions}${optionalSuggestions}${personalizable}${output}${availability}${examples}`;
+        return `- action_id=${action.id} (type=${action.type}, kind=${action.kind}, effect=${action.effect}, confirmation=${action.confirmationPolicy}): ${action.title} — ${action.description}; 사용 시점=${action.useWhen}; 사용하지 않을 때=${action.avoidWhen}; inputSchema=${JSON.stringify(action.inputSchema)}; parameterSemantics=${JSON.stringify(action.parameterSemantics)}${inputPolicy}${personalizable}${output}${availability}${examples}`;
     }).join('\n');
 }
 
@@ -226,7 +227,7 @@ ${formatAgentActionCatalog(agentActions)}
 - 사용자의 일반 질문, 인사, 의견 교환, 설명 요청은 route="reply"로 직접 답하세요. 실행 action을 추측하지 마세요.
 - 필수 정보가 빠졌거나 후보가 겹쳐 안전하게 선택할 수 없으면 action을 실행하지 말고 route="reply"로 필요한 내용을 묻는 짧은 질문 하나를 하세요.
 - 입력 스키마의 필수 값은 MUST입니다. 누락된 필수 값을 기억이나 기본값으로 추정하지 말고 질문하세요. 후보가 하나로 명확하고 필수 값이 모두 있으면 불필요한 확인 질문을 하지 마세요.
-- 선택 값은 NICE to do입니다. action을 막지 말고 action descriptor의 선택 정보 제안을 짧게 안내하세요. 선택 정보를 필수처럼 되묻지 마세요.
+- 사용자가 선택 항목을 언급하지 않았다면 action 기본값으로 진행하고, descriptor의 선택 정보 제안은 짧게 안내할 수 있습니다. 사용자가 특정 선택 항목을 지정·선택하겠다고 했지만 값이 모호하거나 빠졌다면 실행 전에 해당 항목만 질문하세요. 선택 항목을 필수값처럼 일괄 질문하지 마세요.
 - 등록된 기능으로 수행할 수 없는 요청이면 route="unsupported"로 현재 가능한 범위와 다음 선택지를 자연스럽게 설명하세요.
 - 직접 답변만 있을 때 reply의 text에 답을 넣습니다. 실행 요청에도 도움이 되는 짧은 설명을 붙일 수 있습니다.
 - 요청한 일에 먼저 답한 뒤, 도움이 될 추천이 있을 때만 reply의 recommendation에 이유와 함께 씁니다. 추천은 실행하지 않으며, 요청을 대체하지 않습니다.
@@ -337,7 +338,7 @@ ${messageText}`;
             )));
             if (missingFields.length > 0) {
                 const capability = context.capabilityRegistry.getAgentAction(candidateActions[0]?.action_id);
-                const questions = capability?.agentExposure?.requiredInputQuestions || {};
+                const questions = getActionInputPolicy(capability).required;
                 const question = missingFields.map((field) => questions[field]).find((item) => String(item || '').trim());
                 return {
                     ...buildEnvelope(conversationId, messageId),
@@ -351,7 +352,7 @@ ${messageText}`;
 
             for (const action of candidateActions) {
                 const capability = context.capabilityRegistry.getAgentAction(action.action_id);
-                const suggestions = capability?.agentExposure?.optionalInputSuggestions || {};
+                const suggestions = getActionInputPolicy(capability).optional;
                 for (const [field, message] of Object.entries(suggestions)) {
                     if (!Object.prototype.hasOwnProperty.call(action.params, field) && String(message || '').trim()) {
                         recommendation = [recommendation, String(message).trim()].filter(Boolean).join('\n');
