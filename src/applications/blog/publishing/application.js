@@ -17,7 +17,7 @@ function createBlogPublishingApplication(options = {}) {
     const { imageOptimizationService, naverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs } = options;
     const findImageByPrefix = options.findImageByPrefix;
     const persistWordPressAssetUrl = options.persistWordPressAssetUrl;
-    const formatNaverRelatedPosts = options.formatNaverRelatedPosts;
+    const formatNaverLinks = options.formatNaverLinks;
     const path = options.path || pathDefault;
     if (typeof naverPublisher?.publish !== 'function') {
         throw new TypeError('Blog Publishing Application requires a Naver publisher.');
@@ -28,8 +28,8 @@ function createBlogPublishingApplication(options = {}) {
     if (!fs || typeof fs.readFileSync !== 'function' || typeof fs.writeFileSync !== 'function') {
         throw new TypeError('Blog Publishing Application requires filesystem access for prepared image files.');
     }
-    if (typeof formatNaverRelatedPosts !== 'function') {
-        throw new TypeError('Blog Publishing Application requires a Naver related-post formatter.');
+    if (typeof formatNaverLinks !== 'function') {
+        throw new TypeError('Blog Publishing Application requires a Naver link formatter.');
     }
 
     function isOptimizationEnabled() {
@@ -78,7 +78,7 @@ function createBlogPublishingApplication(options = {}) {
         const contentFile = path.join(directory, 'contents.md');
         if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
         const relatedLinks = [];
-        const markdown = formatNaverRelatedPosts(fs.readFileSync(contentFile, 'utf8'), (link) => relatedLinks.push(link));
+        const markdown = formatNaverLinks(fs.readFileSync(contentFile, 'utf8'), (link) => relatedLinks.push(link));
         const parsed = parseBlogManuscriptMarkdown(markdown, Logger);
         const title = String(parsed?.title || '').trim();
         if (!title) throw new Error('네이버 발행 원고에 제목이 없습니다.');

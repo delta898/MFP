@@ -7,7 +7,7 @@ const RELATED_POSTS_HEADINGS = new Set([
     '다른 글도 확인해 보세요'
 ]);
 
-function formatRelatedPostsForNaver(markdown = '', onRelatedLink) {
+function formatNaverLinks(markdown = '', onRelatedLink) {
     let inRelatedPostsSection = false;
     return String(markdown || '').split('\n').map((line) => {
         const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
@@ -15,15 +15,13 @@ function formatRelatedPostsForNaver(markdown = '', onRelatedLink) {
             inRelatedPostsSection = RELATED_POSTS_HEADINGS.has(heading[2].trim());
             return line;
         }
-        if (!inRelatedPostsSection) return line;
-
-        const relatedLink = line.match(/^\s*[-*+]\s+\[((?:\\.|[^\]])*)\]\((https?:\/\/[^\s]+)\)\s*$/i);
-        if (!relatedLink) return line;
-        const label = relatedLink[1].replace(/\\([\\[\]])/g, '$1').trim();
-        const url = relatedLink[2];
-        if (typeof onRelatedLink === 'function') onRelatedLink({ label, url });
+        const markdownLink = line.match(/^\s*(?:[-*+]\s+)?\[((?:\\.|[^\]])*)\]\((https?:\/\/[^\s)]+)\)\s*$/i);
+        if (!markdownLink) return line;
+        const label = markdownLink[1].replace(/\\([\\[\]])/g, '$1').trim();
+        const url = markdownLink[2];
+        if (inRelatedPostsSection && typeof onRelatedLink === 'function') onRelatedLink({ label, url });
         return url;
     }).join('\n');
 }
 
-module.exports = { formatRelatedPostsForNaver };
+module.exports = { formatNaverLinks };

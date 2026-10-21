@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatRelatedPostsForNaver } = require('./related-posts');
+const { formatNaverLinks } = require('./related-posts');
 
-test('Naver related-post section becomes unbulleted URL-only paragraphs', () => {
+test('Naver Markdown links become URL-only paragraphs in any section', () => {
     const source = [
         '# 원고 제목',
         '',
@@ -16,7 +16,7 @@ test('Naver related-post section becomes unbulleted URL-only paragraphs', () => 
         '#여행'
     ].join('\n');
 
-    assert.equal(formatRelatedPostsForNaver(source), [
+    assert.equal(formatNaverLinks(source), [
         '# 원고 제목',
         '',
         '본문의 [인라인 링크](https://example.com/body)는 유지합니다.',
@@ -30,15 +30,15 @@ test('Naver related-post section becomes unbulleted URL-only paragraphs', () => 
     ].join('\n'));
 });
 
-test('Naver related-post formatter reports linked titles for progress presentation', () => {
+test('Naver link formatter reports related-post titles for progress presentation', () => {
     const links = [];
-    const result = formatRelatedPostsForNaver('## 함께 보면 좋은 글\n- [녹차 가이드](https://example.com/tea)', (link) => links.push(link));
+    const result = formatNaverLinks('## 함께 보면 좋은 글\n- [녹차 가이드](https://example.com/tea)', (link) => links.push(link));
 
     assert.equal(result, '## 함께 보면 좋은 글\nhttps://example.com/tea');
     assert.deepEqual(links, [{ label: '녹차 가이드', url: 'https://example.com/tea' }]);
 });
 
-test('only known generated related-post headings enable Naver conversion', () => {
+test('Naver converts Markdown links outside related headings without labeling them related', () => {
     const source = [
         '## 참고 링크',
         '- [본문 출처](https://example.com/source)',
@@ -47,16 +47,22 @@ test('only known generated related-post headings enable Naver conversion', () =>
         '- [관련 글](https://example.com/related)'
     ].join('\n');
 
-    assert.equal(formatRelatedPostsForNaver(source), [
+    const links = [];
+    assert.equal(formatNaverLinks(source, (link) => links.push(link)), [
         '## 참고 링크',
-        '- [본문 출처](https://example.com/source)',
+        'https://example.com/source',
         '',
         '## 추천 포스팅',
         'https://example.com/related'
     ].join('\n'));
+    assert.deepEqual(links, [{ label: '관련 글', url: 'https://example.com/related' }]);
 });
 
 test('keeps heading and non-link content inside the related section unchanged', () => {
     const source = '## 관련 글 더 보기\n설명\n- 링크 문법이 아닌 항목';
-    assert.equal(formatRelatedPostsForNaver(source), source);
+    assert.equal(formatNaverLinks(source), source);
+});
+
+test('Naver converts a standalone Markdown link without a heading or list marker', () => {
+    assert.equal(formatNaverLinks('[본문 링크](https://example.com/source)'), 'https://example.com/source');
 });

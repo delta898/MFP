@@ -572,6 +572,24 @@ test('Naver Publisher verifies delayed Oglink insertion and avoids adding a dupl
     assert.equal(page.calls.some(([kind, selector]) => kind === 'click' && selector.includes('se-popup-button-confirm')), true);
 });
 
+test('Naver Publisher types a plain URL when Oglink insertion is unavailable', async () => {
+    const page = fakePage({ withOglink: false });
+    const plugin = createPlugin({
+        getSettings: () => ({ writeUrl: 'https://blog.naver.com/writer/postwrite', headless: true, safeSaveWaitMs: 0 }),
+        async createAuthenticatedNaverSession() { return { page, async close() {} }; },
+        sleep: async () => {}
+    });
+
+    await plugin.operations['posts.publish'].execute({
+        title: 'Plain URL fallback',
+        blocks: [{ type: 'paragraph', text: 'https://example.com/source' }],
+        assets: [], status: 'draft'
+    });
+
+    assert.equal(page.calls.some(([kind, value]) => kind === 'type' && value === 'https://example.com/source'), true);
+    assert.equal(page.calls.some(([kind, value]) => kind === 'type' && String(value).includes('](')), false);
+});
+
 test('Naver Publisher centers the inserted Oglink card when the component toolbar is available', async () => {
     const page = fakePage({ withOglink: true, oglinkRenderAfterReads: 2, withOglinkCenterToolbar: true });
     const plugin = createPlugin({

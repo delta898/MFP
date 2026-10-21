@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createBlogPublishingApplication } = require('./application');
-const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
+const { formatNaverLinks } = require('../../../adapters/naver/publishing/related-posts');
 const { createManuscriptImageFileReader } = require('../../../adapters/storage/manuscript-drafts/image-file-reader');
 
 function createApplication(options = {}) {
@@ -37,7 +37,7 @@ function createApplication(options = {}) {
         Logger: { info() {} },
         fs,
         path,
-        formatNaverRelatedPosts: formatRelatedPostsForNaver,
+        formatNaverLinks,
         findImageByPrefix: options.findImageByPrefix || options.Utils?.findImageByPrefix || createManuscriptImageFileReader({ fs, path }),
         ...options
     });
@@ -212,6 +212,24 @@ test('Naver publishing preserves related-post labels as distinct link blocks', a
     assert.deepEqual(calls.find((call) => call.operation === 'naver-plugin').request.blocks.slice(-2), [
         { type: 'related-link', text: 'https://blog.naver.com/example/1', label: '녹차를 맛있게 우리는 방법' },
         { type: 'related-link', text: 'https://blog.naver.com/example/2', label: '녹차의 종류' }
+    ]);
+});
+
+test('Naver publishing sends pasted Markdown links as URL-only blocks regardless of heading', async (t) => {
+    const { app, calls } = createApplication();
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-pasted-markdown-links-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), [
+        '# Naver title', '', '## 출처', '[참고 링크](https://example.com/source)', '',
+        '## 추천 포스팅', 'https://example.com/already-plain'
+    ].join('\n'));
+
+    await app.publishNaver(directory, { postStatus: 'draft' });
+
+    const request = calls.find((call) => call.operation === 'naver-plugin').request;
+    assert.equal(request.blocks.some((block) => String(block.text || '').includes('[참고 링크](')), false);
+    assert.deepEqual(request.blocks.filter((block) => block.type === 'paragraph').map((block) => block.text), [
+        'https://example.com/source', 'https://example.com/already-plain'
     ]);
 });
 
