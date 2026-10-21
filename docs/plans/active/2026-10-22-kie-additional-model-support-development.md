@@ -3,7 +3,7 @@
 - Branch: `codex/kie-additional-model-support`
 - Base/parent: `release/v0.7.0`
 - Start date: 2026-10-22
-- Status: implementation complete; awaiting user-run KIE model checks and catalog application
+- Status: implementation and focused verification complete; pending merge into `release/v0.7.0`
 
 ## User need and goal
 
@@ -21,7 +21,7 @@ Add requested KIE text and image models to BlogGenius, sort KIE text families al
 
 - App/package version bump.
 - Paid live generation calls or production mutations.
-- Publishing the SQL to Supabase, committing, pushing, tagging, or merging.
+- App/package version bump, push, or tag.
 
 ## Design and boundaries
 
@@ -55,15 +55,17 @@ Model availability and display ordering belong in the Supabase AI model catalog.
 - Follow-up: the left-menu SNS page was confirmed to render the shared picker, but a screen-specific CSS rule changed Buffer Help back to a text link and its cached channel normalizer dropped profile avatars. Removed the CSS override, retained avatars in cache, and bumped the cache snapshot version so old snapshots are refreshed.
 - Follow-up: reordered Card News publishing so the message appears before channel selection, increased the message editor height, and made the publish button show the selected channel count like manual SNS publishing.
 - Follow-up: aligned manual SNS publishing results and footer with the Card News flow (full-width right-aligned action, in-progress status, per-channel result rows). Buffer requests now include required Instagram feed metadata for manual SNS, Card News, and automatic SNS distribution.
+- Follow-up: shared Buffer publishing result rendering now shows platform and account identity in both SNS and Card News; the SNS completed state uses a success treatment and aligned action edge.
 
 ## Verification and remaining work
 
-- Focused unit/contract tests for route allowlists, request shaping, response parsing, and model sort order passed (64/64).
-- After correcting the reported KIE aspect-ratio rejection and body-level error handling, focused AI Gateway tests passed (33/33).
+- Focused unit/contract tests for route allowlists, request shaping, response parsing, model sort order, card-news settings/generation/publishing, SNS publishing, and Buffer client passed (132/132).
+- Browser UI smoke passed (539 fixture requests; external font requests blocked by the test harness).
 - Both standalone SQL payloads were structurally checked for version `2026-10-22.1`, their target channels, full-catalog shape, model counts, and family ordering; neither was executed.
 - Actual generation against KIE is billable and is left for the user to perform.
 - `git diff --check` passed.
-- No changes are committed or pushed.
+- KIE live generation remains user-verified; the closest supported `3:4` fallback for FLUX 3 and Grok Imagine has not been separately confirmed with a billable live call.
+- Implementation commits: `689c698b` and `c7149d97`; no push or tag was created.
 
 ## KIE documentation consulted
 

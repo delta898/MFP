@@ -59,7 +59,7 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
         assert.match(result.cards[0].image_prompt, /같은 세트의 다른 카드와/);
         assert.equal(imageCalls[0].prompt, result.cards[0].image_prompt);
         assert.equal(imageCalls.length, 3);
-        assert.equal(imageCalls[0].options.aspectRatio, '4:5');
+        assert.equal(imageCalls[0].options.aspectRatio, '3:4');
         assert.match(result.cards[0].image_url, /^\/api\/v1\/card-news\/assets\/generation-123\/card-01\.png$/);
         assert.equal(service.getGeneration('generation-123').title, '제주 세트');
         assert.deepEqual(service.listGenerations().map((generation) => generation.id), ['generation-123']);
