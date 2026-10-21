@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/plugin-architecture-foundation`
 - Start date: 2026-10-14
 - Base/parent branch: `dev` (`9c6c2dda0e9ac8cd2fcfa0d9df12f72920989294`)
-- Status: active; Kernel/Application/Plugin 기반과 AI Gateway를 Blog Beta·Card News·SNS에 연결했다. foundation 변경은 아직 `dev`에 통합되지 않았으며 Community Plugin과 남은 제품 경로 확장은 후속 단계다.
+- Status: `dev` 병합 후보. Kernel/Application/Plugin 기반과 AI Gateway를 Blog Beta·Card News·SNS에 연결했고, Telegram/MCP 실행 경로 및 Blog Beta 원고·발행 흐름을 정리했다. Community Plugin과 별도 제품 경로 확장은 이 branch 이후의 독립 후속 작업이다.
 
 ## 현재 상태와 구조 기준
 
@@ -334,6 +334,7 @@ Core Plugin catalog는 두 package의 factory를 명시적으로 보유하지만
 - 2026-10-16 대기열 네이버 발행 진행 연동 보완: 대기열의 batch 발행은 기존 Naver Publisher를 사용하지만 structured `onProgress`를 넘기지 않아 빠른 원고 발행의 본문/이미지/설정 단계 메시지를 받지 못했다. 같은 `presentNaverPublishProgress` 계약으로 publisher 이벤트를 화면 콜백과 `[Blog Beta][Progress]` 로그에 전달하고, 대기열 presentation이 같은 단계 식별자와 메시지를 유지하도록 보완했다.
 - 2026-10-16 레이어 위치 정리: 대기열 진행 문구와 완료 링크 변환은 화면/API 응답 표현 책임이므로 `src/adapters/ui/blog-publishing-presentation.js`로 이동했다. 대기열 도메인 계약·스케줄링·업무 흐름은 이번 이동에 포함하지 않았다.
 - 2026-10-21 Blog Beta manuscript editor의 구조화 Markdown 붙여넣기는 기존 `setContent()` 호출로 문서 전체를 교체하고 있었다. 선택 위치에 `insertContent(..., { contentType: 'markdown' })`를 사용하도록 바꾸고, 기존 이미지 인덱스와 겹치는 붙여넣기 이미지 인덱스는 비어 있는 번호로 재매핑한다. 정적 UI contract 5건과 editor bundle build는 통과했다. 확장된 Playwright 브라우저 회귀는 Chrome이 시작 직후 `SIGABRT`로 종료되어 실행하지 못했으며, 테스트와 hands-on 확인이 남아 있다.
+- 2026-10-21 병합 준비: KIE catalog snapshot을 위한 Dev publish/standalone Prod insert SQL과 Supabase inventory를 추가했다. Prod SQL은 기존 catalog row를 source로 읽지 않으며, Gemini 3.5 Flash를 제외한 완전한 snapshot을 직접 삽입한다. Naver 진행 메시지 assertion을 현재 `[본문] 입력 중` 표현과 맞췄다. 전체 unit suite는 첫 실행에서 sandbox loopback 제한과 inventory 누락을 드러냈다. 누락 inventory 항목을 보완한 뒤 loopback listener 허용 조건으로 456개 파일 전체를 재실행해 2,417 passed, 0 failed, 1 skipped로 완료했다. 최종 `git diff --check`도 통과했다.
 
 - Parent에는 최소 실행 기반과 WordPress provider package/Application pilot이 있다. 제품 코드 경로는 새 계층으로 전환되지 않았다. 기존 기능과의 호환성은 구조 재구현의 목표가 아니며, 사용자 데이터와 외부 side effect는 별도 판단한다. 현재 operation parser는 신뢰된 in-process 코드이며, 외부 plugin을 안전하게 실행하는 sandbox나 안정된 독립 SDK는 아니다.
 - 첫 sub-feature 검증: `node --test src/platform/plugin-host.test.js` 6건 통과, `git diff --check` 통과. UI/entrypoint 변경이 없어 browser smoke는 해당되지 않았다. full unit suite는 실행하지 않았다.
