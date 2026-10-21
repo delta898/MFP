@@ -6,9 +6,10 @@ const path = require('node:path');
 
 const { DEFAULT_ROOTS, collectUnitTestFiles, createUnitTestEnvironment } = require('./run-unit-tests');
 
-test('unit tests default to local runtime environment without overriding an explicit selection', () => {
-    assert.equal(createUnitTestEnvironment({ PATH: '/bin' }).BLOGGENIUS_ENV, 'local');
+test('unit tests default to development runtime environment without overriding an explicit selection', () => {
+    assert.equal(createUnitTestEnvironment({ PATH: '/bin' }).BLOGGENIUS_ENV, 'development');
     assert.equal(createUnitTestEnvironment({ BLOGGENIUS_ENV: 'development' }).BLOGGENIUS_ENV, 'development');
+    assert.equal(createUnitTestEnvironment({ BLOGGENIUS_ENV: 'production' }).BLOGGENIUS_ENV, 'production');
 });
 
 test('unit test discovery includes only sorted *.test.js files from configured roots', () => {

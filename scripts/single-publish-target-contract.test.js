@@ -27,13 +27,15 @@ test('every writing surface presents Naver and WordPress as one exclusive choice
 test('single-target UI and API boundaries reject silent multi-platform publishing', () => {
   const draftUi = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
   const topicUi = read('ui/scripts/features/content-workspace/blog-topics.js');
-  const requestSchema = read('src/host/agent/planning/content-requests/schema.js');
-  const mcpAdapter = read('src/adapters/messaging/mcp/prototype-adapter.js');
+  const manuscriptActions = read('src/applications/blog/agent-actions/manuscript.js');
+  const registerTopicAction = read('src/applications/blog/agent-actions/register-topic.js');
+  const queueActions = read('src/applications/blog/agent-actions/queue-management.js');
 
   assert.match(draftUi, /const targets = \[\]/);
   assert.match(topicUi, /targets\.length !== 1/);
-  assert.match(requestSchema, /publish_request\.payload\.platforms\.length !== 1/);
-  assert.equal((mcpAdapter.match(/maxItems:\s*1/g) || []).length >= 3, true);
+  assert.match(manuscriptActions, /const targetSchema = \{ type: 'string', enum: TARGETS \}/);
+  assert.equal((registerTopicAction.match(/platforms: \{ type: 'array', minItems: 1, maxItems: 1/g) || []).length, 1);
+  assert.match(queueActions, /platforms: \{ type: 'array', items: \{ type: 'string', enum: \['naver', 'wordpress', 'site-hosting'\] \}, minItems: 1, maxItems: 1 \}/);
 });
 
 test('direct AI writing creates a canonical draft before publishing', () => {

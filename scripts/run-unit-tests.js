@@ -32,7 +32,7 @@ function collectUnitTestFiles(repoRoot, roots = DEFAULT_ROOTS) {
 function createUnitTestEnvironment(env = process.env) {
     return {
         ...env,
-        BLOGGENIUS_ENV: String(env.BLOGGENIUS_ENV || 'local').trim() || 'local'
+        BLOGGENIUS_ENV: String(env.BLOGGENIUS_ENV || 'development').trim() || 'development'
     };
 }
 
