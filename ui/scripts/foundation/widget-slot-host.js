@@ -135,9 +135,19 @@ function initWidgetSlotHost() {
     if (!frame) return;
     const widget = widgetByFrame.get(frame);
     const message = event.data;
-    if (!widget || !message || message.type !== 'widget:overlay-state'
-      || typeof message.open !== 'boolean') return;
+    if (!widget || !message) return;
     const key = `${widget.pluginId}/${widget.id}`;
+    if (message.type === 'widget:resize' && Number.isFinite(message.height)) {
+      if (openOverlays.has(key)) return;
+      const height = Math.min(widget.maxHeight, Math.max(widget.height, Math.ceil(message.height)));
+      const shell = shells.get(key);
+      if (!shell) return;
+      shell.style.height = `${height}px`;
+      frame.style.height = `${height}px`;
+      frame.dataset.widgetHeight = String(height);
+      return;
+    }
+    if (message.type !== 'widget:overlay-state' || typeof message.open !== 'boolean') return;
     if (message.open) openWidgetOverlay(widget, key, frame, message.height);
     else closeWidgetOverlay(key);
   });

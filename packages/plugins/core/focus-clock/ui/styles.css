@@ -347,6 +347,15 @@ body { display: flex; justify-content: flex-end; overflow: visible; }
   white-space: nowrap;
 }
 
+.clock-ambient-message.is-changing {
+  animation: clockMoodMessageIn 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes clockMoodMessageIn {
+  from { opacity: 0; transform: translateY(5px) scale(0.98); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
 .clock-ambient-separator {
   display: none;
 }
@@ -477,6 +486,7 @@ body { display: flex; justify-content: flex-end; overflow: visible; }
 
 @media (prefers-reduced-motion: reduce) {
   .clock-display.clock-display-pulse,
+  .clock-ambient-message.is-changing,
   .clock-split-flip,
   .clock-widget-unit.clock-style-menu-open .clock-style-menu,
   .clock-widget-unit.pomodoro-complete .clock-widget-main,
@@ -912,6 +922,97 @@ body { display: flex; justify-content: flex-end; overflow: visible; }
 .clock-split-flip {
   animation: clockSplitFlipUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* Clock styles share one compact footprint while each keeps a distinct visual voice. */
+.clock-digital-face {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 15px;
+  background: linear-gradient(145deg, #f8fafc, #e8eef5);
+  box-shadow: inset 0 1px 0 #fff, 0 5px 12px rgba(30, 41, 59, 0.08);
+  color: #172554;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-digital-time {
+  font: 800 31px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.035em;
+}
+
+.clock-digital-time i { color: #94a3b8; font-style: normal; }
+.clock-digital-seconds { display: grid; gap: 2px; justify-items: center; color: #2563eb; }
+.clock-digital-seconds b { font: 800 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.clock-digital-seconds small { font-size: 8px; font-weight: 800; letter-spacing: 0.12em; }
+
+.clock-analog-face {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  margin-right: 8px;
+  overflow: hidden;
+  border: 5px solid #26364d;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 27%, #fff 0, #f8fafc 48%, #e4ebf3 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9), 0 7px 15px rgba(30, 41, 59, 0.2);
+}
+
+.clock-analog-tick {
+  position: absolute;
+  top: 7px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 5px;
+  border-radius: 2px;
+  background: #9aa9bb;
+  transform: rotate(var(--tick-angle));
+  transform-origin: 50% 34px;
+}
+
+.clock-analog-tick.is-major { width: 3px; height: 8px; background: #40536c; }
+.clock-analog-marker { position: absolute; color: #34465f; font-size: 7px; font-weight: 900; line-height: 1; }
+.marker-twelve { top: 10px; left: 50%; transform: translateX(-50%); }
+.marker-three { top: 50%; right: 9px; transform: translateY(-50%); }
+.marker-six { bottom: 9px; left: 50%; transform: translateX(-50%); }
+.marker-nine { top: 50%; left: 9px; transform: translateY(-50%); }
+.clock-analog-hand { position: absolute; bottom: 50%; left: 50%; z-index: 2; border-radius: 99px; transform: translateX(-50%) rotate(var(--hand-angle)); transform-origin: 50% 100%; }
+.hand-hour { width: 4px; height: 22px; background: #26364d; }
+.hand-minute { width: 2.5px; height: 31px; background: #536984; }
+.hand-second { z-index: 3; width: 1.5px; height: 35px; background: #e35d5b; }
+.clock-analog-pin { position: absolute; top: 50%; left: 50%; z-index: 4; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: #e35d5b; box-shadow: 0 1px 4px rgba(38, 54, 77, 0.35); transform: translate(-50%, -50%); }
+
+.clock-flip-face { display: flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 12px; background: linear-gradient(145deg, #18263d, #0b1424); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22); }
+.clock-flip-group { display: flex; gap: 2px; }
+.clock-flip-group b { position: relative; min-width: 20px; padding: 7px 3px; border-radius: 4px; background: linear-gradient(#34445b 0 49%, #17263b 50%); color: #f8fafc; font: 800 23px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; text-shadow: 0 1px 1px rgba(255,255,255,.18); }
+.clock-flip-group b::after { position: absolute; top: 50%; right: 0; left: 0; height: 1px; background: rgba(5, 12, 24, 0.65); content: ""; }
+.clock-flip-face > i { color: #8ca0ba; font: 700 18px/1 ui-monospace, monospace; }
+.clock-flip-group.is-seconds b { color: #7dd3fc; }
+
+.clock-split { gap: 7px; }
+.clock-split-block { position: relative; min-width: 56px; padding: 7px 10px 8px; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 13px; background: linear-gradient(155deg, #fff, #edf3f7); box-shadow: 0 6px 13px rgba(51, 65, 85, 0.09); }
+.clock-split-block::before { position: absolute; top: 0; right: 10px; left: 10px; height: 2px; border-radius: 2px; background: #a8bacb; content: ""; }
+.clock-split-block-accent::before { background: #18a5a0; }
+.clock-split-label { margin-bottom: 3px; color: #718096; font-size: 8px; letter-spacing: .16em; }
+.clock-split-value { color: #23334a; font: 800 23px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.clock-split-block-accent .clock-split-value { color: #078783; }
+
+.clock-neon-face { position: relative; display: grid; gap: 5px; min-width: 202px; padding: 9px 15px 10px; overflow: hidden; border: 1px solid rgba(103, 232, 249, .44); border-radius: 14px; background: radial-gradient(ellipse at 88% 0, rgba(124, 58, 237, .3), transparent 48%), linear-gradient(135deg, #071522, #102c42); box-shadow: inset 0 0 18px rgba(34, 211, 238, .1), 0 0 14px rgba(34, 211, 238, .13); }
+.clock-neon-label { display: flex; align-items: center; gap: 5px; color: #8ca9bc; font-size: 7px; font-weight: 800; letter-spacing: .2em; }
+.clock-neon-label i { width: 5px; height: 5px; border-radius: 50%; background: #5ef0d0; box-shadow: 0 0 8px #5ef0d0; }
+.clock-neon-time { color: #b8fff0; font: 800 26px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-shadow: 0 0 7px rgba(94, 240, 208, .72), 0 0 18px rgba(34, 211, 238, .42); }
+.clock-neon-time b { color: #46d9eb; font-weight: 500; }
+.clock-neon-time small { margin-left: 8px; color: #c4a7ff; font-size: 12px; letter-spacing: 0; text-shadow: 0 0 9px rgba(196, 167, 255, .8); }
+
+.clock-soft-face { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid rgba(186, 198, 218, .55); border-radius: 999px; background: linear-gradient(135deg, #fff, #f3f4fb 68%, #ecf8f7); box-shadow: 0 7px 18px rgba(100, 116, 139, .12), inset 0 1px 0 #fff; color: #39465e; }
+.clock-soft-orbit { position: relative; width: 26px; height: 26px; flex: 0 0 26px; border: 1px solid rgba(99, 102, 241, .25); border-radius: 50%; background: conic-gradient(from 20deg, #a5b4fc, #99e4d5, #c7d2fe, #a5b4fc); }
+.clock-soft-orbit::before { position: absolute; inset: 4px; border-radius: 50%; background: #f9fafc; content: ""; }
+.clock-soft-orbit i { position: absolute; top: 3px; left: 11px; width: 4px; height: 4px; border-radius: 50%; background: #7c83dc; }
+.clock-soft-time { color: #36425a; font: 750 24px/1 ui-rounded, "SF Pro Rounded", system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.clock-soft-time b { padding: 0 1px; color: #9aa5bb; font-weight: 500; }
+.clock-soft-seconds { display: grid; gap: 2px; justify-items: center; color: #658c8b; font: 700 11px/1 ui-monospace, monospace; }
+.clock-soft-seconds small { color: #99a4b4; font: 800 7px/1 system-ui, sans-serif; letter-spacing: .12em; }
 
 @keyframes clockSplitFlipUp {
   0% {

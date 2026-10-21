@@ -5,6 +5,18 @@ let focusClockSessionPreferences = {
   completionSoundEnabled: true
 };
 let focusClockRenderInterval = null;
+const FOCUS_CLOCK_STYLE_ROTATION_MS = 10 * 60 * 1000;
+const CLOCK_MOOD_PERIODS = [
+  { start: 0, end: 4, messages: ['아직 밤의 여백이 남아 있어요', '천천히 가도 괜찮은 시간이에요', '오늘의 마지막 페이지를 넘기는 중', '고요한 틈에 숨 한번 크게 쉬어요'] },
+  { start: 4, end: 6, messages: ['세상이 깨어나기 전의 작은 보너스 시간', '새벽 공기처럼 가볍게 시작해요', '오늘 첫 장면을 준비하는 중이에요', '조금씩 밝아오는 중, 우리도 천천히'] },
+  { start: 6, end: 9, messages: ['좋은 아침! 오늘의 첫 미션은 뭘까요?', '커피 한 모금, 가능성은 한 컵 가득', '아침의 나, 생각보다 꽤 유능해요', '오늘도 작은 시작이 큰일을 만들어요'] },
+  { start: 9, end: 11, messages: ['오전 집중력, 지금 꽤 괜찮은데요?', '하나씩 끝내면 어느새 많이 왔어요', '잠깐 어깨 펴고 다시 가볍게 출발!', '오늘의 흐름을 내가 만들어가는 중'] },
+  { start: 11, end: 13, messages: ['잠시 숨을 고르기 좋은 시간이에요', '점심 전 한 걸음, 충분히 잘하고 있어요', '뇌에게도 간식 같은 쉼표를 주세요', '물 한 잔 챙기고 기분 전환 어때요?'] },
+  { start: 13, end: 16, messages: ['오후 1막 시작! 천천히 시동 걸어요', '식곤증도 계획의 일부인 척하네요', '작은 일 하나부터 리듬을 찾아봐요', '오후의 나에게 너무 많은 걸 맡기진 말기'] },
+  { start: 16, end: 19, messages: ['오늘 할 일, 슬슬 결승선이 보여요', '집중력 충전이 필요하면 잠깐 쉬어가요', '마지막 한두 걸음도 꽤 큰 전진이에요', '퇴근 전의 나에게 고마워질 순간을 만들어요'] },
+  { start: 19, end: 22, messages: ['오늘도 수고했어요, 이제 나를 챙길 차례', '저녁은 마음의 배터리도 채우는 시간', '오늘의 작은 승리 하나만 떠올려봐요', '해야 할 일보다 해낸 일을 세어봐요'] },
+  { start: 22, end: 24, messages: ['하루를 잘 접어두고 쉬어가요', '내일의 나도 꽤 괜찮을 거예요', '화면은 잠시 쉬고 눈에게도 휴가를', '오늘의 마지막 알림: 이제 편히 쉬어요'] }
+];
 
 function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
@@ -28,10 +40,9 @@ function initClockWidget() {
     { value: 'soft', label: '소프트', icon: '●' }
   ];
   const timerStyles = timerStyleOptions.map((option) => option.value);
-  const randomStyle = (excludedStyle = '') => {
-    const candidates = styles.filter((style) => style !== excludedStyle);
-    const options = candidates.length ? candidates : styles;
-    return options[Math.floor(Math.random() * options.length)] || 'digital';
+  const automaticStyle = (timestamp = Date.now()) => {
+    const rotation = Math.floor(timestamp / FOCUS_CLOCK_STYLE_ROTATION_MS);
+    return styles[((rotation % styles.length) + styles.length) % styles.length] || 'digital';
   };
   let preferredStyle = focusClockSessionPreferences.preferredStyle;
   let displayMode = focusClockSessionPreferences.displayMode;
@@ -45,13 +56,24 @@ function initClockWidget() {
     completionId: null
   };
   let timerDurationMs = 25 * 60 * 1000;
-  let currentStyle = preferredStyle === 'random' ? randomStyle() : preferredStyle;
+  let currentStyle = preferredStyle === 'random' ? automaticStyle() : preferredStyle;
   let previousValue = null;
   let timerCompletionPulseUntil = 0;
   let timerCompletionPhase = null;
   let lastHandledCompletionId = timerState.completionId;
   let completionAudioContext = null;
   const widgetUnits = [];
+
+  const widgetResizeObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver((entries) => {
+      entries.forEach(({ target }) => {
+        window.parent.postMessage({
+          type: 'widget:resize',
+          height: Math.ceil(target.getBoundingClientRect().height) + 4
+        }, '*');
+      });
+    })
+    : null;
 
   function reportWidgetOverlayState(isOpen) {
     const request = { type: 'widget:overlay-state', open: isOpen };
@@ -196,16 +218,12 @@ function initClockWidget() {
       1: '한겨울', 2: '늦겨울', 3: '초봄', 4: '봄', 5: '늦봄', 6: '초여름',
       7: '한여름', 8: '늦여름', 9: '초가을', 10: '가을', 11: '늦가을', 12: '초겨울'
     }[month];
-    const hour = now.getHours();
-    const message = hour >= 5 && hour < 11
-      ? '좋은 아침이에요'
-      : hour >= 11 && hour < 14
-        ? '잠시 숨을 고르기 좋은 시간이에요'
-        : hour >= 14 && hour < 18
-          ? '좋은 오후예요'
-          : hour >= 18 && hour < 22
-            ? '오늘도 수고했어요'
-            : '조용한 밤이에요';
+    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
+    const period = CLOCK_MOOD_PERIODS.find(({ start, end }) => minuteOfDay >= start * 60 && minuteOfDay < end * 60)
+      || CLOCK_MOOD_PERIODS[0];
+    const periodStart = period.start * 60;
+    const tenMinuteSlot = Math.floor((minuteOfDay - periodStart) / 10);
+    const message = period.messages[tenMinuteSlot % period.messages.length];
     const dateText = new Intl.DateTimeFormat('ko-KR', {
       month: 'long',
       day: 'numeric',
@@ -292,7 +310,7 @@ function initClockWidget() {
   function selectStyle(style) {
     if (style !== 'random' && !styles.includes(style)) return;
     savePreferredStyle(style);
-    currentStyle = style === 'random' ? randomStyle(currentStyle) : style;
+    currentStyle = style === 'random' ? automaticStyle() : style;
     previousValue = null;
     refreshStyleMenus();
     displays.forEach((item) => {
@@ -434,6 +452,7 @@ function initClockWidget() {
     unit.appendChild(menu);
     widgetUnits.push({ unit, button, inlineActions, metaCopy, menu });
     overlayResizeObserver?.observe(menu);
+    widgetResizeObserver?.observe(unit);
 
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -586,6 +605,13 @@ function initClockWidget() {
   }
 
   function renderClock() {
+    if (preferredStyle === 'random') {
+      const nextAutomaticStyle = automaticStyle();
+      if (currentStyle !== nextAutomaticStyle) {
+        currentStyle = nextAutomaticStyle;
+        previousValue = null;
+      }
+    }
     const style = currentStyle;
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -632,8 +658,16 @@ function initClockWidget() {
       }
       const moodKey = `${displayMode}|${mood.season}|${metaHtml}`;
       if (metaCopy.dataset.clockMoodKey !== moodKey) {
+        const messageChanged = displayMode === 'clock'
+          && metaCopy.dataset.clockMessage
+          && metaCopy.dataset.clockMessage !== mood.message;
         metaCopy.dataset.clockMoodKey = moodKey;
+        metaCopy.dataset.clockMessage = mood.message;
         metaCopy.innerHTML = metaHtml;
+        if (messageChanged) {
+          const message = metaCopy.querySelector('.clock-ambient-message');
+          message?.classList.add('is-changing');
+        }
       }
     });
     refreshTimerControls(timerSnapshot);
@@ -644,8 +678,9 @@ function initClockWidget() {
         display.innerHTML = html;
       });
     } else if (style === 'digital') {
-      const html = `<div style="font-size: 32px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a; line-height: 1;">
-        ${h}<span style="opacity:0.5;">:</span>${m}<span style="opacity:0.5;">:</span>${s}
+      const html = `<div class="clock-digital-face">
+        <span class="clock-digital-time">${h}<i>:</i>${m}</span>
+        <span class="clock-digital-seconds"><b>${s}</b><small>SEC</small></span>
       </div>`;
       displays.forEach((display) => {
         display.innerHTML = html;
@@ -657,33 +692,28 @@ function initClockWidget() {
 
       let ticksHtml = '';
       for (let i = 0; i < 12; i++) {
-        ticksHtml += `<div style="position: absolute; top: 0; left: 50%; width: 2px; height: ${i % 3 === 0 ? '8px' : '4px'}; background: ${i % 3 === 0 ? '#334155' : '#94a3b8'}; transform-origin: center 40px; transform: translateX(-50%) rotate(${i * 30}deg);"></div>`;
+        ticksHtml += `<span class="clock-analog-tick${i % 3 === 0 ? ' is-major' : ''}" style="--tick-angle:${i * 30}deg"></span>`;
       }
 
       const html = `
-        <div style="position: relative; width: 88px; height: 88px; border-radius: 50%; border: 4px solid #334155; box-sizing: border-box; background: #f8fafc; margin-right: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+        <div class="clock-analog-face">
           ${ticksHtml}
-          <!-- center dot -->
-          <div style="position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #0f172a; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10;"></div>
-          <!-- Hour Hand -->
-          <div style="position: absolute; top: 25%; bottom: 50%; left: 50%; width: 5px; background: #0f172a; transform-origin: bottom center; transform: translateX(-50%) rotate(${hourDeg}deg); border-radius: 3px; z-index: 7;"></div>
-          <!-- Min Hand -->
-          <div style="position: absolute; top: 12%; bottom: 50%; left: 50%; width: 3px; background: #334155; transform-origin: bottom center; transform: translateX(-50%) rotate(${minDeg}deg); border-radius: 2px; z-index: 8;"></div>
-          <!-- Sec Hand -->
-          <div style="position: absolute; top: 5%; bottom: 40%; left: 50%; width: 2px; background: #ef4444; transform-origin: 75% 75%; transform: translateX(-50%) rotate(${secDeg}deg); z-index: 9; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+          <span class="clock-analog-marker marker-twelve">12</span><span class="clock-analog-marker marker-three">3</span>
+          <span class="clock-analog-marker marker-six">6</span><span class="clock-analog-marker marker-nine">9</span>
+          <span class="clock-analog-hand hand-hour" style="--hand-angle:${hourDeg}deg"></span>
+          <span class="clock-analog-hand hand-minute" style="--hand-angle:${minDeg}deg"></span>
+          <span class="clock-analog-hand hand-second" style="--hand-angle:${secDeg}deg"></span>
+          <span class="clock-analog-pin"></span>
         </div>
       `;
       displays.forEach((display) => {
         display.innerHTML = html;
       });
     } else if (style === 'flip') {
-      const bStyle = "display:inline-block; background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:28px; font-weight:bold; font-family:monospace; margin:0 3px; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1); line-height: 1;";
-      const html = `<div style="display:flex; align-items:center;">
-        <span style="${bStyle}">${h}</span>
-        <span style="font-size:24px; font-weight:bold; color:#334155; margin:0 2px;">:</span>
-        <span style="${bStyle}">${m}</span>
-        <span style="font-size:24px; font-weight:bold; color:#334155; margin:0 2px;">:</span>
-        <span style="${bStyle}">${s}</span>
+      const html = `<div class="clock-flip-face">
+        <span class="clock-flip-group"><b>${h[0]}</b><b>${h[1]}</b></span><i>:</i>
+        <span class="clock-flip-group"><b>${m[0]}</b><b>${m[1]}</b></span><i>:</i>
+        <span class="clock-flip-group is-seconds"><b>${s[0]}</b><b>${s[1]}</b></span>
       </div>`;
       displays.forEach((display) => {
         display.innerHTML = html;
@@ -727,9 +757,9 @@ function initClockWidget() {
       });
     } else if (style === 'neon') {
       const html = `
-        <div style="display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border-radius:18px; background:linear-gradient(135deg,#020617,#111827 55%,#1e1b4b); box-shadow:0 0 0 1px rgba(34,211,238,0.18), 0 12px 28px rgba(15,23,42,0.32);">
-          <span style="font-size:30px; font-weight:800; font-family:monospace; letter-spacing:0.12em; color:#67e8f9; text-shadow:0 0 8px rgba(103,232,249,0.55); font-variant-numeric:tabular-nums;">${h}:${m}</span>
-          <span style="font-size:16px; font-weight:800; color:#c4b5fd; text-shadow:0 0 8px rgba(196,181,253,0.45); min-width:24px; text-align:center; font-variant-numeric:tabular-nums;">${s}</span>
+        <div class="clock-neon-face">
+          <span class="clock-neon-label">LOCAL TIME <i></i></span>
+          <span class="clock-neon-time">${h}<b>:</b>${m}<small>${s}</small></span>
         </div>
       `;
       displays.forEach((display) => {
@@ -737,11 +767,10 @@ function initClockWidget() {
       });
     } else if (style === 'soft') {
       const html = `
-        <div style="display:inline-flex; align-items:center; gap:12px; padding:10px 16px; border-radius:20px; background:linear-gradient(135deg,#fdf2f8,#eef2ff); border:1px solid rgba(216,180,254,0.55); box-shadow:0 10px 24px rgba(148,163,184,0.14);">
-          <span style="display:inline-flex; width:10px; height:10px; border-radius:999px; background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,0.12);"></span>
-          <div style="display:flex; flex-direction:column; gap:2px; line-height:1;">
-            <span style="font-size:28px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums;">${h}:${m}:${s}</span>
-          </div>
+        <div class="clock-soft-face">
+          <span class="clock-soft-orbit"><i></i></span>
+          <span class="clock-soft-time">${h}<b>:</b>${m}</span>
+          <span class="clock-soft-seconds">${s}<small>SEC</small></span>
         </div>
       `;
       displays.forEach((display) => {
