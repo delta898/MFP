@@ -785,8 +785,8 @@ test('Naver publishing progress is forwarded and logged through the shared progr
     }, { onProgress: (message) => progressMessages.push(message) });
 
     assert.equal(result.success, true);
-    assert.ok(progressMessages.includes('본문을 입력하고 있습니다. (2/14)'));
-    assert.ok(logs.includes('[Blog Beta][Progress] 본문을 입력하고 있습니다. (2/14)'));
+    assert.ok(progressMessages.includes('[본문] 입력 중'));
+    assert.ok(logs.includes('[Blog Beta][Progress] [본문] 입력 중'));
 });
 
 test('multi-platform publish releases quota when every platform fails', async () => {

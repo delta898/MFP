@@ -316,6 +316,14 @@
       "classification": "ai_catalog_operator_action"
     },
     {
+      "path": "supabase/operations/ai/2026-10-21_kie-model-catalog_dev_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-21_kie-model-catalog_prod_insert.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },
