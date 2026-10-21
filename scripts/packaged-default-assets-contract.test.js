@@ -13,6 +13,7 @@ test('release packaging embeds only safe first-run defaults outside the mutable 
     assert.match(workflow, /--extra-resource=["']?config[/\\]config[.]json[.]sample/);
     assert.match(workflow, /--extra-resource=["']?config[/\\]images/);
     assert.match(workflow, /[/|]config[/|]Videos/);
+    assert.match(workflow, /mkdir -p ["']?\$\{ROOT_OUT\}["']?/);
     assert.doesNotMatch(workflow, /mkdir -p ["']?\$\{ROOT_OUT\}[/\\]config/);
     assert.doesNotMatch(workflow, /cp config[/\\]config[.]json[.]sample ["']?\$\{ROOT_OUT\}[/\\]config/);
     assert.doesNotMatch(workflow, /\$\{ROOT_OUT\}[/\\]data/);

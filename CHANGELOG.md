@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev7] - 2026-10-22
+
+### Fixed
+- Windows/macOS 릴리스 패키징에서 실행 파일 폴더를 준비해 README 복사 단계가 실패하던 문제를 수정했습니다.
+
+### Improved
+- 업데이트 다운로드 진행 표시 안에 취소 버튼을 배치했습니다.
+- Windows와 macOS 패키지의 설치 위치에 사용자 데이터 폴더를 만들지 않고, 첫 실행 시 사용자 데이터 경로에서 기본 설정과 이미지를 준비합니다.
+
 ## [0.7.0-dev6] - 2026-10-22
 
 ### Improved
