@@ -74,7 +74,7 @@ function createBlogExecutionCoordinator(options = {}) {
                 },
                 complete(status = {}) {
                     if (released || active?.token !== token) return false;
-                    const state = ['completed', 'failed', 'needs_attention'].includes(String(status.state || ''))
+                    const state = ['completed', 'failed', 'needs_attention', 'stopped'].includes(String(status.state || ''))
                         ? String(status.state)
                         : 'completed';
                     lastTerminalStatus = {

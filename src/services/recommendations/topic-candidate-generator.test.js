@@ -17,15 +17,20 @@ function profile() {
 }
 
 test('combines request, trend, and owner profile evidence without scoring', () => {
+    const ownerProfile = profile();
+    ownerProfile.interests.keywords.push({
+        value: '블로그 자동화 기반 AI', normalized_value: '블로그 자동화 기반 ai',
+        evidence_count: 1, evidence: { kind: 'topic_facet', id: 'f3' }
+    });
     const result = createTopicCandidateGenerator().generate({
         query: '블로그 자동화',
-        ownerProfile: profile(),
+        ownerProfile,
         knowledge: [{
             provider_id: 'naver-trends',
             kind: 'trends',
             transport: 'builtin_api',
             items: [{
-                title: 'AI 블로그 도구',
+                title: 'AI 블로그 자동화 도구',
                 timestamp: '2026-08-14T00:00:00+09:00',
                 metadata: { source: 'naver_trend', categories: ['IT'], trend_date: '2026-08-14', change_type: 'up', change_amount: 7, display_order: 1 }
             }]
@@ -33,7 +38,7 @@ test('combines request, trend, and owner profile evidence without scoring', () =
     });
 
     assert.deepEqual(result.candidates.map((item) => item.candidate_type), [
-        'request_seed', 'trend_seed', 'profile_seed', 'profile_seed'
+        'request_seed', 'trend_seed', 'profile_seed'
     ]);
     const trend = result.candidates[1];
     assert.equal(trend.owner_matches.keywords[0].normalized_value, 'ai');

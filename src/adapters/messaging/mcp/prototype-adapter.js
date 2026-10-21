@@ -34,6 +34,11 @@ function buildMcpToolDefinitions() {
                         type: 'string',
                         description: 'Topic or subject (주제). Required for topic registration.'
                     },
+                    action: {
+                        type: 'string',
+                        enum: ['save', 'enqueue'],
+                        description: 'Save the topic in the idea store or add it to the publishing queue. Defaults to save.'
+                    },
                     topic: {
                         type: 'string',
                         description: 'Alias of theme (주제).'
@@ -87,6 +92,7 @@ function buildMcpToolDefinitions() {
                             payload: {
                                 type: 'object',
                                 properties: {
+                                    action: { type: 'string', enum: ['save', 'enqueue'] },
                                     theme: {
                                         type: 'string',
                                         description: 'Required topic title or theme.'
@@ -266,6 +272,7 @@ function coercePrepareInput(input = {}) {
             ? {
                 intent: 'content.register_topic',
                 payload: {
+                    action: normalizeString(input.action).toLowerCase() || 'save',
                     theme: explicitTheme,
                     ...(explicitKeywords.length > 0 ? { keywords: explicitKeywords } : {}),
                     ...(explicitPlatforms.length > 0 ? { platforms: explicitPlatforms } : {}),
@@ -280,6 +287,14 @@ function coercePrepareInput(input = {}) {
                 }
             }
             : null);
+
+    if (registerRequest?.intent === 'content.register_topic') {
+        const payload = { ...registerRequest.payload };
+        if (!normalizeString(payload.action)) {
+            payload.action = normalizeString(input.action).toLowerCase() || 'save';
+        }
+        registerRequest.payload = payload;
+    }
 
     const publishRequest = normalizeRequestWrapper(input.publish_request, 'content.publish')
         || (publishRequested

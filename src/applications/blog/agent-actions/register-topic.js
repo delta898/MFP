@@ -166,6 +166,7 @@ function createRegisterTopicCapabilities(deps = {}) {
                     data: {
                         theme: normalizedParams.theme,
                         keywords: normalizedParams.keywords,
+                        action: normalizedParams.action,
                         platforms: normalizedParams.platforms,
                         options: normalizedParams.options,
                         rows: buildRowsFromParams(normalizedParams, context)

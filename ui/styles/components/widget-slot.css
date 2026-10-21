@@ -69,7 +69,8 @@
   flex: 0 0 9px;
   border-radius: 50%;
   background: var(--ui-action-primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-action-primary) 12%, transparent);
+  outline: 4px solid color-mix(in srgb, var(--ui-action-primary) 12%, transparent);
+  outline-offset: 0;
 }
 
 .page-widget-area .global-publishing-status[data-state="running"] {
@@ -108,13 +109,14 @@
   border: 0;
   background: var(--ui-action-primary);
   animation: global-publishing-heartbeat 1.5s ease-in-out infinite;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-action-primary) 16%, transparent),
-    0 0 11px color-mix(in srgb, var(--ui-action-primary) 45%, transparent);
+  outline: 4px solid color-mix(in srgb, var(--ui-action-primary) 16%, transparent);
+  outline-offset: 0;
 }
 
 .page-widget-area .global-publishing-status[data-state="attention"] .global-publishing-status-indicator {
   background: var(--ui-status-warning);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-status-warning) 13%, transparent);
+  outline: 4px solid color-mix(in srgb, var(--ui-status-warning) 13%, transparent);
+  outline-offset: 0;
 }
 
 .widget-plugin-frame-shell {

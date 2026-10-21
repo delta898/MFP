@@ -438,7 +438,9 @@ test('global publishing status exposes one prioritized summary beside the widget
     assert.match(statusScript, /\['attention', 'running', 'scheduled'\]/);
     assert.match(statusScript, /\['running', 'attention'\]/);
     assert.match(statusScript, /포스팅 확인 필요/);
-    assert.match(statusScript, /포스팅 중 ·/);
+    assert.match(statusScript, /summary\.source === 'manuscript_generation' \? 'AI 원고 작성 중'/);
+    assert.match(statusScript, /summary\.source === 'local_markdown' \? '원고 포스팅 중'/);
+    assert.match(statusScript, /\$\{activityLabel\} · \$\{subject\}/);
     assert.match(statusScript, /연속 포스팅 다음 처리/);
     assert.match(statusScript, /다음 처리/);
     assert.match(statusScript, /navigateTo\('blog-next', 'queue'\)/);

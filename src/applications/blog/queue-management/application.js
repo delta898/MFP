@@ -51,6 +51,8 @@ function createBlogQueueManagementApplication(deps = {}) {
     async function updateTopic(input = {}) {
         const rowIndex = parseRowIndex(input.rowIndex);
         const sourceStatus = String(input.sourceStatus || TOPIC_STATUS.READY).trim();
+        const action = String(input.action || 'save').trim().toLowerCase();
+        if (!['save', 'enqueue'].includes(action)) throw appError(400, 'TOPIC_UPDATE_ACTION_INVALID', '글감 변경 방식을 확인해 주세요.');
         if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(sourceStatus)) throw appError(400, 'TOPIC_SOURCE_STATUS_INVALID', '수정할 글감 상태를 확인해 주세요.');
         if (sourceStatus === TOPIC_STATUS.READY) requireIdle();
         const existing = await requireTopicInStatus(rowIndex, sourceStatus);
@@ -69,7 +71,7 @@ function createBlogQueueManagementApplication(deps = {}) {
             scheduleDate: existing.scheduleDate || options.schedule_date || '',
             ...input
         };
-        const ready = sourceStatus === TOPIC_STATUS.READY;
+        const ready = sourceStatus === TOPIC_STATUS.READY || action === 'enqueue';
         let row;
         try { row = buildTopicSheetRow(merged, { ready, now: typeof deps.now === 'function' ? deps.now() : Date.now() }); }
         catch (error) { throw appError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message); }
@@ -86,7 +88,7 @@ function createBlogQueueManagementApplication(deps = {}) {
             writingOverrides: row.content_guide.writing_overrides, platforms: row.targets,
             siteTarget: row.options.site_target || null
         });
-        return { rowIndex, rowNumber: rowIndex + 2, status: row.status, subject: row.subject };
+        return { action, rowIndex, rowNumber: rowIndex + 2, status: row.status, subject: row.subject };
     }
 
     async function updateTopicDetails(input = {}) {

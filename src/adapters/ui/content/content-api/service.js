@@ -182,10 +182,13 @@ function createContentApiService(deps = {}) {
             });
             return result;
         } catch (error) {
+            const stopped = lease.signal.aborted
+                || error?.apiCode === 'BLOG_NEXT_EXECUTION_STOPPED'
+                || error?.code === 'BLOG_NEXT_EXECUTION_STOPPED';
             lease.complete({
-                state: 'failed',
-                message: error?.message || '블로그 작업에 실패했습니다.',
-                resultStatus: error?.apiCode || error?.code || 'BLOG_EXECUTION_FAILED'
+                state: stopped ? 'stopped' : 'failed',
+                message: error?.message || (stopped ? '블로그 포스팅을 중지했습니다.' : '블로그 작업에 실패했습니다.'),
+                resultStatus: stopped ? 'BLOG_NEXT_EXECUTION_STOPPED' : (error?.apiCode || error?.code || 'BLOG_EXECUTION_FAILED')
             });
             throw error;
         } finally {

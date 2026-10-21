@@ -14,6 +14,12 @@ function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}, ex
     });
 }
 
+function assertTerminalStatus(coordinator, expected = {}) {
+    const status = coordinator.getStatus();
+    assert.equal(status.busy, false);
+    for (const [key, value] of Object.entries(expected)) assert.equal(status[key], value);
+}
+
 test('local manuscript publishing owns the shared Blog Beta lock until it settles', async () => {
     const coordinator = createBlogExecutionCoordinator();
     let finish;
@@ -35,7 +41,7 @@ test('local manuscript publishing owns the shared Blog Beta lock until it settle
 
     finish({ success: true, data: { status: '임시 저장 완료' } });
     assert.deepEqual(await first, { status: '임시 저장 완료', completionLinks: [] });
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, { state: 'completed', source: 'local_markdown', resultStatus: '작업 완료' });
 });
 
 test('direct publish rejects concurrent settings and image changes before touching the draft', async () => {
@@ -76,7 +82,10 @@ test('Naver browser milestones reach the shared status while direct publish is r
     assert.equal(coordinator.getStatus().message, '본문을 입력하고 있습니다. (2/5)');
     finish({ success: true, data: { postStatus: 'draft' } });
     await publishing;
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, {
+        state: 'completed', source: 'local_markdown', progressStage: 'body',
+        resultStatus: '임시 저장 완료', postStatus: 'draft'
+    });
 });
 
 test('direct Naver publish exposes a stop signal only after local preparation and settles as stopped', async () => {
@@ -107,6 +116,7 @@ test('direct Naver publish exposes a stop signal only after local preparation an
     });
     await assert.rejects(publishing, (error) => error.apiCode === 'BLOG_NEXT_EXECUTION_STOPPED');
     assert.equal(coordinator.getStatus().state, 'stopped');
+    assert.equal(coordinator.getStatus().resultStatus, 'BLOG_NEXT_EXECUTION_STOPPED');
 });
 
 test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
@@ -320,7 +330,10 @@ test('manuscript image auto-resolution stays inside the shared Blog Beta executi
     const result = await publishing;
     assert.equal(result.postStatus, 'publish');
     assert.equal(result.revision, 2);
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, {
+        state: 'completed', source: 'local_markdown', progressStage: 'finalizing',
+        resultStatus: '발행 완료', postStatus: 'publish'
+    });
 });
 
 test('keeps successful remote publication when local snapshot persistence fails', async () => {
@@ -383,7 +396,10 @@ test('local manuscript publishing releases the shared lock after failure', async
     });
 
     await assert.rejects(() => service.localMarkdownPublish({ folderName: '원고 폴더' }), /fixture failure/);
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, {
+        state: 'failed', source: 'local_markdown', message: 'fixture failure',
+        resultStatus: 'BLOG_EXECUTION_FAILED'
+    });
     assert.deepEqual(await service.localMarkdownPublish({ folderName: '원고 폴더' }), { status: '완료', completionLinks: [] });
 });
 
@@ -431,7 +447,9 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.deepEqual(draft.targets, ['wordpress']);
     assert.deepEqual(draft.sourceMetadata, { generationSource: 'configured-ai' });
     assert.equal(draft.images.length, 1);
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, {
+        state: 'completed', source: 'manuscript_generation', subject: '주제', resultStatus: '작업 완료'
+    });
 });
 
 test('text-only manuscript generation uses AI Gateway Plugin independently of the publish target', async () => {
@@ -481,7 +499,9 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
     assert.match(draft.markdownText, /#제주/);
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 시작 .*provider=/.test(message)));
     assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 완료 .*elapsed=/.test(message)));
-    assert.deepEqual(coordinator.getStatus(), { busy: false });
+    assertTerminalStatus(coordinator, {
+        state: 'completed', source: 'manuscript_generation', subject: '제주 산책', resultStatus: '작업 완료'
+    });
 });
 
 test('AI manuscript generation uses AI Gateway for text and every requested image', async () => {
