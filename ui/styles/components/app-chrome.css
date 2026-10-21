@@ -153,7 +153,7 @@
   border: 1px solid color-mix(in srgb, var(--ui-text-inverse) 25%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--ui-text-inverse) 12%, transparent);
-  font-size: 15px;
+  font-size: var(--ui-type-label-size);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
 }
 
@@ -168,7 +168,7 @@
 .update-progress-percent {
   min-width: 3.5em;
   color: var(--ui-text-inverse);
-  font-size: 15px;
+  font-size: var(--ui-type-label-size);
   font-variant-numeric: tabular-nums;
   font-weight: var(--ui-weight-bold);
   text-align: right;
@@ -197,7 +197,7 @@
   background: linear-gradient(90deg, #67e8f9, #60a5fa 48%, #c4b5fd 82%, #fff);
   background-size: 220% 100%;
   box-shadow: 0 0 14px color-mix(in srgb, #67e8f9 70%, transparent);
-  transition: inline-size 420ms cubic-bezier(0.2, 0.75, 0.25, 1);
+  transition: inline-size var(--ui-motion-slow) var(--ui-ease-standard);
   animation: updateProgressShimmer 2.4s linear infinite;
 }
 
@@ -206,7 +206,7 @@
   background: linear-gradient(90deg, #67e8f9, #60a5fa 48%, #c4b5fd 82%, #fff);
   background-size: 220% 100%;
   box-shadow: 0 0 14px color-mix(in srgb, #67e8f9 70%, transparent);
-  transition: inline-size 420ms cubic-bezier(0.2, 0.75, 0.25, 1);
+  transition: inline-size var(--ui-motion-slow) var(--ui-ease-standard);
   animation: updateProgressShimmer 2.4s linear infinite;
 }
 
