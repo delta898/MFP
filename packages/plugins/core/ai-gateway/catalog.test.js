@@ -6,6 +6,7 @@ const { createModelCatalogService } = require('./catalog');
 
 test('Gateway catalog loads its cached snapshot, coalesces refresh, and keeps last-known-good data on failure', async () => {
     const applied = [];
+    const logs = [];
     let fetchCount = 0;
     let resolveFetch;
     const service = createModelCatalogService({
@@ -18,7 +19,12 @@ test('Gateway catalog loads its cached snapshot, coalesces refresh, and keeps la
         },
         applySnapshot(payload) { applied.push(payload); return { version: payload.version }; },
         getSnapshot: () => applied.at(-1),
-        getStatus: () => ({ source: 'supabase', version: applied.at(-1)?.version || '' })
+        getStatus: () => ({ source: 'supabase', version: applied.at(-1)?.version || '', remote_model_count: 0 }),
+        logger: {
+            info(message) { logs.push({ level: 'info', message }); },
+            warn(message) { logs.push({ level: 'warn', message }); },
+            debug(message) { logs.push({ level: 'debug', message }); }
+        }
     });
 
     assert.equal(service.getCatalog().version, 'cached');
@@ -34,6 +40,9 @@ test('Gateway catalog loads its cached snapshot, coalesces refresh, and keeps la
     assert.equal(failedRefresh.version, 'fresh');
     assert.match(failedRefresh.refresh_error, /offline/);
     assert.equal(service.getCatalog().version, 'fresh');
+    assert.ok(logs.some((entry) => entry.message.includes('로컬 캐시 적용 (version=cached')));
+    assert.ok(logs.some((entry) => entry.message.includes('적용 완료 (version=fresh')));
+    assert.ok(logs.some((entry) => entry.level === 'warn' && entry.message.includes('갱신 실패, 마지막 정상 카탈로그 유지')));
 });
 
 test('Gateway catalog reports an unavailable catalog when no cached snapshot exists', async () => {

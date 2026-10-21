@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev2] - 2026-10-21
+
+### Improved
+- **AI 모델 목록 상태를 로그에서 확인**: 앱이 어떤 카탈로그 버전을 가져와 적용했는지, 갱신에 실패해 기존 목록을 유지했는지 확인할 수 있습니다.
+
 ## [0.7.0-dev1] - 2026-10-21
 
 ### Added

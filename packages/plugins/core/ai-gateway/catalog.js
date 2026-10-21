@@ -6,7 +6,7 @@ function createModelCatalogService(options = {}) {
         throw new TypeError('AI Gateway catalog requires fetchCatalog(), applySnapshot(), and getSnapshot() ports.');
     }
     const refreshTtlMs = Number.isFinite(options.refreshTtlMs) ? Math.max(0, options.refreshTtlMs) : 6 * 60 * 60 * 1000;
-    const logger = options.logger || { debug() {} };
+    const logger = options.logger || { debug() {}, info() {}, warn() {} };
     let lastRefreshAt = 0;
     let pendingRefresh = null;
     let cacheLoaded = false;
@@ -17,9 +17,14 @@ function createModelCatalogService(options = {}) {
         cacheLoaded = true;
         try {
             const payload = options.loadCachedCatalog?.();
-            if (payload) options.applySnapshot(payload);
+            if (payload) {
+                const status = options.applySnapshot(payload);
+                logger.info?.(`[AI Model Catalog] 로컬 캐시 적용 (version=${String(status?.version || payload.version || 'unversioned')}, models=${Number(status?.remote_model_count || 0)})`);
+            } else {
+                logger.info?.('[AI Model Catalog] 로컬 캐시 없음');
+            }
         } catch (error) {
-            logger.debug?.(`[AI Gateway] Cached catalog ignored: ${error.message}`);
+            logger.warn?.(`[AI Model Catalog] 로컬 캐시 적용 실패 (message=${String(error?.message || error).slice(0, 240)})`);
         }
     }
 
@@ -34,15 +39,17 @@ function createModelCatalogService(options = {}) {
                 const payload = await options.fetchCatalog();
                 const status = options.applySnapshot(payload);
                 try { options.saveCachedCatalog?.(payload); } catch (error) {
-                    logger.debug?.(`[AI Gateway] Catalog cache write failed: ${error.message}`);
+                    logger.warn?.(`[AI Model Catalog] 캐시 저장 실패 (message=${String(error?.message || error).slice(0, 240)})`);
                 }
                 lastError = '';
                 lastRefreshAt = Date.now();
+                logger.info?.(`[AI Model Catalog] 적용 완료 (version=${String(status?.version || 'unversioned')}, models=${Number(status?.remote_model_count || 0)}, providers=${Number(status?.remote_provider_count || 0)})`);
                 return { refreshed: true, ...status };
             } catch (error) {
                 lastError = String(error?.message || 'Catalog refresh failed').slice(0, 300);
                 lastRefreshAt = Date.now();
-                logger.debug?.(`[AI Gateway] Catalog refresh failed; keeping the last valid snapshot: ${lastError}`);
+                const currentStatus = getStatus();
+                logger.warn?.(`[AI Model Catalog] 갱신 실패, 마지막 정상 카탈로그 유지 (error=${lastError}, cachedVersion=${String(currentStatus.version || 'none')}, source=${String(currentStatus.source || 'unavailable')})`);
                 return { refreshed: false, error: lastError, ...getStatus() };
             } finally {
                 pendingRefresh = null;

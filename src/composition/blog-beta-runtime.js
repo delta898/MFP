@@ -53,7 +53,8 @@ function createBlogBetaRuntimeComposition(options = {}) {
         config: CONFIG,
         ...(options.fetchCatalog ? { fetchCatalog: options.fetchCatalog } : {}),
         ...(options.catalogFs ? { fsImpl: options.catalogFs } : {}),
-        appVersion: APP_VERSION
+        appVersion: APP_VERSION,
+        logger: Logger
     });
     const catalogService = createModelCatalogService({
         fetchCatalog: catalogPort.fetchCatalog,
