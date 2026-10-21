@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/kie-claude-model-support`
 - Start date: 2026-10-21
 - Base/parent: `codex/fbr/plugin-architecture-foundation`
-- Status: Implementation in progress
+- Status: Implemented; ready for parent-branch integration
 
 ## User need and goal
 
@@ -25,7 +25,7 @@ KIE.ai Claude Haiku 5.5, Sonnet 5.5, and Opus 5.5 were added to the Development 
 
 - No production catalog changes or production API calls.
 - No removal/deprecation of existing KIE model families.
-- No unrelated release work or version-file changes in this feature commit.
+- No unrelated release work.
 - Do not commit, merge, push, or release without explicit instruction.
 
 ## Proposed design and boundaries
@@ -64,9 +64,12 @@ KIE.ai Claude Haiku 5.5, Sonnet 5.5, and Opus 5.5 were added to the Development 
 - Traced the subject-only request end to end. The blog composer creates one full prompt with output contract, style/length profile, strategy, image instructions, and subject. Blog Writing sends it as a user prompt. Found and fixed a routing defect in the shared AI Generation service: it discarded catalog `transport` when constructing the Gateway model selection, allowing the Gateway to choose the first KIE text protocol rather than Claude Messages. Added a composition-level test asserting the full prompt reaches KIE Claude as one user message; focused checks pass.
 - Added a safe shared text-generation start log containing provider, display model, model ID, transport, and per-role system/user prompt character counts. Prompt bodies are never logged; character counts are a cost-size proxy, not exact provider token counts.
 - A real Blog Beta run then exposed the same manifest-contract omission on `image.generate`: the application forwarded catalog transport, but the operation model schema rejected it before KIE was called. Added the transport field and Host-contract coverage for KIE image dispatch.
+- User requested and approved the application version update to `0.7.0`; `package.json` and lockfile metadata are synchronized.
+- User validated KIE Claude text generation and KIE Nano Banana 2.1 image generation through Blog Beta. These live runs initially exposed the transport contract/routing defects recorded above; after correction, the user reported both new paths working.
+- Final review against `codex/fbr/plugin-architecture-foundation` found no merge-blocking issues. `git diff --check` passes. Focused AI Gateway, model configuration, generation, and content API checks passed during implementation; the broad full suite is intentionally deferred per the user's request to combine comprehensive testing later.
+- Development catalog publish/rollback SQL is included but has not been executed by this task. Final UI acceptance beyond the user's reported model checks remains with the user.
 
 ## Remaining risks and follow-up
 
-- Official KIE documentation confirms the Claude 5.5 model IDs and Messages API request contract. Fixture tests do not prove live KIE account/model availability; real model checks may incur credits and need explicit authorization.
-- Fixture tests do not prove live KIE account/model availability; live generation may incur credits and was not run because no safe Development credential path was available to this test runtime.
-- User must apply the Development catalog SQL and perform any final UI acceptance.
+- Live verification covered Claude Sonnet 5.5 and Nano Banana 2.1. Haiku 5.5, Opus 5.5, and other catalog models were not individually exercised.
+- User must apply the Development catalog SQL and perform any remaining UI acceptance.
