@@ -165,6 +165,7 @@ async function applyUpdate() {
     };
     if (progressMessage) progressMessage.textContent = stageLabels[stage] || message || '진행 중...';
     if (progressIcon) progressIcon.textContent = stageIcons[stage] || '⏳';
+    if (banner) banner.dataset.updateStage = stage || 'idle';
 
     // 퍼센트는 다운로드 단계에서만 표시
     if (stage === 'downloading') {

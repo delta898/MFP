@@ -2,6 +2,7 @@ const QUICK_POSTING_CELEBRATION_MAX_WAIT_MS = 10 * 60 * 1000;
 let celebrationCleanupTimer = null;
 let pendingQuickPostingCelebrationAt = 0;
 let pendingQuickPostingCelebrationPostStatus = '';
+const APP_CELEBRATION_STYLES = ['cascade', 'burst'];
 
 function reportPostingCompletionEffect(stage, postStatus = '') {
   if (typeof postJson !== 'function') return;
@@ -16,7 +17,8 @@ function showAppCelebration({ title, message } = {}) {
   document.querySelectorAll('.app-celebration').forEach((item) => item.remove());
   if (celebrationCleanupTimer) clearTimeout(celebrationCleanupTimer);
   const celebration = document.createElement('div');
-  celebration.className = 'app-celebration';
+  const style = APP_CELEBRATION_STYLES[Math.floor(Math.random() * APP_CELEBRATION_STYLES.length)];
+  celebration.className = `app-celebration app-celebration--${style}`;
   celebration.setAttribute('aria-hidden', 'true');
   const colors = ['#38bdf8', '#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#a855f7'];
   const particleCount = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 64;
@@ -28,6 +30,14 @@ function showAppCelebration({ title, message } = {}) {
     particle.style.setProperty('--confetti-duration', `${(2.1 + Math.random() * 1.2).toFixed(2)}s`);
     particle.style.setProperty('--confetti-rotation', `${Math.round(Math.random() * 720 - 360)}deg`);
     particle.style.setProperty('--confetti-color', colors[index % colors.length]);
+    const burstCenters = [[25, 36], [75, 40], [50, 58]];
+    const [centerX, centerY] = burstCenters[index % burstCenters.length];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 12 + Math.random() * 25;
+    particle.style.setProperty('--burst-x', `${centerX + (Math.random() - 0.5) * 5}vw`);
+    particle.style.setProperty('--burst-y', `${centerY + (Math.random() - 0.5) * 5}vh`);
+    particle.style.setProperty('--burst-dx', `${Math.round(Math.cos(angle) * distance)}vw`);
+    particle.style.setProperty('--burst-dy', `${Math.round(Math.sin(angle) * distance * 0.65)}vh`);
     celebration.appendChild(particle);
   }
   const messageBox = document.createElement('div');

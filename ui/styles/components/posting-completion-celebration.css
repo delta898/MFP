@@ -30,6 +30,31 @@
   height: 7px;
 }
 
+.app-celebration--burst > i {
+  top: var(--burst-y);
+  left: var(--burst-x);
+  width: 9px;
+  height: 16px;
+  border-radius: 999px 999px 3px 3px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--confetti-color) 55%, transparent);
+  transform: translate3d(0, 0, 0) scale(0.25) rotate(0deg);
+  animation-name: celebrationBurst;
+  animation-duration: 2.15s;
+  animation-timing-function: cubic-bezier(0.12, 0.78, 0.24, 1);
+}
+
+.app-celebration--burst > i:nth-child(3n) {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.app-celebration--burst > i:nth-child(4n) {
+  width: 4px;
+  height: 22px;
+  border-radius: 999px;
+}
+
 .app-celebration-message {
   position: absolute;
   top: 42%;
@@ -68,6 +93,18 @@
   100% {
     opacity: 0.94;
     transform: translate3d(calc(var(--confetti-x) + var(--confetti-drift)), 118vh, 0) rotate(var(--confetti-rotation));
+  }
+}
+
+@keyframes celebrationBurst {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.2) rotate(0deg);
+  }
+  12% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--burst-dx), var(--burst-dy), 0) scale(0.8) rotate(var(--confetti-rotation));
   }
 }
 
