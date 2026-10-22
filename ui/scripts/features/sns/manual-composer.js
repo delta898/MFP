@@ -853,7 +853,13 @@ function renderManualSnsChannels() {
     emptyClassName: 'social-channel-empty ui-empty-state',
     emptyMessage,
     emptyAction: !manualSnsConfig.configured || manualSnsConfig.workspaceReconnectRequired
-      ? { label: '설정 > SNS 배포', onClick: async () => { await navigateTo('settings-next', 'extras'); settingsNextActivateExtrasTab?.('social'); } }
+      ? {
+          label: 'Buffer 연결 설정 열기',
+          className: 'secondary social-buffer-settings-link',
+          onClick: async () => {
+            await navigateToSettingsNextTarget('extras', 'settings-next-buffer-form', 'social');
+          }
+        }
       : undefined,
     isSelectable: (channel) => channel.supported && !channel.disabled && !channel.is_disconnected && !channel.is_locked,
     inputData: (channel) => ({ manualSnsChannel: true, manualSnsUnavailable: !(channel.supported && !channel.disabled && !channel.is_disconnected && !channel.is_locked) }),

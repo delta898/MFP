@@ -115,13 +115,17 @@ const BufferPublishingPicker = Object.freeze({
         channelList.append(card);
       });
     } else {
-      const empty = make('p', options.emptyClassName || 'muted', options.emptyMessage || '작업 공간을 선택하면 SNS 채널이 표시됩니다.');
+      const hasEmptyAction = options.emptyAction?.label && typeof options.emptyAction.onClick === 'function';
+      const empty = make(hasEmptyAction ? 'div' : 'p', options.emptyClassName || 'muted');
+      const emptyMessage = options.emptyMessage || '작업 공간을 선택하면 SNS 채널이 표시됩니다.';
+      if (hasEmptyAction) empty.append(make('p', '', emptyMessage));
+      else empty.textContent = emptyMessage;
       channelList.append(empty);
-      if (options.emptyAction?.label && typeof options.emptyAction.onClick === 'function') {
-        const action = make('button', 'text-btn', options.emptyAction.label);
+      if (hasEmptyAction) {
+        const action = make('button', options.emptyAction.className || 'text-btn', options.emptyAction.label);
         action.type = 'button';
         action.addEventListener('click', options.emptyAction.onClick);
-        channelList.append(action);
+        empty.append(action);
       }
     }
     channelPanel.append(heading, channelList);

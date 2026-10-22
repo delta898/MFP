@@ -28,6 +28,7 @@
 .social-view .social-composer-channel-section {
   margin-top: var(--ui-space-3);
   padding: 0;
+  border-bottom: 0;
 }
 
 .social-view .social-composer-text-section {

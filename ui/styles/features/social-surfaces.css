@@ -56,11 +56,25 @@
 .social-view .social-limit-status.is-error { color: var(--ui-status-danger); }
 
 .social-view .social-composer-actions {
+  align-items: center;
+  justify-content: space-between;
   gap: var(--ui-density-field-gap);
-  padding: var(--ui-density-action-padding);
-  padding-inline: 0;
+  padding: var(--ui-space-4) var(--ui-space-6);
   border-top: 1px solid var(--ui-border-default);
   background: var(--ui-surface);
+}
+
+.social-view .social-publish-summary {
+  min-width: 0;
+}
+
+.social-view .social-publish-action-group {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.social-view .social-buffer-settings-link {
+  color: var(--ui-action-primary);
 }
 
 .social-view .social-publish-result {
