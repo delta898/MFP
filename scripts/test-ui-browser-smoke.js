@@ -3772,7 +3772,7 @@ async function run() {
                         generation_id: 'ui-smoke-complete-result',
                         title: '완성된 UI smoke 카드뉴스',
                         source_url: 'https://example.com/card-news',
-                        default_text: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
+                        default_text: '직접 입력 원문 기반 발행 문구',
                         card_count: 3,
                         max_channels: 3,
                         buffer_api_key_configured: true,
@@ -3793,6 +3793,10 @@ async function run() {
             });
         });
         await page.evaluate(() => {
+            cardNewsViewState.sourceKind = 'manuscript';
+            cardNewsViewState.preview = { source: { kind: 'manuscript', title: '직접 입력 제목' }, title: '직접 입력 제목', text: '직접 입력 본문' };
+            document.getElementById('card-news-manuscript-title').value = '직접 입력 제목';
+            document.getElementById('card-news-manuscript-text').value = '직접 입력 본문';
             const imageUrl = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
             renderCardNewsGeneration({
                 id: 'ui-smoke-complete-result',
@@ -3813,6 +3817,7 @@ async function run() {
             }, { scroll: false });
         });
         await page.waitForFunction(() => document.getElementById('card-news-publishing-panel')?.hidden === false);
+        assert.equal(await page.locator('#card-news-publishing-text').inputValue(), '직접 입력 원문 기반 발행 문구');
         assert.deepEqual(await page.evaluate(() => ({
             bulkSecondary: document.getElementById('card-news-bulk-image-action')?.classList.contains('secondary'),
             publishPrimary: document.getElementById('card-news-publish-open')?.classList.contains('primary'),
@@ -3889,7 +3894,7 @@ async function run() {
             workspaceCount: 2,
             workspaceValue: 'card-news-org-1',
             limit: '최대 3개 · 0개 선택',
-            preparedText: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
+            preparedText: '직접 입력 원문 기반 발행 문구',
             providerNamed: false,
             externalHelp: true,
             settingsControls: false,
@@ -4015,6 +4020,7 @@ async function run() {
             publishResult: document.getElementById('card-news-publishing-result')?.textContent.replace(/\s+/g, ''),
             channelCanBeSelectedAgain: !document.querySelector('[data-card-news-publish-channel][value="instagram-1"]')?.disabled,
             channelCheckedAfterPublish: document.querySelector('[data-card-news-publish-channel][value="instagram-1"]')?.checked,
+            newSourceButtonVisible: !document.getElementById('card-news-new-source')?.hidden,
             selectedItemPreserved: document.querySelector('#card-news-managed-list [data-generation-id="ui-smoke-complete-result"]')?.getAttribute('aria-pressed'),
             publishOutcome: cardNewsViewState.publishingOutcome
         })), {
@@ -4023,13 +4029,53 @@ async function run() {
             itemSummary: '네이버 · 카드 3장 · 이미지 3장',
             publishResult: 'Instagram발행완료게시물열기↗',
             channelCanBeSelectedAgain: true,
-            channelCheckedAfterPublish: false,
+            channelCheckedAfterPublish: true,
+            newSourceButtonVisible: true,
             selectedItemPreserved: 'true',
             publishOutcome: 'completed'
         });
-        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
-        assert.equal(await page.locator('[data-card-news-publish-channel][value="instagram-1"]').isChecked(), true);
-        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').uncheck();
+        await page.locator('.card-news-result-image-wrap').first().hover();
+        await page.waitForFunction(() => getComputedStyle(document.querySelector('.card-news-result-image-wrap .card-news-media-actions')).opacity === '1');
+        assert.deepEqual(await page.evaluate(() => {
+            const actionBar = document.querySelector('.card-news-result-image-wrap .card-news-media-actions');
+            const actions = [...actionBar.querySelectorAll(':scope > button, :scope > a')];
+            const cards = [...document.querySelectorAll('.card-news-result-item')];
+            const actionCenters = actions.map((action) => {
+                const rect = action.getBoundingClientRect();
+                return rect.top + rect.height / 2;
+            });
+            return {
+                opacity: getComputedStyle(actionBar).opacity,
+                flexWrap: getComputedStyle(actionBar).flexWrap,
+                singleRow: Math.max(...actionCenters) - Math.min(...actionCenters) < 1,
+                cardHeightCount: new Set(cards.map((card) => Math.round(card.getBoundingClientRect().height))).size,
+                promptBottomCount: new Set(cards.map((card) => Math.round(card.querySelector('.card-news-prompt-section').getBoundingClientRect().bottom))).size
+            };
+        }), { opacity: '1', flexWrap: 'nowrap', singleRow: true, cardHeightCount: 1, promptBottomCount: 1 });
+        await page.evaluate(() => {
+            const field = document.getElementById('card-news-additional-request');
+            field.value = '차분한 편집 디자인으로 구성해 주세요.';
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        assert.equal(
+            await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),
+            '차분한 편집 디자인으로 구성해 주세요.'
+        );
+        await page.locator('#card-news-new-source').click();
+        await page.waitForFunction(() => document.activeElement?.id === 'card-news-manuscript-title');
+        assert.deepEqual(await page.evaluate(() => ({
+            sourceKind: cardNewsViewState.sourceKind,
+            title: document.getElementById('card-news-manuscript-title')?.value,
+            text: document.getElementById('card-news-manuscript-text')?.value,
+            preview: cardNewsViewState.preview,
+            resultHidden: document.getElementById('card-news-result-panel')?.hidden,
+            publishingHidden: document.getElementById('card-news-publishing-panel')?.hidden,
+            focusedField: document.activeElement?.id
+        })), {
+            sourceKind: 'manuscript', title: '', text: '', preview: null,
+            resultHidden: true, publishingHidden: true, focusedField: 'card-news-manuscript-title'
+        });
+        assert.equal(await page.locator('#card-news-new-source').isHidden(), true);
         reportSmokePhase('Checking Card News publishing setup and finalization states');
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
@@ -4071,29 +4117,6 @@ async function run() {
             readinessInStatus: true
         });
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
-        await page.locator('.card-news-result-image-wrap').first().hover();
-        await page.waitForFunction(() => getComputedStyle(document.querySelector('.card-news-result-image-wrap .card-news-media-actions')).opacity === '1');
-        assert.deepEqual(await page.evaluate(() => {
-            const actionBar = document.querySelector('.card-news-result-image-wrap .card-news-media-actions');
-            const actions = [...actionBar.querySelectorAll(':scope > button, :scope > a')];
-            const cards = [...document.querySelectorAll('.card-news-result-item')];
-            const actionCenters = actions.map((action) => {
-                const rect = action.getBoundingClientRect();
-                return rect.top + rect.height / 2;
-            });
-            return {
-                opacity: getComputedStyle(actionBar).opacity,
-                flexWrap: getComputedStyle(actionBar).flexWrap,
-                singleRow: Math.max(...actionCenters) - Math.min(...actionCenters) < 1,
-                cardHeightCount: new Set(cards.map((card) => Math.round(card.getBoundingClientRect().height))).size,
-                promptBottomCount: new Set(cards.map((card) => Math.round(card.querySelector('.card-news-prompt-section').getBoundingClientRect().bottom))).size
-            };
-        }), { opacity: '1', flexWrap: 'nowrap', singleRow: true, cardHeightCount: 1, promptBottomCount: 1 });
-        await page.locator('#card-news-additional-request').fill('차분한 편집 디자인으로 구성해 주세요.');
-        assert.equal(
-            await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),
-            '차분한 편집 디자인으로 구성해 주세요.'
-        );
         assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').count(), 0);
         await page.locator('.nav-btn[data-view="blog-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));

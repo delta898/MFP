@@ -135,6 +135,16 @@ function syncCardNewsPublishButton() {
     || finished
     || selectedCardNewsPublishingChannels().length === 0;
   syncCardNewsPublishingChannelAvailability();
+  syncCardNewsNewSourceButton();
+}
+
+function syncCardNewsNewSourceButton() {
+  const button = document.getElementById('card-news-new-source');
+  if (!button) return;
+  const sourceKind = cardNewsViewState.preview?.source?.kind;
+  const hasPublishResult = Boolean(cardNewsViewState.publishingOutcome)
+    && cardNewsViewState.publishingOutcome !== 'failed';
+  button.hidden = !hasPublishResult || !['url', 'manuscript'].includes(sourceKind);
 }
 
 function renderCardNewsPublishingConfig(config = {}) {
@@ -345,10 +355,13 @@ async function publishCardNews() {
     const successfulChannelIds = new Set((result.results || [])
       .filter((item) => item.success)
       .map((item) => String(item.channel_id || '')));
-    document.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
-      if (!successfulChannelIds.has(input.value)) return;
-      input.checked = false;
-    });
+    // Keep destinations checked after complete success. On a partial result,
+    // uncheck completed destinations so a follow-up attempt targets failures.
+    if (!result.success) {
+      document.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
+        if (successfulChannelIds.has(input.value)) input.checked = false;
+      });
+    }
     if (resultElement) {
       resultElement.hidden = false;
       renderBufferPublishingResults(resultElement, result.results);
@@ -369,6 +382,7 @@ async function publishCardNews() {
     }
   } finally {
     setCardNewsPublishing(false);
+    syncCardNewsNewSourceButton();
     // The publish endpoint records its result in the managed ledger. Refresh
     // that source of truth after both success and failure so status filters
     // and workspace counts do not remain stale until the next navigation.

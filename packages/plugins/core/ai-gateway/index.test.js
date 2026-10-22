@@ -108,14 +108,14 @@ test('KIE image task API body validation code 500 is not treated as an HTTP outa
     } } });
     await assert.rejects(plugin.operations['image.generate'].execute({
         model: { provider: 'kie', modelId: 'grok-imagine-image-2-0/text-to-image', transport: 'kie_market_image_jobs' },
-        input: { prompt: 'scene' }, options: { aspectRatio: '4:5' }
+        input: { prompt: 'scene' }, options: { aspectRatio: '3:4' }
     }), (error) => error.code === 'AI_GATEWAY_PROVIDER_REJECTED_REQUEST'
         && error.providerCode === '500'
         && error.providerMessage === 'This aspect_ratio is not within the range of allowed options'
         && error.status === undefined);
 });
 
-test('KIE FLUX 3, Grok Imagine 2.0 and Qwen 3 map unsupported card-news 4:5 to supported 3:4', async () => {
+test('KIE image models translate portrait ratios to each provider-supported aspect ratio', async () => {
     const requests = [];
     let taskId = 0;
     const plugin = createPlugin({ transport: {
@@ -129,13 +129,19 @@ test('KIE FLUX 3, Grok Imagine 2.0 and Qwen 3 map unsupported card-news 4:5 to s
         },
         async downloadUrl() { return { bytes: Buffer.from('image'), mimeType: 'image/png' }; }
     }, sleep: async () => {} });
-    for (const modelId of ['flux-3/klein-text-to-image', 'grok-imagine-image-2-0/text-to-image', 'qwen3/text-to-image']) {
+    const cases = [
+        ['flux-3/klein-text-to-image', '4:5', '3:4'],
+        ['grok-imagine-image-2-0/text-to-image', '3:4', '2:3'],
+        ['grok-imagine-image-2-0/text-to-image', '4:5', '2:3'],
+        ['qwen3/text-to-image', '4:5', '3:4']
+    ];
+    for (const [modelId, aspectRatio] of cases) {
         await plugin.operations['image.generate'].execute({
             model: { provider: 'kie', modelId, transport: 'kie_market_image_jobs' },
-            input: { prompt: 'portrait card' }, options: { aspectRatio: '4:5', size: '1K' }
+            input: { prompt: 'portrait card' }, options: { aspectRatio, size: '1K' }
         });
     }
-    assert.deepEqual(requests.map(({ body }) => body.input.aspect_ratio || body.input.image_size), ['3:4', '3:4', '3:4']);
+    assert.deepEqual(requests.map(({ body }) => body.input.aspect_ratio || body.input.image_size), ['3:4', '2:3', '2:3', '3:4']);
 });
 
 test('Anthropic OpenAI-compatible requests forward caller options for provider runtime validation', async () => {

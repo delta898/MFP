@@ -63,6 +63,11 @@
   display: none;
 }
 
+.card-news-new-source-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .card-news-result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -595,11 +595,74 @@ function clearCardNewsDownstreamContext() {
   cardNewsViewState.generation = null;
   cardNewsViewState.publishingConfig = null;
   cardNewsViewState.publishingOutcome = '';
+  resetCardNewsPublishingFeedback();
   const resultPanel = document.getElementById('card-news-result-panel');
   const publishingPanel = document.getElementById('card-news-publishing-panel');
   if (resultPanel) resultPanel.hidden = true;
+  document.getElementById('card-news-result-grid')?.replaceChildren();
   if (publishingPanel) publishingPanel.hidden = true;
   syncCardNewsImageModelControlLocation();
+}
+
+function resetCardNewsPublishingFeedback() {
+  const text = document.getElementById('card-news-publishing-text');
+  if (text) text.value = '';
+  const status = document.getElementById('card-news-publishing-status');
+  if (status) {
+    status.textContent = '';
+    status.dataset.state = '';
+  }
+  const result = document.getElementById('card-news-publishing-result');
+  if (result) {
+    result.hidden = true;
+    result.replaceChildren();
+  }
+  const newSourceButton = document.getElementById('card-news-new-source');
+  if (newSourceButton) newSourceButton.hidden = true;
+}
+
+function startNewCardNewsFromPublishing() {
+  const kind = cardNewsViewState.preview?.source?.kind;
+  if (!['url', 'manuscript'].includes(kind) || cardNewsViewState.generating) return;
+  activateCardNewsWorkspace('create');
+  activateCardNewsSourceKind(kind);
+  const focusId = kind === 'url' ? 'card-news-url' : 'card-news-manuscript-title';
+  if (kind === 'url') {
+    const input = document.getElementById(focusId);
+    if (input) input.value = '';
+  } else {
+    const title = document.getElementById('card-news-manuscript-title');
+    const text = document.getElementById('card-news-manuscript-text');
+    if (title) title.value = '';
+    if (text) text.value = '';
+  }
+  cardNewsViewState.preview = null;
+  cardNewsViewState.previewSourceKey = '';
+  cardNewsViewState.previewFromManaged = false;
+  cardNewsViewState.previewRequestId += 1;
+  cardNewsViewState.projectId = '';
+  cardNewsViewState.generation = null;
+  cardNewsViewState.publishingConfig = null;
+  cardNewsViewState.publishingOutcome = '';
+  const previewContent = document.getElementById('card-news-preview-content');
+  const previewEmpty = document.getElementById('card-news-preview-empty');
+  const previewBadge = document.getElementById('card-news-preview-badge');
+  if (previewContent) previewContent.hidden = true;
+  if (previewEmpty) previewEmpty.hidden = false;
+  if (previewBadge) {
+    previewBadge.textContent = '선택 전';
+    previewBadge.dataset.state = 'idle';
+  }
+  resetCardNewsPublishingFeedback();
+  const resultPanel = document.getElementById('card-news-result-panel');
+  const publishingPanel = document.getElementById('card-news-publishing-panel');
+  if (resultPanel) resultPanel.hidden = true;
+  document.getElementById('card-news-result-grid')?.replaceChildren();
+  if (publishingPanel) publishingPanel.hidden = true;
+  setCardNewsStatus('', '');
+  cardNewsViewState.createWorkflowContext = captureCardNewsWorkflowContext();
+  document.getElementById('card-news-source-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.requestAnimationFrame(() => document.getElementById(focusId)?.focus());
 }
 
 function commitCardNewsPreview(sourceKey, snapshot) {
@@ -755,6 +818,7 @@ function bindCardNewsView() {
     event.preventDefault();
     void publishCardNews();
   });
+  document.getElementById('card-news-new-source')?.addEventListener('click', startNewCardNewsFromPublishing);
   document.getElementById('card-news-signature')?.addEventListener('input', saveCardNewsSignature);
   document.getElementById('card-news-signature')?.addEventListener('change', refreshCardNewsSignaturePreview);
   document.getElementById('card-news-signature')?.addEventListener('blur', refreshCardNewsSignaturePreview);

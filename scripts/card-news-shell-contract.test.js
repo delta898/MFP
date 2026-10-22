@@ -14,6 +14,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/shell/navigation.js'), 'utf8');
     const script = [
         'scripts/shared/buffer-publishing-controls.js',
+        'scripts/shared/buffer-publishing-picker.js',
         'scripts/shared/grid-tail-spacers.js',
         'scripts/features/card-news/image-model-selection.js',
         'scripts/features/card-news/source-preview.js',
@@ -207,17 +208,15 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card"[^>]*aria-labelledby="card-news-publishing-title"[^>]*hidden/);
     assert.match(html, /id="card-news-publishing-form" class="card-news-publishing-form"/);
     assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-publishing-title">SNS에 발행<\/h2>\s*<span class="ui-workflow-stage">3단계<\/span>/);
-    assert.match(html, /buffer-publishing-channel-heading[\s\S]*data-help-guide-url="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"/);
-    assert.match(html, /for="card-news-publishing-workspace"[\s\S]*id="card-news-publishing-workspace"/);
-    assert.match(html, /class="[^"]*buffer-publishing-workspace[^"]*ui-workflow-field"[\s\S]*class="ui-field-action"[\s\S]*id="card-news-publishing-workspaces-load" class="secondary"/);
-    assert.match(html, /선택한 작업 공간의 SNS 채널을 불러옵니다\./);
-    assert.match(html, /id="card-news-publishing-select-all" type="checkbox" disabled/);
-    assert.ok(html.indexOf('id="card-news-publishing-workspace"') < html.indexOf('id="card-news-publishing-select-all"'));
-    assert.ok(html.indexOf('id="card-news-publishing-select-all"') < html.indexOf('id="card-news-publishing-channels"'));
-    assert.match(html, /class="card-news-publishing-channel-group ui-selectable-card-group"[\s\S]*class="buffer-publishing-channel-heading"[\s\S]*id="card-news-publishing-channels" class="card-news-publishing-channels ui-selectable-card-grid"/);
+    assert.match(script, /helpUrl:\s*'https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574'/);
+    assert.match(html, /id="card-news-new-source" class="secondary"[^>]*hidden>새 카드 작성<\/button>/);
+    assert.match(script, /workspace:\s*'card-news-publishing-workspace'/);
+    assert.match(script, /refresh:\s*'card-news-publishing-workspaces-load'/);
+    assert.match(script, /selectAll:\s*'card-news-publishing-select-all'/);
+    assert.match(script, /channels:\s*'card-news-publishing-channels'/);
+    assert.match(script, /cardClassName:\s*'card-news-publishing-channel'/);
     assert.match(script, /BufferPublishingControls\.syncWorkspace/);
     assert.match(script, /BufferPublishingControls\.syncChannelSelectAll/);
-    assert.match(script, /BufferPublishingControls\.applyChannelSelectAll/);
     assert.match(html, /class="card-news-publishing-actions ui-action-row"/);
     assert.doesNotMatch(html, /id="card-news-publishing-close"|id="card-news-buffer-settings"|id="card-news-google-settings"/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
@@ -236,7 +235,6 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /완성된 카드 \$\{generation\.cards\?\.length \|\| 0\}장을 선택한/);
     assert.match(script, /config\.default_text/);
     assert.match(script, /outcome === 'completed'[\s\S]*?'발행 완료'/);
-    assert.match(script, /outcome === 'partial' \? '실패 채널 다시 시도'/);
     assert.match(script, /button\?\.classList\.toggle\('is-loading', publishing\)/);
     assert.match(script, /button\?\.setAttribute\('aria-busy', String\(publishing\)\)/);
     assert.match(script, /data-card-news-image-working/);
@@ -437,7 +435,7 @@ test('Card News publishing keeps provider state and palette out of feature styli
     const publishingCss = css.slice(0, css.indexOf('.card-news-result-grid'));
     assert.match(publishingCss, /\.card-news-publishing-panel\s*\{[^}]*margin-top:\s*var\(--ui-space-5\)[^}]*padding:\s*var\(--ui-space-6\)/s);
     assert.match(publishingCss, /\.card-news-publishing-form\s*\{[^}]*gap:\s*var\(--ui-space-5\)/s);
-    assert.match(publishingCss, /\.card-news-publishing-result-item\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
+    assert.match(publishingCss, /\.card-news-new-source-actions\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*flex-end/s);
     assert.match(selectionCss, /\.ui-selectable-card-group > legend\s*\{[^}]*margin:\s*0 0 var\(--ui-space-3\)/s);
     assert.doesNotMatch(publishingCss, /card-news-publishing-channel-group (?:legend|> legend)/);
     assert.doesNotMatch(publishingCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\[data-style/i);
@@ -470,7 +468,7 @@ test('Card News preserves the last valid generated set when a later request fail
 test('Card News refreshes managed status counts after publishing settles', () => {
     const publishing = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/publishing.js'), 'utf8');
     const publishAction = publishing.match(/async function publishCardNews\(\) \{[\s\S]*?\n\}/)?.[0] || '';
-    assert.match(publishAction, /finally \{\s*setCardNewsPublishing\(false\);\s*\/\/[\s\S]*?await loadCardNewsManagedItems\(\);\s*\}/);
+    assert.match(publishAction, /finally \{\s*setCardNewsPublishing\(false\);\s*syncCardNewsNewSourceButton\(\);\s*\/\/[\s\S]*?await loadCardNewsManagedItems\(\);\s*\}/);
     assert.doesNotMatch(publishing, /publishedChannelIds|cardNewsPublishCompleted/);
 });
 

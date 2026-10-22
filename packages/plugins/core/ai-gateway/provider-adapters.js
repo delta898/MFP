@@ -321,12 +321,20 @@ async function generateText(input, context, transport) {
     }
 }
 
+function normalizeKieImageAspectRatio(modelId, aspectRatio) {
+    if (modelId === 'grok-imagine-image-2-0/text-to-image' && ['3:4', '4:5'].includes(aspectRatio)) {
+        // KIE's Grok endpoint rejects 3:4, so keep portrait output at its accepted 2:3 ratio.
+        return '2:3';
+    }
+    if (['flux-3/klein-text-to-image', 'qwen3/text-to-image'].includes(modelId) && aspectRatio === '4:5') {
+        return '3:4';
+    }
+    return aspectRatio;
+}
+
 function buildKieImageRequest(modelId, prompt, options = {}) {
     const aspectRatio = options.aspectRatio || '4:3';
-    const kieAspectRatio = ['flux-3/klein-text-to-image', 'grok-imagine-image-2-0/text-to-image', 'qwen3/text-to-image'].includes(modelId)
-        && aspectRatio === '4:5'
-        ? '3:4'
-        : aspectRatio;
+    const kieAspectRatio = normalizeKieImageAspectRatio(modelId, aspectRatio);
     const size = String(options.size || '1K').toUpperCase();
     const high = size === '2K';
     const input = { prompt, aspect_ratio: kieAspectRatio };
