@@ -5,7 +5,7 @@
 - Branch: `codex/trends-collector-retry-debug-options`
 - Start date: 2026-10-22
 - Base/parent branch: `release/v0.7.0` (`1a259c25`)
-- Status: Implemented; ready to merge
+- Status: Complete; merged into `release/v0.7.0` as `effed49d`
 
 ## User need and goal
 
@@ -52,7 +52,7 @@ The Production Trends collector uses Playwright to swipe through Naver Creator A
 
 - Run focused collector tests using mocks and shared collector contract checks; do not call Naver, AI, or Production services.
 - Manual live browser/scrape behavior and final cron settings remain for the user to validate.
-- No version bump or push is included. The user requested `[cmd]`, so commit and parent merge are authorized.
+- No version bump or push was included. The user requested `[cmd]`, authorizing commit and parent merge.
 
 ## Implementation progress
 
@@ -66,3 +66,4 @@ The Production Trends collector uses Playwright to swipe through Naver Creator A
 - Production command `--help` output checked. No external Naver or API collection has been performed.
 - User should tune with `--dry-run --headed` (where a GUI session exists), then select final values for cron. Set `--headed` only for interactive debugging; cron should remain headless.
 - The branch was initially cut from `dev` at the shared base `512679a6`; after confirming the intended parent, it was rebased onto `release/v0.7.0` at `1a259c25` before merge.
+- Fast-forward merge completed; the final feature commit is `effed49d`.
