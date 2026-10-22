@@ -53,6 +53,7 @@ Card News supports feed, URL, and manually entered sources. The publishing capti
 - Passed after the KIE Grok ratio fix: `node --test packages/plugins/core/ai-gateway/index.test.js packages/plugins/core/ai-gateway/provider-transport.test.js` (33 tests), including 3:4/4:5-to-2:3 request mapping for Grok and existing 4:5-to-3:4 mapping for FLUX 3/Qwen 3.
 - Passed: JavaScript syntax checks for the changed Card News scripts and browser smoke script; `git diff --check`.
 - Card News browser smoke scenarios passed through the flow, including direct-entry caption, successful publish state, and new-card reset/focus.
+- Merge-gate browser smoke rerun again passed the Card News phases, then failed later in the unrelated Account overview layout comparison (`tabsTop` was 176px versus the Social view's 87px). This assertion is outside the changed files; the run ended before the final browser error audit.
 - The full browser smoke later failed in its final error audit because the Focus Clock widget emitted five `net::ERR_ABORTED` iframe requests during navigation; no Card News failure was reported.
 - Manual UI acceptance: user to check feed, URL, and direct-entry publishing, plus the final visible spacing and focus behavior.
 - Live KIE Grok generation was not called from the test run; verify that a 3:4 selection now produces a 2:3 result without the provider rejection.
