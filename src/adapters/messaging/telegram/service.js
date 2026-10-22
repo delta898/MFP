@@ -11,6 +11,36 @@ const {
  * 텔레그램 알림 서비스
  */
 class TelegramService {
+    static renderNotification(notification = {}) {
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        const statusLabels = { completed: '발행 완료', partial: '일부 발행 실패', failed: '발행 실패' };
+        const icons = { completed: '✅', partial: '⚠️', failed: '❌' };
+        const status = statusLabels[notification.status] ? notification.status : 'failed';
+        const lines = [`<b>${icons[status]} ${escapeHtml(notification.workflow || '자동 발행')} ${statusLabels[status]}</b>`];
+        if (notification.title) lines.push(`<b>제목:</b> ${escapeHtml(notification.title)}`);
+        if (notification.summary) lines.push(escapeHtml(notification.summary));
+        if (notification.source?.url) {
+            lines.push(`<b>원문:</b> <a href="${escapeHtml(notification.source.url)}">${escapeHtml(notification.source.label || '원문 열기')}</a>`);
+        }
+        const targets = Array.isArray(notification.targets) ? notification.targets : [];
+        if (targets.length) {
+            lines.push('', '<b>채널 결과</b>');
+            for (const target of targets) {
+                const resultLabel = target.status === 'completed' ? '완료' : target.status === 'skipped' ? '건너뜀' : '실패';
+                const detail = target.detail ? ` — ${escapeHtml(target.detail)}` : '';
+                const link = target.link?.url
+                    ? ` · <a href="${escapeHtml(target.link.url)}">${escapeHtml(target.link.label || '게시물 열기')}</a>`
+                    : '';
+                lines.push(`• <b>${escapeHtml(target.label || '채널')}</b>: ${resultLabel}${detail}${link}`);
+            }
+        }
+        return lines.join('\n');
+    }
+
     static async callBotApi(method, payload, options = {}) {
         const botToken = String(options.botToken || '').trim();
         const timeout = Number(options.timeout || 8000);

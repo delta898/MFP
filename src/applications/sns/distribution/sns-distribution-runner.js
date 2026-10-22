@@ -10,6 +10,7 @@ const {
     normalizeHashtagTokens,
     requiresImageAsset
 } = require('../../../services/social/publishing-content');
+const { buildPublishingResultNotification } = require('../../../services/notifications/publishing-result');
 
 function normalizeTokens(value) {
     return [...new Set((Array.isArray(value) ? value : [])
@@ -44,35 +45,6 @@ function composeSnsPostText(row = {}, options = {}) {
     return formatted.success ? formatted.text : '';
 }
 
-function escapeTelegramHtml(value) {
-    return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function buildSnsFailureNotification(group = {}, failures = []) {
-    const first = Array.isArray(group.rows) ? group.rows[0] || {} : {};
-    const title = escapeTelegramHtml(first.title || '(제목 없음)');
-    const originalUrl = String(first.originalUrl || '').trim();
-    const lines = failures.map((failure) => {
-        const row = failure.row || {};
-        const channel = escapeTelegramHtml(row.channelName || row.service || row.channelId || '알 수 없는 채널');
-        return `• <b>${channel}</b>: ${escapeTelegramHtml(failure.message || '알 수 없는 오류')}`;
-    });
-    return [
-        '<b>❌ BlogGenius SNS 발행 실패</b>',
-        '',
-        `<b>글:</b> ${title}`,
-        ...(originalUrl
-            ? [`<b>원문:</b> <a href="${escapeTelegramHtml(originalUrl)}">${escapeTelegramHtml(originalUrl)}</a>`]
-            : []),
-        `<b>실패 채널:</b> ${failures.length}개`,
-        ...lines
-    ].join('\n');
-}
-
 function createSnsDistributionRunner(options = {}) {
     const {
         CONFIG,
@@ -81,7 +53,7 @@ function createSnsDistributionRunner(options = {}) {
         socialPublisher,
         aiService,
         urlService,
-        notificationService,
+        notificationDispatcher,
         getEnableSnsDistribution,
         Logger,
         recordActivityLifecycle = async () => null
@@ -106,8 +78,8 @@ function createSnsDistributionRunner(options = {}) {
         || typeof aiService.generateHashtags !== 'function'
         || !urlService
         || typeof urlService.shorten !== 'function'
-        || !notificationService
-        || typeof notificationService.sendNotification !== 'function'
+        || !notificationDispatcher
+        || typeof notificationDispatcher.send !== 'function'
         || typeof getEnableSnsDistribution !== 'function') {
         throw new Error('SNS Distribution Runner 의존성이 올바르지 않습니다.');
     }
@@ -145,26 +117,30 @@ function createSnsDistributionRunner(options = {}) {
         }
     }
 
-    async function notifyFinalFailures(group, failures) {
-        if (failures.length === 0
-            || CONFIG.NOTIFY_TELEGRAM_ENABLED !== true
-            || !String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()
-            || !String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()) {
-            return { attempted: false, success: false };
-        }
+    async function notifyFinalResults(group, outcomes, status) {
+        if (outcomes.length === 0) return { attempted: false, channels: [] };
+        const first = Array.isArray(group.rows) ? group.rows[0] || {} : {};
+        const message = buildPublishingResultNotification({
+            workflow: '블로그 RSS 자동 공유',
+            status,
+            title: first.title || '(제목 없음)',
+            sourceUrl: first.originalUrl,
+            targets: outcomes.map(({ row, success, skipped, detail, url }) => ({
+                label: [
+                    String(row.service || '').trim().replace(/^[a-z]/, (letter) => letter.toUpperCase()),
+                    row.channelName || row.accountName || row.channelId
+                ].filter(Boolean).join(' · '),
+                success,
+                skipped,
+                detail,
+                url
+            }))
+        });
         try {
-            const result = await notificationService.sendNotification(
-                buildSnsFailureNotification(group, failures),
-                {
-                    enabled: true,
-                    botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
-                    chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID
-                }
-            );
-            return { attempted: true, success: result?.success === true };
+            return await notificationDispatcher.send(message);
         } catch (error) {
-            Logger?.warn?.(`⚠️ [SNS] 최종 실패 Telegram 알림 전송 실패: ${error.message}`);
-            return { attempted: true, success: false };
+            Logger?.warn?.(`⚠️ [SNS] 발행 결과 알림 전송 실패: ${error.message}`);
+            return { attempted: true, channels: [], error: error.message };
         }
     }
 
@@ -176,10 +152,7 @@ function createSnsDistributionRunner(options = {}) {
             log: message
         }));
         await store.applyDeliveryResults(deliveryResults);
-        const notification = await notifyFinalFailures(
-            group,
-            rows.map((row) => ({ row, message }))
-        );
+        const notification = await notifyFinalResults(group, rows.map((row) => ({ row, success: false, detail: message })), 'failed');
         return {
             success: false,
             code: 'SNS_DISTRIBUTION_PREPARATION_FAILED',
@@ -596,9 +569,39 @@ function createSnsDistributionRunner(options = {}) {
                     message: item.log
                 }))
         ];
-        const notification = await notifyFinalFailures(group, allFailures);
+        const successfulPostIds = deliveryResults
+            .filter((item) => item.status === '완료' && String(item.bufferPostId || '').trim())
+            .map((item) => String(item.bufferPostId).trim());
+        const externalLinkByPostId = new Map();
+        if (successfulPostIds.length > 0 && typeof socialPublisher.getPublicationStatuses === 'function') {
+            try {
+                const posts = await socialPublisher.getPublicationStatuses(successfulPostIds);
+                for (const post of Array.isArray(posts) ? posts : []) {
+                    const postId = String(post?.id || '').trim();
+                    const externalLink = String(post?.externalLink || '').trim();
+                    if (postId && externalLink) externalLinkByPostId.set(postId, externalLink);
+                }
+            } catch (error) {
+                Logger?.warn?.(`⚠️ [SNS] 발행 링크 확인 실패: ${error.message}`);
+            }
+        }
+        const publishedRows = deliveryResults.map((item) => ({
+            row: formattedRows.find((row) => row.rowNumber === item.rowNumber) || {},
+            success: item.status === '완료',
+            detail: item.status === '완료' ? '' : item.log,
+            url: externalLinkByPostId.get(String(item.bufferPostId || '').trim()) || ''
+        }));
+        const outcomes = [
+            ...publishedRows,
+            ...formattingFailures.map((failure) => ({ row: failure.row, success: false, detail: failure.message }))
+        ];
         const completedCount = deliveryResults.filter((item) => item.status === '완료').length;
         const failedCount = allFailures.length;
+        const notification = await notifyFinalResults(
+            group,
+            outcomes,
+            failedCount === 0 ? 'completed' : (completedCount > 0 ? 'partial' : 'failed')
+        );
         const result = {
             success: failedCount === 0,
             code: failedCount === 0 ? 'SNS_DISTRIBUTION_COMPLETED' : 'SNS_DISTRIBUTION_PARTIAL',
@@ -634,7 +637,5 @@ module.exports = {
     isBufferDuplicatePostError,
     requiresImageAsset,
     composeSnsPostText,
-    escapeTelegramHtml,
-    buildSnsFailureNotification,
     createSnsDistributionRunner
 };

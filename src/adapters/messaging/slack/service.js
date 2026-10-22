@@ -5,16 +5,63 @@ const Logger = require('../../../utilities/logging/logger');
  * Slack Webhook 알림 서비스
  */
 class SlackService {
+    static renderNotification(notification = {}) {
+        const escapeMrkdwn = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        const statusLabels = { completed: '발행 완료', partial: '일부 발행 실패', failed: '발행 실패' };
+        const icons = { completed: '✅', partial: '⚠️', failed: '❌' };
+        const status = statusLabels[notification.status] ? notification.status : 'failed';
+        const lines = [`*${icons[status]} ${escapeMrkdwn(notification.workflow || '자동 발행')} ${statusLabels[status]}*`];
+        if (notification.title) lines.push(`*제목:* ${escapeMrkdwn(notification.title)}`);
+        if (notification.summary) lines.push(escapeMrkdwn(notification.summary));
+        if (notification.source?.url) {
+            lines.push(`*원문:* <${notification.source.url}|${escapeMrkdwn(notification.source.label || '원문 열기')}>`);
+        }
+        const targets = Array.isArray(notification.targets) ? notification.targets : [];
+        if (targets.length) {
+            lines.push('', '*채널 결과*');
+            for (const target of targets) {
+                const resultLabel = target.status === 'completed' ? '완료' : target.status === 'skipped' ? '건너뜀' : '실패';
+                const detail = target.detail ? ` — ${escapeMrkdwn(target.detail)}` : '';
+                const link = target.link?.url
+                    ? ` · <${target.link.url}|${escapeMrkdwn(target.link.label || '게시물 열기')}>`
+                    : '';
+                lines.push(`• *${escapeMrkdwn(target.label || '채널')}*: ${resultLabel}${detail}${link}`);
+            }
+        }
+        return lines.join('\n');
+    }
+
     /**
      * HTML 태그를 Slack mrkdwn 포맷으로 변환
      * @param {string} html 
      * @returns {string}
      */
     static _htmlToMrkdwn(html) {
-        return html
+        const links = [];
+        const decodeHtml = (value) => String(value || '')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&gt;/g, '>')
+            .replace(/&lt;/g, '<')
+            .replace(/&amp;/g, '&');
+        const escapeMrkdwn = (value) => String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        let text = String(html || '').replace(/<a href="([^"]+)">([^<]+)<\/a>/g, (_match, href, label) => {
+            const token = `\u0000LINK${links.length}\u0000`;
+            links.push(`<${decodeHtml(href)}|${escapeMrkdwn(decodeHtml(label))}>`);
+            return token;
+        });
+        text = text
             .replace(/<b>/g, '*').replace(/<\/b>/g, '*')
-            .replace(/<i>/g, '_').replace(/<\/i>/g, '_')
-            .replace(/<a href="([^"]+)">([^<]+)<\/a>/g, '<$1|$2>');
+            .replace(/<i>/g, '_').replace(/<\/i>/g, '_');
+        text = decodeHtml(text);
+        text = escapeMrkdwn(text);
+        return text.replace(/\u0000LINK(\d+)\u0000/g, (_match, index) => links[Number(index)] || '');
     }
 
     /**

@@ -30,7 +30,9 @@ test('Help foundation exposes the agreed guide groups and safe official links', 
   assert.doesNotMatch(view, /data-help-nav="settings"/);
   assert.match(view, /Buffer로 SNS 발행 준비/);
   assert.match(view, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"/);
-  assert.equal(externalLinks.length, 10);
+  assert.match(view, /Buffer API Key 발급 안내/);
+  assert.match(view, /href="https:\/\/bit\.ly\/4i0v2Gp"/);
+  assert.equal(externalLinks.length, 11);
   externalLinks.forEach((link) => {
     assert.match(link, /target="_blank"/);
     assert.match(link, /rel="noopener noreferrer"/);
@@ -57,25 +59,15 @@ test('Help navigation initializes once, refreshes its catalog, and remains avail
   assert.doesNotMatch(responsive, /body\.mobile-quick-mode \.nav-help-link\s*\{/);
 });
 
-test('Buffer guidance uses one contextual Help action across SNS publishing surfaces', () => {
+test('Buffer API Key guide is listed in Help and Settings navigates to it internally', () => {
   const help = read('ui/partials/views/help.html');
-  const social = read('ui/partials/views/social.html');
-  const cardNews = read('ui/partials/views/card-news.html');
-  const appChrome = read('ui/styles/components/app-chrome.css');
+  const settings = read('ui/partials/views/settings-next.html');
   const navigation = read('ui/scripts/shell/navigation.js');
-  const manualComposer = read('ui/scripts/features/sns/manual-composer.js');
-  const catalog = read('supabase/operations/content/supabase_surface_content_help_catalog.sql');
   const guideUrl = 'https://m.blog.naver.com/amadejjs/223940980574';
 
   assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  [social].forEach((view) => {
-    assert.match(view, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-    assert.match(view, /Buffer 도움말/);
-  });
-  assert.match(cardNews, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  assert.match(cardNews, /Buffer 도움말/);
-  assert.match(appChrome, /\.context-help-link\s*\{/);
+  assert.match(help, /Buffer로 SNS 발행 준비/);
+  assert.match(help, /href="https:\/\/bit\.ly\/4i0v2Gp"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+  assert.match(settings, /data-help-guide-url="https:\/\/bit\.ly\/4i0v2Gp"[^>]*>API Key 발급 안내/);
   assert.match(navigation, /closest\('\[data-help-guide-url\]'\)/);
-  assert.doesNotMatch(manualComposer, /helpLinkEl\.href = DEFAULT_BUFFER_HELP_URL/);
-  assert.match(catalog, /'guide-buffer-sns-publishing-help-v1', 'automation', 200/);
 });

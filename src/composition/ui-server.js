@@ -9,6 +9,7 @@ const { createLicensingRuntime } = require('./licensing');
 const { createShoppingContentPreparationRuntime } = require('./shopping-content-preparation');
 const TelegramService = require('../adapters/messaging/telegram/service');
 const SlackService = require('../adapters/messaging/slack/service');
+const { createNotificationDispatcher } = require('../adapters/messaging/notification-dispatcher');
 const { createUrlShorteningSystem } = require('./url-shortening');
 const { APP_VERSION } = require('../host/application-metadata');
 const CONFIG = require('../host/configuration/runtime-config');
@@ -373,6 +374,30 @@ const snsAiService = createSnsAiService({
     generationApplication: snsGenerationSystem.application,
     Logger
 });
+const notificationDispatcher = createNotificationDispatcher([
+    {
+        id: 'telegram',
+        render: (notification) => TelegramService.renderNotification(notification),
+        isEnabled: () => CONFIG.NOTIFY_TELEGRAM_ENABLED === true
+            && Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim())
+            && Boolean(String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
+        send: (message) => TelegramService.sendNotification(message, {
+            botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+            chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+            enabled: true
+        })
+    },
+    {
+        id: 'slack',
+        render: (notification) => SlackService.renderNotification(notification),
+        isEnabled: () => CONFIG.NOTIFY_SLACK_ENABLED === true
+            && Boolean(String(CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '').trim()),
+        send: (message) => SlackService.sendNotification(message, {
+            webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
+            enabled: true
+        })
+    }
+]);
 const recordActivityLifecycle = createActivityLifecycleRecorder({
     eventStore: getAgentEventStore({ baseDir: CONFIG.ROOT_DIR }),
     Logger
@@ -429,7 +454,7 @@ const snsDistributionRunner = createSnsDistributionRunner({
     socialPublisher: socialPublisher,
     aiService: snsAiService,
     urlService: urlShorteningService,
-    notificationService: TelegramService,
+    notificationDispatcher,
     getEnableSnsDistribution,
     Logger,
     recordActivityLifecycle
@@ -972,6 +997,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     TelegramService,
     TelegramBotService,
     SlackService,
+    notificationDispatcher,
     telegramPairingService,
     snsAiService,
     cardNewsLedgerStore,

@@ -18,6 +18,7 @@ const { createBlogExecutionCoordinator } = require('../../../../applications/blo
 const { buildBlogOperationsOverview } = require('../../../../applications/blog/operations-reporting/operations-overview-read-model');
 const { buildBlogPublishingResultStats } = require('../../../../applications/blog/operations-reporting/publishing-result-stats-read-model');
 const { presentPublishingProgress, buildCompletionLinks } = require('../../../../adapters/ui/blog-publishing-presentation');
+const { buildPublishingResultNotification } = require('../../../../services/notifications/publishing-result');
 const {
     CONTENT_LIFECYCLE_KIND,
     normalizeTargets,
@@ -173,30 +174,21 @@ function createContinuousPublishingService(deps = {}) {
         return issues.map((issue) => issue.message).filter(Boolean).join(' ');
     }
 
-    function escapeNotificationText(value) {
-        return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
     async function notifyAutomaticResult() {
         const settings = getAutomationSettingsRepository().read().document;
         if (settings.notification_enabled !== true) return;
         if (!['completed', 'failed', 'needs_attention'].includes(runnerState.state)) return;
-        const message = `<b>[연속 발행 ${runnerState.state === 'completed' ? '완료' : '확인 필요'}]</b>\n- 글감: ${escapeNotificationText(runnerState.subject || '제목 없음')}\n- 결과: ${escapeNotificationText(runnerState.message)}`;
-        const tasks = [];
-        if (CONFIG.NOTIFY_TELEGRAM_ENABLED && typeof deps.TelegramService?.sendNotification === 'function') {
-            tasks.push(deps.TelegramService.sendNotification(message, {
-                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
-                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
-                enabled: true
-            }));
+        const links = Array.isArray(runnerState.completionLinks) ? runnerState.completionLinks : [];
+        const message = buildPublishingResultNotification({
+            workflow: '대기열 자동 발행',
+            status: runnerState.state === 'completed' ? 'completed' : 'failed',
+            title: runnerState.subject || '제목 없음',
+            summary: runnerState.message,
+            targets: links.map((link) => ({ label: link.label, success: true, url: link.url }))
+        });
+        if (typeof deps.notificationDispatcher?.send === 'function') {
+            await deps.notificationDispatcher.send(message);
         }
-        if (CONFIG.NOTIFY_SLACK_ENABLED && typeof deps.SlackService?.sendNotification === 'function') {
-            tasks.push(deps.SlackService.sendNotification(message, {
-                webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
-                enabled: true
-            }));
-        }
-        if (tasks.length > 0) await Promise.allSettled(tasks);
     }
 
     async function requireTopicInStatus(rowIndex, expectedStatus) {

@@ -89,3 +89,16 @@ test('Telegram retries a family-selection network failure over IPv4 without expo
         axios.post = originalPost;
     }
 });
+
+test('Telegram renderer escapes text and renders links with labels instead of raw URLs', () => {
+    const message = TelegramService.renderNotification({
+        workflow: 'SNS 자동 공유', status: 'partial', title: '<새 글>',
+        source: { label: '원문 열기', url: 'https://example.com/post?a=1&b=2' },
+        targets: [{ label: '<Threads>', status: 'failed', detail: '<오류>' }]
+    });
+
+    assert.match(message, /&lt;새 글&gt;/);
+    assert.match(message, /<a href="https:\/\/example.com\/post\?a=1&amp;b=2">원문 열기<\/a>/);
+    assert.match(message, /<b>&lt;Threads&gt;<\/b>: 실패 — &lt;오류&gt;/);
+    assert.doesNotMatch(message, /원문:<\/b> https:\/\//);
+});

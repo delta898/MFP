@@ -41,6 +41,7 @@ function createService(state = {}) {
         clearTimeout: state.clearTimeout,
         TelegramService: state.TelegramService,
         SlackService: state.SlackService,
+        notificationDispatcher: state.notificationDispatcher,
         eventStore: state.eventStore,
         getSiteHostingSiteService: state.getSiteHostingSiteService,
         async ensureSheetsReadyForUi() {
@@ -461,8 +462,8 @@ test('automatic result notification follows the local setting and escapes topic 
     state.CONFIG.NOTIFY_TELEGRAM_ENABLED = true;
     state.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = 'fixture';
     state.CONFIG.NOTIFY_TELEGRAM_CHAT_ID = 'fixture';
-    state.TelegramService = {
-        async sendNotification(message) { messages.push(message); return { success: true }; }
+    state.notificationDispatcher = {
+        async send(message) { messages.push(message); return { attempted: true, channels: [{ id: 'telegram', success: true }] }; }
     };
     const service = createService(state);
 
@@ -470,7 +471,7 @@ test('automatic result notification follows the local setting and escapes topic 
     await state.timers[0].fn();
 
     assert.equal(messages.length, 1);
-    assert.match(messages[0], /&lt;위험한 &amp; 글감&gt;/);
+    assert.equal(messages[0].title, '<위험한 & 글감>');
 });
 
 async function waitForRunner(service) {

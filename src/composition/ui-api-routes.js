@@ -239,6 +239,7 @@ function createProductApiRouteHandler(deps = {}) {
         getSiteHostingSiteService: deps.getSiteHostingSiteService,
         executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
         CONFIG: deps.CONFIG,
+        notificationDispatcher: deps.notificationDispatcher,
         TelegramService: deps.TelegramService,
         SlackService: deps.SlackService,
         fs: deps.fs,

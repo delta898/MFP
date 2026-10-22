@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { BufferApiError } = require('../../../../packages/plugins/core/social-publisher/providers/buffer/client');
 const {
-    buildSnsFailureNotification,
     composeSnsPostText,
     isBufferDuplicatePostError,
     requiresImageAsset,
@@ -82,10 +81,8 @@ function createRunner(options = {}) {
                 return url;
             }
         },
-        notificationService: options.notificationService || {
-            async sendNotification() {
-                return { success: true };
-            }
+        notificationDispatcher: options.notificationDispatcher || {
+            async send() { return { attempted: true, channels: [{ id: 'telegram', success: true }] }; }
         },
         getEnableSnsDistribution: (features) => features?.enable_sns_distribution === true,
         sleep: options.sleep || (async () => {}),
@@ -371,10 +368,10 @@ test('distribution runner does not call Buffer when generated hashtags cannot be
                 return { success: true, hashtags: ['#새글'] };
             }
         },
-        notificationService: {
-            async sendNotification() {
+        notificationDispatcher: {
+            async send() {
                 notificationCount += 1;
-                return { success: true };
+                return { attempted: true, channels: [{ id: 'telegram', success: true }] };
             }
         },
         socialPublisher: {
@@ -795,10 +792,10 @@ test('distribution runner sends one Telegram alert only after final channel fail
             NOTIFY_TELEGRAM_CHAT_ID: 'chat'
         }),
         store,
-        notificationService: {
-            async sendNotification(message, options) {
-                notifications.push({ message, options });
-                return { success: true };
+        notificationDispatcher: {
+            async send(message) {
+                notifications.push({ message });
+                return { attempted: true, channels: [{ id: 'telegram', success: true }] };
             }
         },
         socialPublisher: {
@@ -818,22 +815,45 @@ test('distribution runner sends one Telegram alert only after final channel fail
     assert.equal(result.data.failedCount, 1);
     assert.equal(result.data.notification.attempted, true);
     assert.equal(notifications.length, 1);
-    assert.match(notifications[0].message, /&lt;새 글&gt;/);
-    assert.match(notifications[0].message, /&lt;Threads&gt;/);
-    assert.doesNotMatch(notifications[0].message, /<새 글>/);
+    assert.equal(notifications[0].message.title, '<새 글>');
+    assert.equal(notifications[0].message.targets[0].label, 'Threads · <Threads>');
+    assert.deepEqual(notifications[0].message.source, {
+        label: '원문 열기', url: 'https://blog.example/1?a=1&b=2'
+    });
 });
 
-test('SNS failure notification escapes user-controlled HTML', () => {
-    const message = buildSnsFailureNotification({
-        rows: [{
-            title: '<b>제목</b>',
-            originalUrl: 'https://example.com/?a=1&b=2'
-        }]
-    }, [{
-        row: { channelName: '<채널>' },
-        message: '<오류>'
+test('distribution runner notifies on success with a source link and available published link', async () => {
+    const store = createStore([{
+        rowNumber: 2,
+        deliveryKey: 'delivery-1',
+        entryKey: 'entry-1',
+        sourcePlatform: 'naver',
+        service: 'threads',
+        channelName: '@account',
+        channelId: 'channel-1',
+        title: '새 글',
+        originalUrl: 'https://blog.example/1'
     }]);
-    assert.match(message, /&lt;b&gt;제목&lt;\/b&gt;/);
-    assert.match(message, /&lt;채널&gt;/);
-    assert.match(message, /&lt;오류&gt;/);
+    let message = '';
+    const runner = createRunner({
+        store,
+        notificationDispatcher: {
+            async send(value) { message = value; return { attempted: true, channels: [{ id: 'slack', success: true }] }; }
+        },
+        socialPublisher: {
+            async publishMany() {
+                return [{ success: true, deliveryKey: 'delivery-1', channelId: 'channel-1', bufferPostId: 'post-1' }];
+            },
+            async getPublicationStatuses() {
+                return [{ id: 'post-1', externalLink: 'https://threads.net/post-1' }];
+            }
+        }
+    });
+
+    const result = await runner.run('test');
+
+    assert.equal(result.data.completedCount, 1);
+    assert.equal(message.status, 'completed');
+    assert.deepEqual(message.source, { label: '원문 열기', url: 'https://blog.example/1' });
+    assert.deepEqual(message.targets[0].link, { label: '게시물 열기', url: 'https://threads.net/post-1' });
 });
