@@ -3,7 +3,7 @@
 - Branch: `codex/fix/card-news-source-publish-state`
 - Base/parent branch: `release/v0.7.0`
 - Start date: 2026-10-22
-- Status: implementation complete; awaiting release version selection and user review
+- Status: merged into `release/v0.7.0`; manual UI acceptance remains
 
 ## User need and goal
 
@@ -22,8 +22,7 @@ Card News supports feed, URL, and manually entered sources. The publishing capti
 
 - Change feed-based creation or its post-publish workflow.
 - Change AI prompt content or publishing provider behavior.
-- Commit, merge, push, tag, or publish a release without explicit authorization.
-- Include the pre-existing `package.json` description edit in this feature change.
+- Push, tag, or publish a release without explicit authorization.
 
 ## Design and boundaries
 
@@ -38,7 +37,7 @@ Card News supports feed, URL, and manually entered sources. The publishing capti
 - URL and manually entered sources get `새 카드 작성`; feed does not.
 - Starting another card clears source-specific inputs and downstream state, then focuses the source input.
 - Complete publish keeps destination checkboxes selected. Partial publish unchecks successful destinations to avoid repeating those posts.
-- Keep the user's earlier package description edit separate from this feature commit.
+- The user requested all current changes be committed, so the earlier package description update was included.
 
 ## Progress
 
@@ -57,5 +56,6 @@ Card News supports feed, URL, and manually entered sources. The publishing capti
 - The full browser smoke later failed in its final error audit because the Focus Clock widget emitted five `net::ERR_ABORTED` iframe requests during navigation; no Card News failure was reported.
 - Manual UI acceptance: user to check feed, URL, and direct-entry publishing, plus the final visible spacing and focus behavior.
 - Live KIE Grok generation was not called from the test run; verify that a 3:4 selection now produces a 2:3 result without the provider rejection.
-- Release version: awaiting user's exact choice; current version is `0.7.0-dev7`.
-- Commit/merge/push: not performed.
+- Release version currently selected by the user: `0.7.0-dev7`.
+- Commits: `c5f512d8` (implementation) and `5358facb` (verification record update).
+- Merged by fast-forward into `release/v0.7.0`; feature branch deleted. No push or tag was created.
