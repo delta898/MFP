@@ -36,7 +36,7 @@ class SlackService {
 
     /**
      * HTML 태그를 Slack mrkdwn 포맷으로 변환
-     * @param {string} html 
+     * @param {string} html
      * @returns {string}
      */
     static _htmlToMrkdwn(html) {
