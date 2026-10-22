@@ -316,6 +316,14 @@
       "classification": "ai_catalog_operator_action"
     },
     {
+      "path": "supabase/operations/ai/2026-10-21_ai-model-catalog-development-channel.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-21_ai-model-catalog-production-channel.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
       "path": "supabase/operations/ai/2026-10-21_kie-claude-model-order_dev_publish.sql",
       "classification": "ai_catalog_operator_action"
     },
@@ -341,6 +349,14 @@
     },
     {
       "path": "supabase/operations/ai/2026-10-21_kie-model-family-order_dev_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-22_kie-expanded-model-catalog_development.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-22_kie-expanded-model-catalog_production.sql",
       "classification": "ai_catalog_operator_action"
     },
     {

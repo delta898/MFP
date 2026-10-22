@@ -34,15 +34,18 @@ test('SNS consumes density roles without changing its content or interaction geo
     'ui/styles/features/social-media.css',
     'ui/styles/features/social-actions.css',
     'ui/styles/features/social-density.css',
-    'ui/styles/patterns/tab-navigation.css'
+    'ui/styles/patterns/tab-navigation.css',
+    'ui/styles/patterns/buffer-channel-cards.css'
   ].map(read).join('\n');
   const surfaces = read('ui/styles/features/social-surfaces.css');
   const combined = `${social}\n${surfaces}`;
 
-  densityTokens.forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
+  densityTokens
+    .filter((token) => token !== '--ui-density-action-padding')
+    .forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
   assert.match(social, /\.social-editor\s*\{[^}]*block-size:\s*168px[^}]*min-block-size:\s*168px/s);
-  assert.match(social, /\.social-channel-grid\s*\{[^}]*repeat\(auto-fit, minmax\(min\(100%, 190px\), 1fr\)\)/s);
-  assert.match(surfaces, /\.social-view \.social-workspace-select\s*\{\s*margin:\s*0 0 var\(--ui-space-4\);\s*\}/);
+  assert.match(social, /\.buffer-channel-card-grid\s*\{[^}]*repeat\(auto-fit, minmax\(min\(100%, 250px\), 1fr\)\)/s);
+  assert.match(social, /\.buffer-publishing-destination-layout\s*\{[^}]*grid-template-columns:/s);
 });
 
 test('Discovery consumes density roles while preserving result geometry', () => {

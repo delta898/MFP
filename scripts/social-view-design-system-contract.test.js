@@ -13,13 +13,17 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   const lifecycle = read('ui/scripts/features/sns/manual-lifecycle.js');
   const optimization = read('ui/scripts/features/sns/manual-optimization.js');
   const sharedBufferControls = read('ui/scripts/shared/buffer-publishing-controls.js');
+  const sharedBufferPicker = read('ui/scripts/shared/buffer-publishing-picker.js');
+  const sharedBufferCards = read('ui/scripts/shared/buffer-channel-cards.js');
+  const sharedBufferStyles = read('ui/styles/patterns/buffer-channel-cards.css');
   const styles = [
     'ui/styles/patterns/buffer-publishing-controls.css',
     'ui/styles/features/social.css',
     'ui/styles/features/social-media.css',
     'ui/styles/features/social-actions.css',
     'ui/styles/features/social-density.css',
-    'ui/styles/features/social-surfaces.css'
+    'ui/styles/features/social-surfaces.css',
+    'ui/styles/patterns/buffer-channel-cards.css'
   ].map(read).join('\n');
 
   assert.match(view, /class="card social-composer-card ui-panel-heading-surface"/);
@@ -32,15 +36,20 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);
   assert.doesNotMatch(view, /id="view-social"[^>]*data-style-scope=/);
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
-  assert.match(view, /class="social-channel-settings-layout"[\s\S]*class="[^"]*\bsocial-workspace-panel\b[^"]*"[\s\S]*class="[^"]*\bsocial-channels-panel\b[^"]*"[\s\S]*id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid"/);
-  assert.match(view, /발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택<\/small>/);
-  assert.match(view, /id="manual-sns-workspaces-load"[^>]*>작업 공간 불러오기/);
-  assert.match(view, /class="ui-settings-field social-workspace-select buffer-publishing-workspace"[\s\S]*<span>작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
-  assert.ok(view.indexOf('for="manual-sns-organization"') < view.indexOf('id="manual-sns-select-all"'));
-  assert.ok(view.indexOf('id="manual-sns-select-all"') < view.indexOf('id="manual-sns-channel-list"'));
+  assert.match(view, /id="manual-sns-buffer-publishing-picker"/);
+  assert.match(composer, /BufferPublishingPicker\.render\(pickerRoot,\s*\{[\s\S]*?workspace: 'manual-sns-organization'[\s\S]*?refresh: 'manual-sns-workspaces-load'[\s\S]*?channels: 'manual-sns-channel-list'[\s\S]*?maxChannels:\s*3/);
+  assert.match(composer, /cardClassName: 'social-channel-option'/);
+  assert.match(composer, /emptyClassName: 'social-channel-empty ui-empty-state'/);
+  assert.match(sharedBufferPicker, /buffer-publishing-destination-workspace/);
+  assert.match(sharedBufferPicker, /buffer-publishing-destination-channels/);
+  assert.match(sharedBufferPicker, /ui-selectable-card-grid buffer-channel-card-grid/);
+  assert.match(sharedBufferCards, /buffer-channel-platform/);
+  assert.match(sharedBufferCards, /buffer-channel-account/);
+  assert.match(sharedBufferStyles, /\.buffer-publishing-destination-layout/);
+  assert.match(sharedBufferStyles, /\.buffer-channel-card-grid/);
   assert.ok(view.indexOf('id="manual-sns-text"') < view.indexOf('id="manual-sns-image-title"'));
-  assert.ok(view.indexOf('id="manual-sns-image-title"') < view.indexOf('for="manual-sns-organization"'));
-  assert.ok(view.indexOf('id="manual-sns-channel-list"') < view.indexOf('id="manual-sns-publish-btn"'));
+  assert.ok(view.indexOf('id="manual-sns-image-title"') < view.indexOf('id="manual-sns-buffer-publishing-picker"'));
+  assert.ok(view.indexOf('id="manual-sns-buffer-publishing-picker"') < view.indexOf('id="manual-sns-publish-btn"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
   assert.match(view, /class="social-editor-shell"[\s\S]*id="manual-sns-text"[\s\S]*<\/div>\s*<div class="social-editor-footer">\s*<div id="manual-sns-ai-status" class="social-ai-status"[\s\S]*<span id="manual-sns-character-count"/);
@@ -124,15 +133,18 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(optimization, /postJson\('\/api\/v1\/social\/manual\/image'/);
   assert.match(lifecycle, /navigateTo\('settings-next', 'extras'\)/);
   assert.match(lifecycle, /settingsNextActivateExtrasTab\?\.\('social'\)/);
-  assert.match(composer, /social-channel-option ui-selectable-card/);
-  assert.match(composer, /social-channel-copy ui-selectable-card-copy/);
-  assert.match(composer, /BufferPublishingControls\.syncWorkspace/);
+  assert.match(sharedBufferCards, /buffer-channel-card ui-selectable-card/);
+  assert.match(sharedBufferCards, /buffer-channel-card-copy ui-selectable-card-copy/);
   assert.match(composer, /BufferPublishingControls\.syncChannelSelectAll/);
-  assert.match(lifecycle, /BufferPublishingControls\.applyChannelSelectAll/);
-  assert.match(lifecycle, /BufferPublishingControls\.setWorkspaceRefresh/);
-  assert.match(sharedBufferControls, /syncWorkspace\(/);
   assert.match(sharedBufferControls, /syncChannelSelectAll\(/);
-  assert.match(lifecycle, /selectAllEl\?\.addEventListener\('change', \(\) => \{[\s\S]*?persistManualSnsSelectedChannels\(\);\s*syncManualSnsImagePreview\(\);/);
+  assert.match(sharedBufferPicker, /BufferPublishingControls\.syncChannelSelectAll/);
+  assert.match(sharedBufferPicker, /selectAll\.addEventListener\('change'/);
+  assert.match(sharedBufferPicker, /options\.onWorkspaceChange/);
+  assert.match(sharedBufferPicker, /options\.onRefresh/);
+  assert.match(sharedBufferPicker, /options\.onSelectionChange/);
+  assert.match(composer, /onWorkspaceChange:/);
+  assert.match(composer, /onRefresh:/);
+  assert.match(composer, /onSelectionChange: \(\) => \{[\s\S]*?persistManualSnsSelectedChannels\(\);[\s\S]*?syncManualSnsImagePreview\(\);[\s\S]*?syncManualSnsComposerState\(\);/);
   assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
   assert.match(composer, /refreshStaleSnapshot = !snapshot \|\| !snapshot\.isFresh/);
@@ -142,7 +154,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(styles, /\.social-view \.social-composer-section:not\(\.social-composer-channel-section\)\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
   assert.match(styles, /\.social-view \.social-live-preview-media\.is-empty\s*\{[^}]*min-height:\s*clamp\(220px,\s*26vh,\s*340px\)/s);
   assert.doesNotMatch(styles, /\.social-view \.view-title-block\s*\{/);
-  assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
+  assert.match(sharedBufferStyles, /\.buffer-channel-card[\s\S]*?border-radius:/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);
   assert.match(styles, /\.social-local-image-add-tile\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1/);
   assert.match(styles, /\.social-local-image-tile\s*\{[\s\S]*?width:\s*100%[\s\S]*?box-sizing:\s*border-box/);

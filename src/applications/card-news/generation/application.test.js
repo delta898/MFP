@@ -36,7 +36,7 @@ test('Card News uses the shared AI service with safe model identities and persis
         }),
         aiGeneration: {
             supportsFeature: () => true,
-            supportsOption(_kind, _selection, _option, value) { return value === '4:5'; },
+            supportsOption(_kind, _selection, _option, value) { return value === '3:4'; },
             async generateText(request, context) {
                 calls.push({ kind: 'text', request, context });
                 return { content: createPlan() };
@@ -51,7 +51,7 @@ test('Card News uses the shared AI service with safe model identities and persis
     try {
         const result = await app.generate({
             source_snapshot: { title: '원문 제목', text: '원문 내용' },
-            settings: { slide_count: 3, aspect_ratio: '4:5' },
+            settings: { slide_count: 3, aspect_ratio: '3:4' },
             image_mode: 'generate',
             imageModelConfig: { provider: 'google', code: 'image-model', api_key: 'must-not-cross-ai-service-boundary' }
         });
@@ -60,7 +60,7 @@ test('Card News uses the shared AI service with safe model identities and persis
         assert.equal(calls.filter((call) => call.kind === 'image').length, 3);
         assert.deepEqual(calls[0].request.modelSelection, { provider: 'google', modelId: 'text-model' });
         assert.equal(calls[0].request.options.responseFormat, 'json');
-        assert.equal(calls[1].request.options.aspectRatio, '4:5');
+        assert.equal(calls[1].request.options.aspectRatio, '3:4');
         assert.deepEqual(calls[1].request.modelSelection, { provider: 'google', modelId: 'image-model' });
         assert.equal(JSON.stringify(calls).includes('must-not-cross-ai-service-boundary'), false);
         assert.match(result.cards[0].image_url, /card-01\.jpg$/);

@@ -187,11 +187,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /data-settings-next-optional-scope="sns-distribution"/);
     assert.match(html, /<h3>Buffer 연결<\/h3>/);
     assert.match(html, /<h3>블로그 자동 공유<\/h3>/);
-    assert.match(html, /id="settings-next-buffer-organization"/);
-    assert.match(html, /id="settings-next-buffer-workspaces-load"[^>]*>작업 공간 불러오기/);
-    assert.match(html, /<span>Buffer 작업 공간<\/span><span class="ui-field-action"><span class="ui-select-shell">/);
+    assert.match(html, /id="settings-next-buffer-publishing-picker"/);
     assert.doesNotMatch(html, /settings-next-buffer-workspace-summary|settings-next-buffer-organization-field|settings-next-sns-workspace-control/);
-    assert.match(html, /id="settings-next-buffer-channel-list"/);
     assert.match(html, /id="settings-next-sns-distribution-enabled"/);
     assert.match(html, /id="settings-next-sns-distribution-save"[^>]*>저장/);
     assert.match(html, /id="settings-next-sns-source-naver"/);
@@ -208,6 +205,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(optionalServices, /syncSettingsNextSecretRegistration/);
     assert.match(optionalServices, /scope === 'sns-distribution'/);
     assert.match(optionalServices, /function settingsNextLoadBufferWorkspaces/);
+    assert.match(optionalServices, /BufferPublishingPicker\.render\(pickerRoot,\s*\{[\s\S]*?workspace: 'settings-next-buffer-organization'[\s\S]*?refresh: 'settings-next-buffer-workspaces-load'[\s\S]*?channels: 'settings-next-buffer-channel-list'/);
+    assert.match(optionalServices, /maxChannels:\s*3/);
     assert.match(optionalServices, /const selectedBlogs = new Set\(Array\.isArray\(fields\.SNS_SOURCE_BLOGS\)[\s\S]*?input\.checked = selectedBlogs\.has\(source\)/);
     assert.match(optionalServices, /BUFFER_CHANNELS: resolvedOrganizationId === previousOrganizationId[\s\S]*?settingsNextOptionalState\.fields\.BUFFER_CHANNELS/);
     assert.match(optionalServices, /settingsNextOptionalSecretConfigured\('buffer'\)[\s\S]*?settingsNextLoadBufferWorkspaces\(\)/);

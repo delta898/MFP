@@ -79,7 +79,7 @@ test('full empty states share one anatomy while transient placeholders stay cont
   assert.match(blogQueue, /empty\.dataset\.state = state/);
   assert.match(cardView, /card-news-empty-state ui-empty-state/);
   assert.match(cardManagement, /card-news-empty-state ui-empty-state/);
-  assert.match(socialRuntime, /className = 'social-channel-empty ui-empty-state'/);
+  assert.match(socialRuntime, /emptyClassName: 'social-channel-empty ui-empty-state'/);
   assert.doesNotMatch(blogStyle, /\.blog-next-empty-state\s*\{/);
   assert.doesNotMatch(cardStyle, /\.card-news-empty-state\s*\{/);
   assert.doesNotMatch(socialStyle, /\.social-channel-empty\s*\{[^}]*(?:display|color|font-size)/s);

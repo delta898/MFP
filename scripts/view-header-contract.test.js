@@ -9,11 +9,11 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 const viewHeaders = [
   ['ui/partials/views/dashboard.html', 'Dashboard', '글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.'],
   ['ui/partials/views/site-hosting.html', '사이트', '웹사이트를 만들고 관리합니다.'],
-  ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 포스팅하는 새로운 흐름입니다.'],
+  ['ui/partials/views/blog-next.html', '블로그', '글감을 모아두고, 준비된 글을 하나씩 차례로 포스팅하세요.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
-  ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
+  ['ui/partials/views/social.html', 'SNS', '한 번 작성한 게시물을 여러 소셜 채널에 한 번에 전하세요.'],
   ['ui/partials/views/account.html', '내 정보', '사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.'],
-  ['ui/partials/views/settings-next.html', '설정', '공통 연결과 기본값을 한곳에서 관리하고, 각 기능에서 필요한 설정을 선택해 사용합니다.'],
+  ['ui/partials/views/settings-next.html', '설정', '콘텐츠 작업에 필요한 설정을 한곳에서 간편하게 관리하세요.'],
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
 ];
 

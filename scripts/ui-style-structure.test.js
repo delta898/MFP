@@ -50,6 +50,7 @@ test('CSS manifest preserves cascade order and remains within its size policy', 
         'styles/patterns/actions.css',
         'styles/patterns/selection-controls.css',
         'styles/patterns/buffer-publishing-controls.css',
+        'styles/patterns/buffer-channel-cards.css',
         'styles/patterns/select-shell.css',
         'styles/patterns/tab-navigation.css',
         'styles/patterns/overview-card.css',
@@ -356,12 +357,12 @@ test('responsive breakpoints use the canonical set', () => {
     // Card News has two
     // intentionally local thresholds: 460px stacks the provider/model fields,
     // while 760px switches its action layout before the general 768px breakpoint.
-    // SNS channel settings use 900px to stack columns; site settings use 960px
-    // to preserve usable preview and form widths in the two-column dialog.
+    // The shared Buffer publishing picker stacks its workspace and channel panels at 900px;
+    // site settings use 960px to preserve usable preview and form widths in the two-column dialog.
     const cardNewsWidths = maxWidthsByFile.get('features/card-news-image-model.css');
     assert.deepEqual([...cardNewsWidths].sort((a, b) => a - b), ['460', '760']);
-    const socialWidths = maxWidthsByFile.get('features/social.css');
-    assert.deepEqual([...socialWidths], ['900']);
+    const socialWidths = maxWidthsByFile.get('patterns/buffer-channel-cards.css');
+    assert.deepEqual([...socialWidths].sort((a, b) => a - b), ['768', '900']);
     const siteHostingCreateWidths = maxWidthsByFile.get('features/site-hosting-create.css');
     assert.deepEqual([...siteHostingCreateWidths].sort((a, b) => a - b), ['720']);
     const siteHostingImportWidths = maxWidthsByFile.get('features/site-hosting-import.css');
@@ -371,7 +372,7 @@ test('responsive breakpoints use the canonical set', () => {
     for (const [file, widths] of maxWidthsByFile) {
         if (
             file === 'features/card-news-image-model.css'
-            || file === 'features/social.css'
+            || file === 'patterns/buffer-channel-cards.css'
             || file === 'features/site-hosting-create.css'
             || file === 'features/site-hosting-import.css'
             || file === 'features/site-hosting.css'

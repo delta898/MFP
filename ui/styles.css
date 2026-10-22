@@ -16,6 +16,7 @@
 /* @include styles/patterns/actions.css */
 /* @include styles/patterns/selection-controls.css */
 /* @include styles/patterns/buffer-publishing-controls.css */
+/* @include styles/patterns/buffer-channel-cards.css */
 /* @include styles/patterns/select-shell.css */
 /* @include styles/patterns/tab-navigation.css */
 /* @include styles/patterns/overview-card.css */
@@ -83,7 +84,6 @@
 /* @include styles/features/discovery-keyword-research.css */
 /* @include styles/features/discovery-responsive.css */
 /* @include styles/features/discovery-writing-assists.css */
-/* @include styles/patterns/buffer-channel-cards.css */
 }
 
 @layer bloggenius.utilities {

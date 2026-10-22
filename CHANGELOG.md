@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev8] - 2026-10-22
+
+### Added
+- **예약 발행 결과를 메신저에서 확인**: 대기열 글과 블로그 RSS 기반 SNS 게시 결과를 Telegram 또는 Slack 알림으로 받고, 게시 링크를 바로 열 수 있습니다.
+- **카드뉴스 작업을 이어서 진행**: URL·직접 입력으로 만든 카드뉴스는 발행 후 새 카드 작성을 시작할 수 있고, 발행 채널 선택은 유지됩니다.
+
+### Improved
+- **SNS 채널을 플랫폼과 계정으로 구분**: 채널 목록과 발행 결과에 플랫폼명을 함께 표시하고, Buffer API Key 발급 안내로 바로 이동할 수 있습니다.
+- **세로형 카드뉴스 비율 지원**: 3:4 비율을 선택해 피드에 맞는 카드를 만들 수 있습니다.
+
 ## [0.7.0-dev7] - 2026-10-22
 
 ### Fixed
