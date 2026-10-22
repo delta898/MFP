@@ -21,6 +21,10 @@ const {
 const DEFAULT_BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
 const DEFAULT_SOURCE = 'naver_creator_advisor';
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '../../../..');
+const DEFAULT_SWIPE_DELAY_MS = 400;
+const DEFAULT_EXPECTED_CATEGORIES = 32;
+const DEFAULT_KEYWORDS_PER_CATEGORY = 20;
+const DEFAULT_MAX_RETRIES = 3;
 
 function createLogger() {
     return {
@@ -48,6 +52,16 @@ function formatCollectorHelp() {
         '      --dry-run        Collect and summarize without writing to the API',
         '      --confirm-production',
         '                       Write to Production without an interactive prompt',
+        '      --headed         Show the browser window (default: headless)',
+        '      --headless       Hide the browser window',
+        '      --swipe-delay-ms <ms>',
+        `                       Wait after each swipe (default: ${DEFAULT_SWIPE_DELAY_MS})`,
+        '      --max-retries <count>',
+        `                       Retry incomplete scans (default: ${DEFAULT_MAX_RETRIES})`,
+        '      --expected-categories <count>',
+        `                       Expected non-demographic categories (default: ${DEFAULT_EXPECTED_CATEGORIES})`,
+        '      --keywords-per-category <count>',
+        `                       Expected unique keywords per category (default: ${DEFAULT_KEYWORDS_PER_CATEGORY})`,
         '',
         'Environment:',
         '  TRENDS_ENV=local|development|production is required.',
@@ -55,6 +69,8 @@ function formatCollectorHelp() {
         '  If --date is omitted, TRENDS_TARGET_DATE is used when present.',
         '  If neither is set, the collector uses the provider default date.',
         '  Production defaults to interactive confirmation and requires a TTY.',
+        '  TRENDS_SWIPE_DELAY_MS, TRENDS_MAX_RETRIES, TRENDS_EXPECTED_CATEGORIES,',
+        '  and TRENDS_KEYWORDS_PER_CATEGORY can set the same defaults for cron.',
     ].join('\n');
 }
 
@@ -63,8 +79,32 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
         help: false,
         date: '',
         dryRun: false,
-        confirmProduction: false
+        confirmProduction: false,
+        headless: null,
+        swipeDelayMs: null,
+        maxRetries: null,
+        expectedCategories: null,
+        keywordsPerCategory: null
     };
+
+    const integerOption = (value, name, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) => {
+        const normalized = String(value || '').trim();
+        if (!/^\d+$/.test(normalized)) {
+            throw new Error(`${name} 옵션에는 정수 값이 필요합니다.`);
+        }
+        const parsed = Number(normalized);
+        if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+            throw new Error(`${name} 옵션의 값은 ${min}~${max} 범위의 정수여야 합니다.`);
+        }
+        return parsed;
+    };
+
+    const valueOptions = new Map([
+        ['--swipe-delay-ms', { key: 'swipeDelayMs', min: 0, max: 60000 }],
+        ['--max-retries', { key: 'maxRetries', min: 0, max: 20 }],
+        ['--expected-categories', { key: 'expectedCategories', min: 1, max: 500 }],
+        ['--keywords-per-category', { key: 'keywordsPerCategory', min: 1, max: 500 }]
+    ]);
 
     for (let index = 0; index < argv.length; index += 1) {
         const argument = String(argv[index] || '').trim();
@@ -101,6 +141,28 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
 
         if (argument === '--confirm-production') {
             options.confirmProduction = true;
+            continue;
+        }
+
+        if (argument === '--headed' || argument === '--headless') {
+            const headless = argument === '--headless';
+            if (options.headless !== null && options.headless !== headless) {
+                throw new Error('--headed 와 --headless 는 함께 사용할 수 없습니다.');
+            }
+            options.headless = headless;
+            continue;
+        }
+
+        const separatorIndex = argument.indexOf('=');
+        const optionName = separatorIndex >= 0 ? argument.slice(0, separatorIndex) : argument;
+        const optionSpec = valueOptions.get(optionName);
+        if (optionSpec) {
+            const rawValue = separatorIndex >= 0
+                ? argument.slice(separatorIndex + 1)
+                : String(argv[index + 1] || '').trim();
+            if (!rawValue) throw new Error(`${optionName} 옵션에는 값이 필요합니다.`);
+            options[optionSpec.key] = integerOption(rawValue, optionName, optionSpec);
+            if (separatorIndex < 0) index += 1;
             continue;
         }
 
@@ -188,7 +250,13 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
         naverId: String(env.TRENDS_NAVER_ID || env.NAVER_ID || '').trim(),
         authPath: path.isAbsolute(authPathValue) ? authPathValue : path.resolve(rootDir, authPathValue),
         date: String(cliOptions.date || env.TRENDS_TARGET_DATE || env.TREND_DATE || '').trim(),
-        headless: toBool(env.TRENDS_HEADLESS, true),
+        headless: typeof cliOptions.headless === 'boolean'
+            ? cliOptions.headless
+            : toBool(env.TRENDS_HEADLESS, true),
+        swipeDelayMs: resolveIntegerSetting(cliOptions.swipeDelayMs, env.TRENDS_SWIPE_DELAY_MS, DEFAULT_SWIPE_DELAY_MS, 'TRENDS_SWIPE_DELAY_MS', 0, 60000),
+        maxRetries: resolveIntegerSetting(cliOptions.maxRetries, env.TRENDS_MAX_RETRIES, DEFAULT_MAX_RETRIES, 'TRENDS_MAX_RETRIES', 0, 20),
+        expectedCategories: resolveIntegerSetting(cliOptions.expectedCategories, env.TRENDS_EXPECTED_CATEGORIES, DEFAULT_EXPECTED_CATEGORIES, 'TRENDS_EXPECTED_CATEGORIES', 1, 500),
+        keywordsPerCategory: resolveIntegerSetting(cliOptions.keywordsPerCategory, env.TRENDS_KEYWORDS_PER_CATEGORY, DEFAULT_KEYWORDS_PER_CATEGORY, 'TRENDS_KEYWORDS_PER_CATEGORY', 1, 500),
         apiHost,
         apiPort,
         apiBaseUrl,
@@ -196,6 +264,17 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
         source: String(env.TRENDS_SOURCE || DEFAULT_SOURCE).trim() || DEFAULT_SOURCE,
         dryRun: cliOptions.dryRun === true || toBool(env.TRENDS_DRY_RUN, false)
     };
+}
+
+function resolveIntegerSetting(cliValue, envValue, fallback, name, min, max) {
+    if (cliValue !== null && cliValue !== undefined) return cliValue;
+    if (envValue === undefined || String(envValue).trim() === '') return fallback;
+    const normalized = String(envValue).trim();
+    const parsed = Number(normalized);
+    if (!/^\d+$/.test(normalized) || !Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+        throw new Error(`${name} 값은 ${min}~${max} 범위의 정수여야 합니다.`);
+    }
+    return parsed;
 }
 
 function resolveCollectorExecutionMode(environment, cliOptions = {}, options = {}) {
@@ -321,6 +400,51 @@ function formatApiResultSummary(apiResult = {}) {
     return JSON.stringify(apiResult);
 }
 
+function analyzeCollectionCompleteness(keywords = [], options = {}) {
+    const expectedCategories = Number(options.expectedCategories || DEFAULT_EXPECTED_CATEGORIES);
+    const keywordsPerCategory = Number(options.keywordsPerCategory || DEFAULT_KEYWORDS_PER_CATEGORY);
+    const categories = new Map();
+    for (const item of Array.isArray(keywords) ? keywords : []) {
+        const category = String(item?.category || '').trim();
+        const keyword = String(item?.keyword || '').trim();
+        if (!category || !keyword) continue;
+        if (!categories.has(category)) categories.set(category, new Set());
+        categories.get(category).add(keyword);
+    }
+
+    const categoryCounts = [...categories.entries()].map(([category, values]) => ({
+        category,
+        count: values.size
+    }));
+    const totalKeywords = categoryCounts.reduce((sum, entry) => sum + entry.count, 0);
+    const expectedTotal = expectedCategories * keywordsPerCategory;
+    const incompleteCategories = categoryCounts.filter((entry) => entry.count !== keywordsPerCategory);
+    const missingCategories = Math.max(0, expectedCategories - categoryCounts.length);
+    return {
+        complete: categoryCounts.length === expectedCategories
+            && totalKeywords === expectedTotal
+            && incompleteCategories.length === 0,
+        expectedCategories,
+        actualCategories: categoryCounts.length,
+        missingCategories,
+        keywordsPerCategory,
+        expectedTotal,
+        actualTotal: totalKeywords,
+        incompleteCategories
+    };
+}
+
+function formatCompletenessSummary(completeness) {
+    const parts = [
+        `categories=${completeness.actualCategories}/${completeness.expectedCategories}`,
+        `keywords=${completeness.actualTotal}/${completeness.expectedTotal}`
+    ];
+    if (completeness.incompleteCategories.length > 0) {
+        parts.push(`shortCategories=${completeness.incompleteCategories.map((item) => `${item.category}:${item.count}/${completeness.keywordsPerCategory}`).join('|')}`);
+    }
+    return parts.join(', ');
+}
+
 function prepareCollectorRuntime(env = process.env, logger = console, cliOptions = {}) {
     const profile = loadTrendsEnvironment({
         baseDir: path.resolve(__dirname, '../config'),
@@ -353,6 +477,8 @@ async function runCollector(inputConfig = {}) {
         await verifyCollectorApiEnvironment(config, logger);
     }
 
+    logger.info(`⚙️ 수집 옵션: headless=${config.headless}, swipeDelayMs=${config.swipeDelayMs}, maxRetries=${config.maxRetries}, expected=${config.expectedCategories}x${config.keywordsPerCategory}`);
+
     const collector = inputConfig.collector || createNaverTrendsCollector({
         launchBrowser: (options = {}) => launchBrowser({ ...options, logger }),
         persistAuthSessionState,
@@ -361,17 +487,39 @@ async function runCollector(inputConfig = {}) {
             NAVER_ID: config.naverId,
             AUTH_FILE_PATH: config.authPath,
             ROOT_DIR: config.rootDir,
-            HEADLESS: config.headless
+            HEADLESS: config.headless,
+            SWIPE_DELAY_MS: config.swipeDelayMs
         }
     });
 
-    const result = await collector.fetchTrends({
+    const fetchOptions = {
         date: config.date || undefined,
         headless: config.headless,
+        swipeDelayMs: config.swipeDelayMs,
         naverId: config.naverId,
         authPath: config.authPath,
         rootDir: config.rootDir
-    });
+    };
+    let result = await collector.fetchTrends(fetchOptions);
+    let completeness = analyzeCollectionCompleteness(result?.keywords, config);
+    logger.info(`🔎 수집 완전성 확인 (시도=1/${config.maxRetries + 1}, ${formatCompletenessSummary(completeness)})`);
+
+    for (let retry = 1; !completeness.complete && retry <= config.maxRetries; retry += 1) {
+        logger.warn(`⚠️ 수집 결과가 예상보다 적어 전체 카테고리를 다시 확인합니다. (${retry}/${config.maxRetries}, ${formatCompletenessSummary(completeness)})`);
+        // Each retry is a clean, full scan. Never combine rows from separate
+        // swipes because their category order and ranking may differ.
+        result = await collector.fetchTrends(fetchOptions);
+        completeness = analyzeCollectionCompleteness(result.keywords, config);
+        logger.info(`🔎 재수집 결과 확인 (시도=${retry + 1}/${config.maxRetries + 1}, ${formatCompletenessSummary(completeness)})`);
+    }
+
+    if (!completeness.complete && executionMode !== 'dry-run') {
+        throw new Error(`트렌드 수집 결과가 불완전하여 API 반영을 중단합니다. ${formatCompletenessSummary(completeness)}`);
+    }
+    if (!completeness.complete) {
+        logger.warn(`⚠️ dry-run 결과가 불완전합니다. API 전송은 하지 않습니다. ${formatCompletenessSummary(completeness)}`);
+    }
+
     const payload = buildCollectedTrendPayload(result, {
         source: config.source
     });
@@ -384,7 +532,7 @@ async function runCollector(inputConfig = {}) {
             printDryRunPayload: config.printDryRunPayload ?? config.environment !== 'production'
         }, logger);
         logger.info(`✅ collector dry-run 완료: ${formatApiResultSummary(apiResult)}`);
-        return { payload, apiResult, executionMode };
+        return { payload, apiResult, executionMode, completeness };
     }
 
     if (executionMode === 'interactive') {
@@ -393,7 +541,7 @@ async function runCollector(inputConfig = {}) {
         if (!approved) {
             const apiResult = { success: true, cancelled: true, accepted: 0 };
             logger.info('ℹ️ 사용자가 Production 반영을 취소했습니다. API 전송 없이 종료합니다.');
-            return { payload, apiResult, executionMode };
+            return { payload, apiResult, executionMode, completeness };
         }
     }
 
@@ -406,7 +554,8 @@ async function runCollector(inputConfig = {}) {
     return {
         payload,
         apiResult,
-        executionMode
+        executionMode,
+        completeness
     };
 }
 
@@ -434,7 +583,9 @@ if (require.main === module) {
 module.exports = {
     createLogger,
     authorizeProductionWrite,
+    analyzeCollectionCompleteness,
     formatApiResultSummary,
+    formatCompletenessSummary,
     formatCollectorHelp,
     parseCollectorCliArgs,
     prepareCollectorRuntime,

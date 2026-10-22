@@ -600,7 +600,11 @@ function createNaverTrendsCollector(options = {}) {
 
                 const maxSwipes = 50;
                 const swipeDragSteps = 4;
-                const swipeSettleMs = 400;
+                const requestedSwipeDelayMs = Number(fetchOptions.swipeDelayMs ?? config.SWIPE_DELAY_MS ?? 400);
+                if (!Number.isInteger(requestedSwipeDelayMs) || requestedSwipeDelayMs < 0 || requestedSwipeDelayMs > 60000) {
+                    throw new Error('swipeDelayMs must be an integer between 0 and 60000');
+                }
+                const swipeSettleMs = requestedSwipeDelayMs;
                 const swipeStartRatio = 0.90;
                 const swipeEndRatio = 0.05;
                 let swipeCount = 0;

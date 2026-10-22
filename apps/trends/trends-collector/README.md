@@ -33,6 +33,10 @@ Production은 기본적으로 한 번 수집한 payload의 날짜·건수를 먼
 ./apps/trends/trends-collector/commands/collect_production.sh
 ./apps/trends/trends-collector/commands/collect_production.sh --date=-1d
 
+# 브라우저를 보면서 스와이프 지연과 재시도를 조정 (무변경 수집)
+./apps/trends/trends-collector/commands/collect_production.sh \
+  --dry-run --headed --swipe-delay-ms 900 --max-retries 3
+
 # 무변경 수집·요약만 수행
 ./apps/trends/trends-collector/commands/collect_production.sh --dry-run --date=-1d
 
@@ -44,6 +48,21 @@ Production은 기본적으로 한 번 수집한 payload의 날짜·건수를 먼
 `--dry-run`과 `--confirm-production`은 함께 쓸 수 없습니다. TTY가 없는 환경에서 명시적 모드
 없이 실행하면 수집 전에 실패합니다. 실제 write guard는 interactive 승인 또는
 `--confirm-production`이 확인된 뒤 API 전송 직전에만 열립니다.
+
+수집 동작은 CLI 옵션 또는 동일 이름의 환경 변수로 조정할 수 있습니다.
+
+| 설정 | CLI | 환경 변수 | 기본값 |
+| --- | --- | --- | ---: |
+| 브라우저 표시 | `--headed` / `--headless` | `TRENDS_HEADLESS` | headless |
+| 스와이프 후 대기 시간 | `--swipe-delay-ms <ms>` | `TRENDS_SWIPE_DELAY_MS` | 400ms |
+| 불완전 수집 재시도 | `--max-retries <횟수>` | `TRENDS_MAX_RETRIES` | 3회 |
+| 예상 카테고리 수 | `--expected-categories <수>` | `TRENDS_EXPECTED_CATEGORIES` | 32 |
+| 카테고리별 키워드 수 | `--keywords-per-category <수>` | `TRENDS_KEYWORDS_PER_CATEGORY` | 20 |
+
+각 재시도는 이전 결과를 버리고 처음부터 전체 카테고리를 다시 스와이프합니다. 기본 완료 기준은
+32개 카테고리 각각 고유 키워드 20개(총 640개)입니다. 재시도를 모두 사용해도 기준을 채우지
+못하면 API 반영을 중단합니다. `--dry-run`에서는 불완전 결과를 경고와 함께 출력해 디버깅할 수
+있습니다. `--headed` 실행은 그래픽 세션이 있는 환경에서 사용하세요.
 
 `TRENDS_ENV`에 따라
 `apps/trends/trends-collector/config/.env.trends-collector.<environment>`를 읽습니다. 별도

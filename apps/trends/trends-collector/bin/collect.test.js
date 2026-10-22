@@ -15,44 +15,73 @@ const {
 } = require('./collect');
 
 const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
+const defaultCliOptions = {
+    headless: null,
+    swipeDelayMs: null,
+    maxRetries: null,
+    expectedCategories: null,
+    keywordsPerCategory: null
+};
 
 test('parseCollectorCliArgs supports help and explicit date options', () => {
     assert.deepEqual(parseCollectorCliArgs(['--help']), {
         help: true,
         date: '',
         dryRun: false,
-        confirmProduction: false
+        confirmProduction: false,
+        ...defaultCliOptions
     });
     assert.deepEqual(parseCollectorCliArgs(['--date', '2026-04-02']), {
         help: false,
         date: '2026-04-02',
         dryRun: false,
-        confirmProduction: false
+        confirmProduction: false,
+        ...defaultCliOptions
     });
     assert.deepEqual(parseCollectorCliArgs(['--date=20260402']), {
         help: false,
         date: '20260402',
         dryRun: false,
-        confirmProduction: false
+        confirmProduction: false,
+        ...defaultCliOptions
     });
     assert.deepEqual(parseCollectorCliArgs(['-d', '2026-04-03']), {
         help: false,
         date: '2026-04-03',
         dryRun: false,
-        confirmProduction: false
+        confirmProduction: false,
+        ...defaultCliOptions
     });
     assert.deepEqual(parseCollectorCliArgs(['--dry-run']), {
         help: false,
         date: '',
         dryRun: true,
-        confirmProduction: false
+        confirmProduction: false,
+        ...defaultCliOptions
     });
     assert.deepEqual(parseCollectorCliArgs(['--confirm-production']), {
         help: false,
         date: '',
         dryRun: false,
-        confirmProduction: true
+        confirmProduction: true,
+        ...defaultCliOptions
     });
+    assert.deepEqual(parseCollectorCliArgs([
+        '--headed', '--swipe-delay-ms=900', '--max-retries', '2',
+        '--expected-categories', '2', '--keywords-per-category=3'
+    ]), {
+        help: false,
+        date: '',
+        dryRun: false,
+        confirmProduction: false,
+        headless: false,
+        swipeDelayMs: 900,
+        maxRetries: 2,
+        expectedCategories: 2,
+        keywordsPerCategory: 3
+    });
+    assert.throws(() => parseCollectorCliArgs(['--headed', '--headless']), /함께 사용할 수 없습니다/);
+    assert.throws(() => parseCollectorCliArgs(['--swipe-delay-ms', '60001']), /범위의 정수/);
 });
 
 test('parseCollectorCliArgs rejects unknown options and missing date values', () => {
@@ -70,6 +99,11 @@ test('formatCollectorHelp mentions help and date flags', () => {
     assert.match(output, /yesterday/);
     assert.match(output, /--dry-run/);
     assert.match(output, /--confirm-production/);
+    assert.match(output, /--headed/);
+    assert.match(output, /--swipe-delay-ms/);
+    assert.match(output, /--max-retries/);
+    assert.match(output, /--expected-categories/);
+    assert.match(output, /--keywords-per-category/);
 });
 
 test('Production execution requires one explicit safe mode outside a TTY', () => {
@@ -145,6 +179,10 @@ test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
     assert.equal(config.authPath, path.join(EXPECTED_REPO_ROOT, 'state/naver-auth.json'));
     assert.equal(config.date, '2026-04-02');
     assert.equal(config.headless, false);
+    assert.equal(config.swipeDelayMs, 400);
+    assert.equal(config.maxRetries, 3);
+    assert.equal(config.expectedCategories, 32);
+    assert.equal(config.keywordsPerCategory, 20);
     assert.equal(config.apiHost, '0.0.0.0');
     assert.equal(config.apiPort, 9999);
     assert.equal(config.apiBaseUrl, 'http://127.0.0.1:9999');
@@ -162,6 +200,10 @@ test('resolveCollectorConfig falls back to repo cwd defaults', () => {
     assert.equal(config.naverId, '');
     assert.equal(config.date, '');
     assert.equal(config.headless, true);
+    assert.equal(config.swipeDelayMs, 400);
+    assert.equal(config.maxRetries, 3);
+    assert.equal(config.expectedCategories, 32);
+    assert.equal(config.keywordsPerCategory, 20);
     assert.equal(config.apiHost, '127.0.0.1');
     assert.equal(config.apiPort, 4581);
     assert.equal(config.apiBaseUrl, 'http://127.0.0.1:4581');
@@ -193,6 +235,35 @@ test('resolveCollectorConfig prefers cli date over env date', () => {
     });
 
     assert.equal(config.date, '2026-04-02');
+});
+
+test('resolveCollectorConfig accepts CLI tuning overrides over environment defaults', () => {
+    const config = resolveCollectorConfig({
+        TRENDS_SWIPE_DELAY_MS: '1200',
+        TRENDS_MAX_RETRIES: '5',
+        TRENDS_EXPECTED_CATEGORIES: '31',
+        TRENDS_KEYWORDS_PER_CATEGORY: '18'
+    }, {
+        headless: false,
+        swipeDelayMs: 800,
+        maxRetries: 2,
+        expectedCategories: 32,
+        keywordsPerCategory: 20
+    });
+    assert.equal(config.headless, false);
+    assert.equal(config.swipeDelayMs, 800);
+    assert.equal(config.maxRetries, 2);
+    assert.equal(config.expectedCategories, 32);
+    assert.equal(config.keywordsPerCategory, 20);
+    assert.throws(() => resolveCollectorConfig({ TRENDS_MAX_RETRIES: 'invalid' }), /TRENDS_MAX_RETRIES/);
+});
+
+test('analyzeCollectionCompleteness requires the configured category and keyword counts', () => {
+    const { analyzeCollectionCompleteness } = require('./collect');
+    const complete = Array.from({ length: 6 }, (_, index) => ({ category: 'A', keyword: `a${index}` }))
+        .concat(Array.from({ length: 6 }, (_, index) => ({ category: 'B', keyword: `b${index}` })));
+    assert.equal(analyzeCollectionCompleteness(complete, { expectedCategories: 2, keywordsPerCategory: 6 }).complete, true);
+    assert.equal(analyzeCollectionCompleteness(complete.slice(0, 11), { expectedCategories: 2, keywordsPerCategory: 6 }).complete, false);
 });
 
 test('verifyCollectorApiEnvironment accepts only the selected API environment', async (t) => {
@@ -271,6 +342,9 @@ test('interactive Production collection confirms and writes the same payload wit
         apiBaseUrl: 'https://trendapi.hangadac.com',
         apiToken: 'legacy-token-123',
         collector,
+        expectedCategories: 1,
+        keywordsPerCategory: 1,
+        maxRetries: 0,
         cliOptions: {},
         isTTY: true,
         confirmProduction: async (payload) => {
@@ -303,8 +377,11 @@ test('interactive Production cancellation never checks or writes the API', async
         apiBaseUrl: 'https://trendapi.hangadac.com',
         apiToken: 'legacy-token-123',
         collector: {
-            fetchTrends: async () => ({ date: '2026-08-29', keywords: [] })
+            fetchTrends: async () => ({ date: '2026-08-29', keywords: [{ category: '생활', keyword: '테스트' }] })
         },
+        expectedCategories: 1,
+        keywordsPerCategory: 1,
+        maxRetries: 0,
         cliOptions: {},
         isTTY: true,
         confirmProduction: async () => false,
@@ -313,4 +390,72 @@ test('interactive Production cancellation never checks or writes the API', async
 
     assert.equal(result.executionMode, 'interactive');
     assert.equal(result.apiResult.cancelled, true);
+});
+
+test('runCollector retries full scans and uses the complete scan in original order', async () => {
+    const complete = [
+        { category: 'A', keyword: 'a1' }, { category: 'A', keyword: 'a2' },
+        { category: 'B', keyword: 'b1' }, { category: 'B', keyword: 'b2' }
+    ];
+    let attempts = 0;
+    let capturedFetchOptions;
+    const result = await runCollector({
+        environment: 'local',
+        naverId: 'operator',
+        expectedCategories: 2,
+        keywordsPerCategory: 2,
+        maxRetries: 2,
+        printDryRunPayload: false,
+        collector: {
+            fetchTrends: async (fetchOptions) => {
+                attempts += 1;
+                capturedFetchOptions = fetchOptions;
+                return { date: '2026-08-29', keywords: attempts === 1 ? complete.slice(0, 1) : complete };
+            }
+        },
+        cliOptions: {
+            dryRun: true,
+            headless: false,
+            swipeDelayMs: 900,
+            maxRetries: 2,
+            expectedCategories: 2,
+            keywordsPerCategory: 2
+        },
+        logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+    });
+    assert.equal(attempts, 2);
+    assert.equal(capturedFetchOptions.headless, false);
+    assert.equal(capturedFetchOptions.swipeDelayMs, 900);
+    assert.equal(result.completeness.complete, true);
+    assert.deepEqual(result.payload.items.map(({ category, keyword }) => [category, keyword]), complete.map(({ category, keyword }) => [category, keyword]));
+});
+
+test('runCollector refuses to write incomplete collection after retries', async (t) => {
+    const originalGet = axios.get;
+    const originalPost = axios.post;
+    t.after(() => {
+        axios.get = originalGet;
+        axios.post = originalPost;
+    });
+    axios.get = async () => ({ data: { success: true, environment: 'development' } });
+    axios.post = async () => { throw new Error('incomplete data must never be posted'); };
+    let attempts = 0;
+    await assert.rejects(() => runCollector({
+        environment: 'development',
+        naverId: 'operator',
+        apiBaseUrl: 'https://trendapi-dev.example.com',
+        expectedCategories: 2,
+        keywordsPerCategory: 2,
+        maxRetries: 2,
+        collector: {
+            fetchTrends: async () => {
+                attempts += 1;
+                return { date: '2026-08-29', keywords: [{ category: 'A', keyword: `attempt-${attempts}` }] };
+            }
+        },
+        cliOptions: {},
+        isTTY: false,
+        logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+    }), /결과가 불완전하여 API 반영을 중단합니다/);
+    assert.equal(attempts, 3);
 });
