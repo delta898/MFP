@@ -97,9 +97,10 @@ function renderAccountOverview(overview, options = {}) {
   }
 
   const unlimited = usage.mode === 'unlimited' || Number(usage.limit) < 0 || Number(usage.remaining) < 0;
-  const used = Number.isFinite(Number(usage.used)) ? Number(usage.used) : null;
-  const limit = Number.isFinite(Number(usage.limit)) ? Number(usage.limit) : null;
-  const remaining = Number.isFinite(Number(usage.remaining)) ? Number(usage.remaining) : null;
+  const toKnownNumber = (value) => value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
+  const used = toKnownNumber(usage.used);
+  const limit = toKnownNumber(usage.limit);
+  const remaining = toKnownNumber(usage.remaining);
   const quotaCycle = String(usage.cycle || '').trim().toLowerCase();
   const usageLabel = quotaCycle === 'monthly'
     ? '이번 달 발행 사용량'
@@ -121,7 +122,7 @@ function renderAccountOverview(overview, options = {}) {
 
   const creditBalance = Number.isFinite(Number(usage.credit_balance)) ? Math.max(0, Number(usage.credit_balance)) : 0;
   const totalAvailable = Number.isFinite(Number(usage.total_available)) ? Number(usage.total_available) : null;
-  setText('account-credit-balance', `${creditBalance}회`);
+  setText('account-credit-balance', usage.credit_balance == null ? '-' : `${creditBalance}회`);
   setText('account-total-available', unlimited ? '무제한' : (totalAvailable == null ? '-' : `${Math.max(0, totalAvailable)}회`));
   const basicAvailableLabel = unlimited ? '무제한' : (remaining == null ? '-' : `${Math.max(0, remaining)}회`);
   const creditAvailableLabel = `${creditBalance}회`;

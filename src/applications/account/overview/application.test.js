@@ -117,6 +117,35 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
 });
 
+test('account overview leaves quota unknown when license status could not be verified', async () => {
+    const overview = await createService({
+        License: {
+            async checkLicenseStatus() {
+                return { success: false, code: 'LICENSE_NOT_ACTIVE', message: 'inactive' };
+            },
+            async getSmartUsageStatus() {
+                return { success: false, items: [] };
+            }
+        }
+    }).getOverview();
+
+    assert.equal(overview.subscription.status, 'unavailable');
+    assert.deepEqual(overview.usage, {
+        mode: 'metered',
+        limit: null,
+        used: null,
+        remaining: null,
+        monthly_limit: null,
+        monthly_used: null,
+        monthly_remaining: null,
+        credit_balance: null,
+        total_available: null,
+        resets_at: '',
+        current_period_start_at: '',
+        cycle: 'none'
+    });
+});
+
 test('account overview receives trusted spreadsheet verification through its injected port', async () => {
     const service = createService({
         CONFIG: {

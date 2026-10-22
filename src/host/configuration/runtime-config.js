@@ -200,6 +200,9 @@ const resolvedLicenseKeyPath = licenseKeyInfo.path || licenseKeyStoragePaths.pri
 const productionLicenseEnvironmentOverride = runtimeEnvironmentProfile.environment === 'production'
     ? String(process.env.LICENSE_KEY || '').trim()
     : '';
+const licenseKeySource = productionLicenseEnvironmentOverride
+    ? 'environment_override'
+    : (licenseKeyInfo.value ? (licenseKeyInfo.migrated ? 'legacy_file_migrated' : 'local_file') : 'missing');
 
 const userSheetUrl = String(structuredConfig.general?.google_sheet_url || '').trim();
 const resolvedSheetId = extractGoogleSheetId(userSheetUrl, { allowForeignUrlHost: false });
@@ -258,6 +261,9 @@ const CONFIG = {
     LICENSE_KEY: productionLicenseEnvironmentOverride || licenseKeyInfo.value || '',
     LICENSE_KEY_FILE_PATH: resolvedLicenseKeyPath,
     LICENSE_KEY_USES_ENV_OVERRIDE: Boolean(productionLicenseEnvironmentOverride),
+    LICENSE_KEY_SOURCE: licenseKeySource,
+    LICENSE_KEY_LOCAL_PRESENT: [licenseKeyStoragePaths.primaryPath, ...licenseKeyStoragePaths.legacyPaths]
+        .some((filePath) => Boolean(filePath) && fs.existsSync(filePath)),
 
     // 🔧 [Flat Keys for Backward Compatibility]
     NAVER_ID: process.env.NAVER_ID || structuredConfig.platforms.naver.user_id,

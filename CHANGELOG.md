@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.0-dev9] - 2026-10-22
+
+### Fixed
+- 라이선스 상태를 확인하지 못한 경우 사용량이 `0회`로 오해되지 않도록 표시합니다.
+
 ## [0.7.0-dev8] - 2026-10-22
 
 ### Added

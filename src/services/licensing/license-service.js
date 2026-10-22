@@ -25,6 +25,16 @@ function createLicenseService(options = {}) {
         return str.length > 200 ? str.slice(0, 200) + '…' : str;
     }
 
+    function sanitizeDiagnosticMessage(msg, sensitiveValues = []) {
+        let value = String(msg || '').trim();
+        for (const secret of sensitiveValues) {
+            const normalizedSecret = String(secret || '').trim();
+            if (normalizedSecret) value = value.split(normalizedSecret).join('[redacted]');
+        }
+        value = value.replace(/(license(?:[_ -]?key)?|api[_ -]?key|token)\s*[:=]?\s*[A-Za-z0-9._-]{8,}/gi, '$1=[redacted]');
+        return sanitizeErrorMessage(value);
+    }
+
     function formatPlanLabel(planCode, planDisplayName) {
         const display = String(planDisplayName || '').trim();
         if (display) return display;
@@ -219,6 +229,8 @@ function createLicenseService(options = {}) {
     let ensureLicenseInitPromise = null;
     let lastInitFailureAt = 0;
     let lastInitFailureMessage = '';
+    let licenseKeyStateLogged = false;
+    let lastLicenseStatusLogFingerprint = '';
     const LICENSE_INIT_RETRY_COOLDOWN_MS = 30000;
 
     /**
@@ -234,6 +246,34 @@ function createLicenseService(options = {}) {
         return resolveLicenseKey(runtimeLicenseKey || getInitialLicenseKey());
     }
 
+    function logLicenseKeyState() {
+        if (licenseKeyStateLogged) return;
+        licenseKeyStateLogged = true;
+        const keyPresent = Boolean(getResolvedLicenseKey());
+        const diagnostics = typeof options.getLicenseKeyDiagnostics === 'function'
+            ? options.getLicenseKeyDiagnostics()
+            : (options.licenseKeyDiagnostics || {});
+        const source = String(diagnostics?.source || (keyPresent ? 'configured' : 'missing')).trim();
+        const localFilePresent = diagnostics?.localFilePresent === true;
+        Logger.info(`[License] key state: source=${source}, local_file_present=${localFilePresent}, key_present=${keyPresent}`);
+    }
+
+    function logLicenseStatusResult({ success, code = '', message = '', planCode = '' } = {}) {
+        const normalizedCode = String(code || (success ? 'LICENSE_ACTIVE' : 'LICENSE_STATUS_FAILED')).trim();
+        const hardwareId = getDiagnosticHardwareId();
+        const normalizedMessage = sanitizeDiagnosticMessage(message, [getResolvedLicenseKey(), hardwareId]);
+        const fingerprint = JSON.stringify([Boolean(success), normalizedCode, normalizedMessage, String(planCode || '')]);
+        if (fingerprint === lastLicenseStatusLogFingerprint) return;
+        lastLicenseStatusLogFingerprint = fingerprint;
+        const line = `[License] status check ${success ? 'succeeded' : 'failed'} (code=${normalizedCode}${planCode ? `, plan=${String(planCode).slice(0, 50)}` : ''}${normalizedMessage ? `, message=${normalizedMessage}` : ''})`;
+        if (success) Logger.info(line);
+        else Logger.warn(line);
+    }
+
+    function getDiagnosticHardwareId() {
+        try { return getHardwareId(); } catch (_ignore) { return ''; }
+    }
+
     function persistLicenseKeyFile(licenseKey) {
         try {
             if (options.licenseKeyUsesEnvironmentOverride) return true;
@@ -241,8 +281,7 @@ function createLicenseService(options = {}) {
                 Logger.warn('⚠️ 현재 실행 환경의 라이선스 저장 경로를 결정하지 못했습니다.');
                 return false;
             }
-            persistLicenseKey(licenseKey);
-            return true;
+            return persistLicenseKey(licenseKey) !== false;
         } catch (e) {
             Logger.warn('⚠️ 라이선스 정보를 로컬에 저장하지 못했습니다. 다음 실행에서 다시 인증이 필요할 수 있습니다.');
             return false;
@@ -250,6 +289,7 @@ function createLicenseService(options = {}) {
     }
 
     async function ensureLicenseKey(hwid) {
+        logLicenseKeyState();
         const current = getResolvedLicenseKey();
         if (current) {
             runtimeLicenseKey = current;
@@ -277,14 +317,28 @@ function createLicenseService(options = {}) {
         }
 
         ensureLicenseInitPromise = (async () => {
-            Logger.info('🔐 라이선스 초기화 중...');
-            const { data, error } = await licenseApi.issueTestLicense(hwid);
+            Logger.info(`🔐 라이선스 초기화 중... (local_file_present=${options.licenseKeyDiagnostics?.localFilePresent === true}, key_present=false)`);
+            let response;
+            try {
+                response = await licenseApi.issueTestLicense(hwid);
+            } catch (error) {
+                const failMessage = '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+                lastInitFailureAt = Date.now();
+                lastInitFailureMessage = failMessage;
+                const code = String(error?.code || error?.status || 'LICENSE_INIT_EXCEPTION');
+                const message = sanitizeDiagnosticMessage(error?.message, [hwid]);
+                Logger.error(`❌ [License] initialization exception (code=${code}${message ? `, message=${message}` : ''})`);
+                return { success: false, code, message: failMessage };
+            }
+            const { data, error } = response || {};
             if (error) {
                 const failMessage = '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.';
                 lastInitFailureAt = Date.now();
                 lastInitFailureMessage = failMessage;
-                Logger.error(`❌ 라이선스 초기화 실패: ${error.message}`);
-                return { success: false, message: failMessage };
+                const code = String(error.code || error.status || 'LICENSE_INIT_RPC_FAILED');
+                const message = sanitizeDiagnosticMessage(error.message, [hwid]);
+                Logger.error(`❌ [License] initialization failed (code=${code}${message ? `, message=${message}` : ''})`);
+                return { success: false, code, message: failMessage };
             }
 
             const issuedKey = String(data?.license_key || '').trim();
@@ -292,16 +346,19 @@ function createLicenseService(options = {}) {
                 const failMessage = data?.message || '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.';
                 lastInitFailureAt = Date.now();
                 lastInitFailureMessage = failMessage;
-                return { success: false, message: failMessage };
+                const code = String(data?.code || data?.error_code || 'LICENSE_INIT_REJECTED');
+                const message = sanitizeDiagnosticMessage(data?.message, [issuedKey, hwid]);
+                Logger.error(`❌ [License] initialization rejected (code=${code}${message ? `, message=${message}` : ''}, license_key_received=${Boolean(issuedKey)})`);
+                return { success: false, code, message: failMessage };
             }
 
             runtimeLicenseKey = issuedKey;
             lastInitFailureAt = 0;
             lastInitFailureMessage = '';
             if (persistLicenseKeyFile(issuedKey)) {
-                Logger.info('✅ 라이선스 초기화 완료');
+                Logger.info('✅ [License] initialization succeeded (license_key_received=true, persisted=true)');
             } else {
-                Logger.warn('⚠️ 라이선스 인증 정보 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+                Logger.warn('⚠️ [License] initialization succeeded (license_key_received=true, persisted=false)');
             }
 
             return { success: true, licenseKey: issuedKey };
@@ -752,6 +809,7 @@ function createLicenseService(options = {}) {
                 const hwid = getHardwareId();
                 const keyReady = await ensureLicenseKey(hwid);
                 if (!keyReady.success) {
+                    logLicenseStatusResult({ success: false, code: keyReady.code || 'LICENSE_KEY_UNAVAILABLE', message: keyReady.message });
                     return { success: false, message: keyReady.message };
                 }
                 const resolvedLicenseKey = keyReady.licenseKey;
@@ -768,8 +826,11 @@ function createLicenseService(options = {}) {
 
                 if (error) {
                     const msg = sanitizeErrorMessage(error.message);
-                    Logger.error(`❌ [License] 서버 통신 에러: ${msg} (${duration}ms)`);
-                    return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+                    const code = String(error.code || error.status || 'LICENSE_STATUS_RPC_FAILED');
+                    const diagnostic = sanitizeDiagnosticMessage(msg, [resolvedLicenseKey, hwid]);
+                    logLicenseStatusResult({ success: false, code, message: diagnostic });
+                    Logger.error(`❌ [License] status RPC failed (code=${code}, elapsed=${duration}ms)`);
+                    return { success: false, code, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
                 }
 
                 if (data && data.success) {
@@ -810,6 +871,8 @@ function createLicenseService(options = {}) {
                         features: featurePolicy.features
                     };
 
+                    logLicenseStatusResult({ success: true, code: data.code || 'LICENSE_ACTIVE', message: data.message, planCode: data.plan_code });
+
                     // 🚀 캐시 업데이트
                     licenseStatusCache.data = result;
                     licenseStatusCache.timestamp = Date.now();
@@ -820,9 +883,12 @@ function createLicenseService(options = {}) {
                     return result;
                 }
 
+                const failureCode = String(data?.code || data?.error_code || 'LICENSE_STATUS_REJECTED');
+                logLicenseStatusResult({ success: false, code: failureCode, message: data?.message, planCode: data?.plan_code });
                 Logger.debug(`[License] Pre-verification failed (${duration}ms)`);
                 return {
                     success: false,
+                    code: failureCode,
                     message: buildMessageWithPlan(data?.message || '라이선스 사전 검증 실패', data?.plan_code, data?.plan_display_name),
                     remaining: data?.remaining,
                     planCode: data?.plan_code,
@@ -837,8 +903,11 @@ function createLicenseService(options = {}) {
                     features: (data?.features && typeof data.features === 'object') ? data.features : {}
                 };
             } catch (e) {
-                Logger.error(`❌ [License] 사전 검증 모듈 에러: ${e.message} (${Date.now() - startTime}ms)`);
-                return { success: false, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+                const code = String(e?.code || 'LICENSE_STATUS_EXCEPTION');
+                const message = sanitizeDiagnosticMessage(e?.message, [getResolvedLicenseKey(), getDiagnosticHardwareId()]);
+                logLicenseStatusResult({ success: false, code, message });
+                Logger.error(`❌ [License] status check exception (code=${code}, elapsed=${Date.now() - startTime}ms)`);
+                return { success: false, code, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
             }
         },
 

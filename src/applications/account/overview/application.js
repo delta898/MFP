@@ -49,6 +49,22 @@ function buildFeatureItems(features = {}) {
 }
 
 function normalizeUsageReadModel(licenseStatus = {}) {
+    const hasUnverifiedLicenseContext = licenseStatus?.success !== true
+        && !String(licenseStatus?.planCode || '').trim()
+        && licenseStatus?.usageLimit == null
+        && licenseStatus?.usageCount == null
+        && licenseStatus?.remaining == null;
+    if (hasUnverifiedLicenseContext) {
+        return {
+            mode: 'metered',
+            limit: null,
+            used: null,
+            remaining: null,
+            creditBalance: null,
+            totalAvailable: null,
+            exhausted: false
+        };
+    }
     const rawLimit = Number(licenseStatus?.usageLimit);
     const rawUsed = Number(licenseStatus?.usageCount);
     const rawRemaining = Number(licenseStatus?.remaining);

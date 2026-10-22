@@ -27,6 +27,10 @@ function createLicensingRuntime(options = {}) {
         getHardwareId: machineIdentity,
         getInitialLicenseKey: () => config.LICENSE_KEY,
         licenseKeyUsesEnvironmentOverride: config.LICENSE_KEY_USES_ENV_OVERRIDE === true,
+        licenseKeyDiagnostics: {
+            source: config.LICENSE_KEY_SOURCE || (config.LICENSE_KEY ? 'configured' : 'missing'),
+            localFilePresent: config.LICENSE_KEY_LOCAL_PRESENT === true
+        },
         licenseKeyFilePath,
         persistLicenseKey: (licenseKey) => writeLicenseKey(licenseKeyFilePath, licenseKey, fs, path)
     });
