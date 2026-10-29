@@ -3,7 +3,7 @@
 - Branch: `fix/topic-recommendation-capability-action-id`
 - Base/parent branch: `dev`
 - Start date: 2026-10-29
-- Status: implemented; focused verification passed
+- Status: committed and reviewed; awaiting full-suite approval before merging into `dev`
 
 ## User need and goal
 
@@ -26,8 +26,11 @@ The UI adapter owns translation from the topic recommendation request to the sha
 - Added `action_id: 'content.idea.suggest'` to the UI-generated Agent action and added an assertion so the service contract cannot silently regress.
 - `NODE_PATH=/Users/delta898/Project/NaverAutoBlog/node_modules node --test src/adapters/ui/blog/topic-recommendations/service.test.js src/host/agent/contracts/action-schema.test.js` passed (8 tests).
 - `git diff --check` passed.
+- Implementation committed as `ed35b46a` (`fix: include capability ID in topic recommendations`).
+- Reviewed the complete branch diff against `dev`: 3 files, 35 insertions; no actionable findings.
+- The work now resides in the main project checkout on the fix branch. The duplicate untracked `collect_range.sh` was removed after confirming its contents match the tracked `dev` version.
 
 ## Decisions and remaining risks
 
-- The existing branch has unrelated uncommitted files, including an untracked `collect_range.sh` path that conflicts with `dev`. The fix is isolated in a separate worktree based on `dev` to preserve that work.
-- No commit, merge, push, or release is included in the current request.
+- Existing unrelated `.gitignore` and untracked files remain outside the fix commit.
+- No push or release is included in this work.
