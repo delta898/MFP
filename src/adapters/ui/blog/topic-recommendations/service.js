@@ -50,6 +50,7 @@ function createTopicRecommendationsService(options = {}) {
             schema_version: 1,
             actions: [{
                 id: `act_ui_topic_recommend_${messageId}`,
+                action_id: 'content.idea.suggest',
                 type: 'content.generate',
                 domain: 'content.idea',
                 name: 'suggest',

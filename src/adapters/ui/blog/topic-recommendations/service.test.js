@@ -21,6 +21,7 @@ test('추천 목록은 지능형 런타임을 호출하고 TTL 동안 재사용�
         agentRuntime: {
             async handleParsedEnvelope(envelope, context) {
                 runtimeCalls += 1;
+                assert.equal(envelope.actions[0].action_id, 'content.idea.suggest');
                 assert.equal(envelope.actions[0].domain, 'content.idea');
                 assert.equal(envelope.actions[0].params.query, '워드프레스');
                 assert.equal(context.channel, 'ui');
