@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.7.1] - 2026-10-29
+
+### Fixed
+- **글감 추천 오류 수정**: 추천 요청이 capability 검증에서 거부되어 글감을 불러오지 못하던 문제를 수정했습니다.
+
 ## [0.7.1-dev1] - 2026-10-29
 
 ### Fixed
