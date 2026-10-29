@@ -82,3 +82,4 @@ vault_example/
 .env.oauth.dev
 .env.oauth.prod
 .env.oauth.bak
+.dmux/
