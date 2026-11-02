@@ -5,7 +5,7 @@
 - Branch: `codex/newsletter-dev-workflow`
 - Start date: 2026-11-02
 - Base/parent branch: `feature/naver-trends-mailing-list`
-- Status: Collection readiness is committed; Development Worker CD is implemented locally; Dev migration and first hosted deployment remain operator actions
+- Status: Development collection readiness and Worker CD are implemented; Dev migration is applied; ready to merge into the parent feature branch. Hosted Worker deployment and end-to-end collection verification remain.
 
 ## User need and goal
 
@@ -52,6 +52,7 @@ Newsletter automation must be developed in Development before Production. The co
 - 2026-11-03: Added the post-ingest Collector signal, authenticated Trends API route, cross-Worker Workflow binding, single-pass readiness verification, and Dev-only Supabase state migration. Collection, edition, and delivery states are separate; collection RPC preserves edition/delivery fields.
 - 2026-11-03: Committed the collection-readiness implementation as `b3fdbf02` (`feat: add dev newsletter collection readiness workflow`); the untracked `credentials/` directory was excluded.
 - 2026-11-03: Added a GitHub Actions Dev Worker CI/CD workflow. Pushes to `codex/**` and PRs targeting this parent feature or `dev` validate both Workers with focused tests and Wrangler dry-runs; only a push to `dev` deploys, Workflow Worker first and Development Trends API Worker second. The deployment job uses the GitHub `development` environment and requires a scoped Cloudflare API token plus account ID.
+- 2026-11-03: The user applied `202611030001_trends_newsletter_run_state.sql` to the Development Supabase project (`bvtlwjbmjnfphxlrkzhm`). `supabase migration list` showed the local and remote versions aligned, and `supabase db push --dry-run` reported the project up to date.
 
 ## Verification and remaining work
 
@@ -59,7 +60,6 @@ Newsletter automation must be developed in Development before Production. The co
 - Wrangler dry-runs packaged both Workers successfully and showed the expected cross-Worker Workflow binding. Logs were directed to a writable temporary path.
 - Production collector signaling is explicitly skipped until Production rollout, so this Dev-only stage does not break existing Production collection.
 - `git diff --check` passed.
-- User must add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the GitHub `development` environment, merge this feature to `dev` when ready, then confirm the first successful CD run. No push or merge has occurred.
-- Apply the SQL migration to Dev Supabase as a separate reviewed operation; this workflow deliberately does not run `supabase db push` or deploy Edge Functions.
+- User must add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the GitHub `development` environment, merge the parent feature to `dev` when ready, then confirm the first successful CD run. This workflow deliberately does not run `supabase db push` or deploy Edge Functions.
 - After first hosted deployment and migration, run one day plus a range/repeat signal in Development. Production remains untouched.
-- No full repository suite, merge, push, or remote deployment is included.
+- No hosted Worker deployment or end-to-end collection run is included in this stage.
