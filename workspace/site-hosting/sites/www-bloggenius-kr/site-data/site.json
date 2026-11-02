@@ -1,0 +1,49 @@
+{
+  "displayName": "BlogGenius",
+  "seoDescription": "아이디어를 블로그와 카드뉴스 콘텐츠로 발전시키는 데스크톱 앱, BlogGenius.",
+  "searchEngineIndexing": true,
+  "navigation": [
+    {
+      "id": "home",
+      "label": "소개",
+      "path": "/"
+    },
+    {
+      "id": "features",
+      "label": "기능",
+      "path": "/features/"
+    },
+    {
+      "id": "download",
+      "label": "다운로드",
+      "path": "/download/"
+    },
+    {
+      "id": "trends",
+      "label": "트렌드",
+      "path": "/trends/"
+    },
+    {
+      "id": "guides",
+      "label": "가이드",
+      "path": "/guides/"
+    },
+    {
+      "id": "changelog",
+      "label": "변경내역",
+      "path": "/changelog/"
+    },
+    {
+      "id": "support",
+      "label": "지원",
+      "path": "/support/"
+    }
+  ],
+  "logo": "",
+  "shareImage": "",
+  "favicon": "",
+  "project": {
+    "tagline": "아이디어를 콘텐츠로, 더 쉽게.",
+    "introduction": "주제와 참고사항을 바탕으로 블로그와 카드뉴스 콘텐츠를 만들고, 검토해 게시하는 일을 돕는 데스크톱 앱입니다."
+  }
+}

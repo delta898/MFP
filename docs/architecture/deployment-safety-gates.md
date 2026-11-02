@@ -40,7 +40,9 @@ explicit target + operation
   -> ALLOWED or DENIED
 ```
 
-- `feature/*`는 `local`만 허용한다.
+- `feature/*`는 `local`과 `development`를 허용한다. 개발 기능은 feature branch에서
+  개발 Supabase에 적용하고 검증할 수 있다. Development target과 프로젝트 identity를 명시하고
+  preflight를 통과해야 한다. `feature/*`는 production을 허용하지 않는다.
 - `dev`는 `local`과 `development`만 허용한다.
 - `main`과 `release/*`만 production 후보가 된다.
 - detached HEAD와 분류되지 않은 branch는 local-only로 취급한다.
@@ -72,8 +74,8 @@ npm run env:preflight -- \
   --project-ref <DEVELOPMENT_PROJECT_REF>
 ```
 
-명시적 ref가 있으면 ambient link는 사용하지 않는다. 그렇더라도 branch 정책은 완화되지 않으므로
-development hosted operation은 `dev`에서만 허용된다.
+명시적 ref가 있으면 ambient link는 사용하지 않는다. feature branch는 이 명시적 개발 target을
+검증에 사용할 수 있지만 production ref는 허용되지 않는다.
 
 project ref가 없는 development Supabase는 `--supabase-url`로 configured HTTPS endpoint를 다시
 확인할 수 있다. 이 identity는 환경 제공자의 종류나 내부 배포 방식을 드러내지 않는다.
@@ -113,7 +115,8 @@ Stage 3의 공통 CLI는 안전 판단과 dry-run 출력을 제공한다. 실제
 판단을 호출한 뒤 명시적인 target으로만 명령을 구성한다.
 
 - Stage 4B: local migration/reset/seed command와 preflight 결합;
-- Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 외부 적용 인계;
+- Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 feature branch에서의
+  개발 환경 적용 및 검증;
 - Stage 6: CI drift check, production dry-run checklist, 별도 사용자 승인 절차.
 
 ## Immutable promotion artifact

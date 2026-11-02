@@ -1,0 +1,171 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { handleRequest } from './index.js';
+
+const origin = 'https://www.bloggenius.kr';
+const env = {
+    TRENDS_ENV: 'test',
+    SUPABASE_URL: 'https://supabase.example.test',
+    SUPABASE_SECRET_KEY: 'server-only-test-key',
+    TRENDS_PUBLIC_ALLOWED_ORIGINS: origin,
+    TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE: '60'
+};
+
+function makeRequest(path, { method = 'GET', originHeader = origin, ip = '203.0.113.10' } = {}) {
+    const headers = new Headers();
+    if (originHeader) headers.set('origin', originHeader);
+    if (ip) headers.set('cf-connecting-ip', ip);
+    return new Request(`https://trendapi.example.test${path}`, { method, headers });
+}
+
+function makeSubscriptionRequest(path, body, options = {}) {
+    const headers = new Headers({ 'content-type': 'application/json' });
+    if (options.originHeader !== '') headers.set('origin', options.originHeader || origin);
+    if (options.ip !== '') headers.set('cf-connecting-ip', options.ip || '203.0.113.11');
+    return new Request(`https://trendapi.example.test${path}`, { method: options.method || 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+test('public metadata is CORS-restricted and exposes only display metadata', async () => {
+    let upstreamCalls = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (_url, init) => {
+        upstreamCalls += 1;
+        assert.equal(init.method, 'POST');
+        return Response.json({ categories: ['IT·컴퓨터'], availableDates: ['2026-11-01'], dateRange: { min: '2026-11-01', max: '2026-11-01' }, sources: ['naver'], totalRows: 99 });
+    };
+    try {
+        const denied = await handleRequest(makeRequest('/api/v1/public/trends/meta', { originHeader: 'https://not-bloggenius.example' }), env);
+        assert.equal(denied.status, 403);
+        assert.equal(upstreamCalls, 0);
+
+        const preflight = await handleRequest(makeRequest('/api/v1/public/trends/meta', { method: 'OPTIONS' }), env);
+        assert.equal(preflight.status, 204);
+        assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+        assert.equal(upstreamCalls, 0);
+
+        const response = await handleRequest(makeRequest('/api/v1/public/trends/meta'), env);
+        const body = await response.json();
+        assert.equal(response.status, 200);
+        assert.deepEqual(body.categories, ['IT·컴퓨터']);
+        assert.deepEqual(body.availableDates, ['2026-11-01']);
+        assert.equal('sources' in body, false);
+        assert.equal('totalRows' in body, false);
+        assert.equal(response.headers.get('access-control-allow-origin'), origin);
+        assert.match(response.headers.get('cache-control'), /max-age=60/);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('public trend queries require one date and one to three categories, then apply a bounded read', async () => {
+    let requestedUrl = '';
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+        requestedUrl = String(url);
+        return Response.json([{ trend_date: '2026-11-01', category: 'IT·컴퓨터', keyword: 'AI 검색', change_raw: '▲ 42', change_type: 'up', change_amount: 42, display_order: 1 }]);
+    };
+    try {
+        const noDate = await handleRequest(makeRequest('/api/v1/public/trends?category=IT'), env);
+        assert.equal(noDate.status, 400);
+        const tooMany = await handleRequest(makeRequest('/api/v1/public/trends?trend_date=2026-11-01&category=a&category=b&category=c&category=d'), env);
+        assert.equal(tooMany.status, 400);
+        const unsafeFilter = await handleRequest(makeRequest('/api/v1/public/trends?trend_date=2026-11-01&category=a&source=internal'), env);
+        assert.equal(unsafeFilter.status, 400);
+
+        const response = await handleRequest(makeRequest('/api/v1/public/trends?trend_date=2026-11-01&category=IT%C2%B7%EC%BB%B4%ED%93%A8%ED%84%B0&category=%EB%A7%9B%EC%A7%91'), env);
+        const body = await response.json();
+        const upstream = new URL(requestedUrl);
+        assert.equal(response.status, 200);
+        assert.equal(body.count, 1);
+        assert.equal(body.items[0].keyword, 'AI 검색');
+        assert.equal(upstream.searchParams.get('trend_date'), 'eq.2026-11-01');
+        assert.equal(upstream.searchParams.get('source'), 'eq.naver_creator_advisor');
+        assert.match(upstream.searchParams.get('category'), /^in\./);
+        assert.equal(upstream.searchParams.get('limit'), '150');
+        assert.equal(response.headers.get('access-control-allow-origin'), origin);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('existing authenticated endpoint remains protected', async () => {
+    const response = await handleRequest(makeRequest('/api/v1/trends/meta'), env);
+    assert.equal(response.status, 401);
+});
+
+test('newsletter signup forwards only validated consented values through the private function token', async () => {
+    const integrationEnv = {
+        ...env,
+        TRENDS_NEWSLETTER_FUNCTION_URL: 'https://demo-project.supabase.co/functions/v1/trends-mailing-list',
+        TRENDS_NEWSLETTER_WORKER_TOKEN: 'private-worker-function-token',
+    };
+    const originalFetch = globalThis.fetch;
+    let forwarded;
+    globalThis.fetch = async (url, init) => {
+        forwarded = { url: String(url), init };
+        return Response.json({ success: true, message: 'pending' });
+    };
+    try {
+        const bad = await handleRequest(makeSubscriptionRequest('/api/v1/public/subscriptions', {
+            email: 'person@example.com', categories: [], consent: true,
+        }), integrationEnv);
+        assert.equal(bad.status, 400);
+        assert.equal(forwarded, undefined);
+
+        const unknownCategory = await handleRequest(makeSubscriptionRequest('/api/v1/public/subscriptions', {
+            email: 'person@example.com', categories: ['not-a-naver-category'], consent: true,
+        }, { ip: '203.0.113.13' }), integrationEnv);
+        assert.equal(unknownCategory.status, 400);
+        assert.equal(forwarded, undefined);
+
+        const response = await handleRequest(makeSubscriptionRequest('/api/v1/public/subscriptions', {
+            email: 'Person@Example.com', categories: ['IT·컴퓨터', '게임'], consent: true,
+        }), integrationEnv);
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('access-control-allow-origin'), origin);
+        assert.match(response.headers.get('access-control-allow-methods'), /POST/);
+        assert.equal(forwarded.url, integrationEnv.TRENDS_NEWSLETTER_FUNCTION_URL);
+        assert.equal(forwarded.init.headers.authorization, 'Bearer private-worker-function-token');
+        assert.deepEqual(JSON.parse(forwarded.init.body), {
+            action: 'subscribe', email: 'person@example.com', categories: ['IT·컴퓨터', '게임'], consent: true,
+        });
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('newsletter routes reject untrusted origins and fail closed when backend secrets are absent', async () => {
+    const denied = await handleRequest(makeSubscriptionRequest('/api/v1/public/subscriptions', {}, { originHeader: 'https://attacker.example' }), env);
+    assert.equal(denied.status, 403);
+
+    const missingConfig = await handleRequest(makeSubscriptionRequest('/api/v1/public/subscriptions', {
+        email: 'person@example.com', categories: ['게임'], consent: true,
+    }, { ip: '203.0.113.12' }), env);
+    assert.equal(missingConfig.status, 503);
+});
+
+test('confirmation and unsubscribe tokens are forwarded to their matching lifecycle actions', async () => {
+    const integrationEnv = {
+        ...env,
+        TRENDS_NEWSLETTER_FUNCTION_URL: 'https://demo-project.supabase.co/functions/v1/trends-mailing-list',
+        TRENDS_NEWSLETTER_WORKER_TOKEN: 'private-worker-function-token',
+    };
+    const originalFetch = globalThis.fetch;
+    const actions = [];
+    globalThis.fetch = async (_url, init) => {
+        actions.push(JSON.parse(init.body));
+        return Response.json({ success: true, message: 'ok' });
+    };
+    try {
+        for (const [path, action, ip] of [
+            ['/api/v1/public/subscriptions/confirm', 'confirm', '203.0.113.21'],
+            ['/api/v1/public/subscriptions/unsubscribe', 'unsubscribe', '203.0.113.22'],
+        ]) {
+            const response = await handleRequest(makeSubscriptionRequest(path, { token: 'x'.repeat(43) }, { ip }), integrationEnv);
+            assert.equal(response.status, 200);
+        }
+        assert.deepEqual(actions, [{ action: 'confirm', token: 'x'.repeat(43) }, { action: 'unsubscribe', token: 'x'.repeat(43) }]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});

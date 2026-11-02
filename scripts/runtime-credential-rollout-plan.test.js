@@ -45,7 +45,7 @@ test('runtime credential rollout manifest owns exact migration and Function inpu
     ]);
 });
 
-test('feature branch can inspect rollout but only dev can become ready', () => {
+test('feature branch can prepare the development rollout without executing it', () => {
     const featurePlan = buildRolloutPlan({
         repoRoot: REPO_ROOT,
         env: READY_ENV,
@@ -53,8 +53,9 @@ test('feature branch can inspect rollout but only dev can become ready', () => {
     });
     const devPlan = buildRolloutPlan({ repoRoot: REPO_ROOT, env: READY_ENV, branch: 'dev' });
 
-    assert.equal(featurePlan.allowed, false);
-    assert.ok(featurePlan.preflights.every((item) => item.reasons.includes('branch_target_denied')));
+    assert.equal(featurePlan.allowed, true);
+    assert.ok(featurePlan.preflights.every((item) => item.allowed));
+    assert.equal(featurePlan.remoteMutationsExecuted, false);
     assert.equal(devPlan.allowed, true);
     assert.equal(devPlan.remoteMutationsExecuted, false);
     assert.equal(devPlan.productionMutationAllowed, false);

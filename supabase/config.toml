@@ -1,11 +1,14 @@
 [api]
-schemas = ["public", "graphql_public", "trends"]
+schemas = ["public", "graphql_public", "trends", "mailing"]
 extra_search_path = ["public", "extensions", "trends"]
 
 [analytics]
 enabled = false
 
 [functions.send-license-code]
+verify_jwt = false
+
+[functions.trends-mailing-list]
 verify_jwt = false
 
 [functions.issue-trends-access-token]

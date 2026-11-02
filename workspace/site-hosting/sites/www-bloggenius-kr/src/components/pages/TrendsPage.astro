@@ -1,0 +1,226 @@
+---
+const categories = [
+  'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
+  '맛집', '문학·책', '미술·디자인', '반려동물', '방송', '비즈니스·경제', '사진', '사회·정치',
+  '상품리뷰', '세계여행', '스타·연예인', '스포츠', '어학·외국어', '영화', '요리·레시피', '원예·재배',
+  '육아·결혼', '음악', '인테리어·DIY', '일상·생각', '자동차', '좋은글·이미지', '취미', '패션·미용',
+];
+const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'https://trendapi.hangadac.com').replace(/\/+$/, '');
+---
+<main class="page-main wrap trends-page trends-page-content">
+  <nav class="trends-section-nav" aria-label="트렌드 하위 메뉴"><a href="/trends/" aria-current="page">트렌드 조회</a><a href="/trends/subscribe/">트렌드 구독</a></nav>
+  <section class="page-intro trends-intro">
+    <p class="eyebrow"><span class="eyebrow-dot"></span> NAVER CREATOR ADVISOR</p>
+    <h1>오늘의 흐름을 읽고,<br /><em>다음 콘텐츠를 발견하세요.</em></h1>
+    <p class="page-lede">네이버 크리에이터 어드바이저 트렌드를 날짜와 관심 카테고리별로 살펴보세요.</p>
+  </section>
+
+  <section class="trends-panel" aria-labelledby="trends-panel-title" data-trends-explorer data-api-base={trendsApiBaseUrl}>
+    <div class="trends-panel-heading">
+      <div><p class="eyebrow">TREND EXPLORER</p><h2 id="trends-panel-title">관심 있는 주제를 골라보세요</h2><p>카테고리와 날짜를 선택해 트렌드 키워드를 확인합니다.</p></div>
+      <span class="trends-freshness"><i></i> 매일 업데이트</span>
+    </div>
+    <div class="trends-controls">
+      <label class="trends-date">조회 날짜<input type="date" data-trends-date disabled /></label>
+      <div class="trends-category-heading"><span>카테고리</span><small>최대 3개 선택</small></div>
+      <div class="trends-category-list" data-category-picker data-max="3" aria-label="트렌드 카테고리">
+        {categories.map((category, index) => <button class:list={['trend-chip', index === 0 && 'is-selected']} type="button" aria-pressed={index === 0 ? 'true' : 'false'}>{category}</button>)}
+      </div>
+      <p class="category-selection-status" data-selection-status aria-live="polite">1개 선택 · 최대 3개</p>
+      <div class="trends-search-actions">
+        <p class="trends-ui-note" data-trends-status aria-live="polite">최신 트렌드 날짜를 확인하고 있습니다.</p>
+        <button class="button button-primary trends-search" type="button" data-trends-search disabled>트렌드 불러오는 중</button>
+      </div>
+    </div>
+    <div class="trends-results" aria-live="polite">
+      <div class="trends-results-heading"><div><span class="mini-label">PREVIEW</span><h3>키워드 미리보기</h3></div><span class="preview-badge">예시 화면</span></div>
+      <div class="trends-results-body" data-trends-results aria-live="polite" aria-busy="true"><div class="trends-empty"><span class="trends-empty-icon">↗</span><strong>트렌드 정보를 불러오고 있습니다.</strong><p>잠시만 기다려 주세요.</p></div></div>
+    </div>
+  </section>
+
+  <section class="trends-subscribe-cta">
+    <div class="subscribe-cta-mark" aria-hidden="true">✳</div>
+    <div><p class="eyebrow">A DAILY NOTE FOR YOUR IDEAS</p><h2>매일 확인하기 어렵다면,<br /><em>관심 트렌드를 메일로 받아보세요.</em></h2><p>원하는 카테고리를 선택하면 아침마다 새로운 흐름을 전해드릴게요.</p></div>
+    <a class="button button-primary" href="/trends/subscribe/">트렌드 구독 신청 <span aria-hidden="true">↗</span></a>
+  </section>
+</main>
+<script>
+  document.querySelectorAll('[data-category-picker]').forEach((picker) => {
+    const limit = Number(picker.getAttribute('data-max')) || 3;
+    const status = picker.parentElement?.querySelector('[data-selection-status]');
+    picker.querySelectorAll('.trend-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const selected = chip.classList.contains('is-selected');
+        const count = picker.querySelectorAll('.trend-chip.is-selected').length;
+        if (!selected && count >= limit) {
+          if (status) status.textContent = `최대 ${limit}개까지 선택할 수 있습니다.`;
+          return;
+        }
+        chip.classList.toggle('is-selected', !selected);
+        chip.setAttribute('aria-pressed', String(!selected));
+        const nextCount = picker.querySelectorAll('.trend-chip.is-selected').length;
+        if (status) status.textContent = `${nextCount}개 선택 · 최대 ${limit}개`;
+      });
+    });
+  });
+  const explorer = document.querySelector('[data-trends-explorer]');
+  if (explorer) {
+    let apiBase = explorer.getAttribute('data-api-base') || '';
+    const picker = explorer.querySelector('[data-category-picker]');
+    const dateInput = explorer.querySelector('[data-trends-date]');
+    const searchButton = explorer.querySelector('[data-trends-search]');
+    const status = explorer.querySelector('[data-trends-status]');
+    const results = explorer.querySelector('[data-trends-results]');
+    let metadataReady = false;
+    let availableCategories = new Set();
+
+    const showState = (title, detail, icon = '↗') => {
+      results.replaceChildren();
+      const state = document.createElement('div');
+      state.className = 'trends-empty';
+      const mark = document.createElement('span');
+      mark.className = 'trends-empty-icon';
+      mark.textContent = icon;
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      const message = document.createElement('p');
+      message.textContent = detail;
+      state.append(mark, heading, message);
+      results.append(state);
+    };
+
+    const loadMetadata = async () => {
+      searchButton.disabled = true;
+      searchButton.textContent = '트렌드 불러오는 중';
+      status.textContent = '최신 트렌드 날짜를 확인하고 있습니다.';
+      results.setAttribute('aria-busy', 'true');
+      showState('트렌드 정보를 불러오고 있습니다.', '잠시만 기다려 주세요.', '…');
+      try {
+        const response = await fetch(`${apiBase}/api/v1/public/trends/meta`, { signal: AbortSignal.timeout(12000) });
+        if (!response.ok) throw new Error('metadata_unavailable');
+        const payload = await response.json();
+        const dates = Array.isArray(payload.availableDates) ? payload.availableDates.filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)).sort().reverse() : [];
+        availableCategories = new Set(Array.isArray(payload.categories) ? payload.categories : []);
+        if (!dates.length || !availableCategories.size) {
+          metadataReady = false;
+          dateInput.disabled = true;
+          searchButton.disabled = true;
+          searchButton.textContent = '트렌드 조회';
+          status.textContent = '아직 수집된 트렌드 데이터가 없습니다.';
+          results.setAttribute('aria-busy', 'false');
+          showState('아직 수집된 트렌드가 없어요.', '새로운 데이터가 준비되면 이곳에서 확인할 수 있습니다.');
+          return;
+        }
+        dateInput.min = payload.dateRange?.min || dates.at(-1);
+        dateInput.max = payload.dateRange?.max || dates[0];
+        dateInput.value = dates[0];
+        dateInput.disabled = false;
+        const selected = [...picker.querySelectorAll('.trend-chip.is-selected')];
+        const validSelected = selected.filter((chip) => availableCategories.has(chip.textContent.trim()));
+        selected.filter((chip) => !availableCategories.has(chip.textContent.trim())).forEach((chip) => chip.classList.remove('is-selected'));
+        if (!validSelected.length) {
+          picker.querySelectorAll('.trend-chip').forEach((chip) => chip.classList.remove('is-selected'));
+          const firstAvailable = [...picker.querySelectorAll('.trend-chip')].find((chip) => availableCategories.has(chip.textContent.trim()));
+          firstAvailable?.classList.add('is-selected');
+        }
+        picker.querySelectorAll('.trend-chip').forEach((chip) => {
+          const isAvailable = availableCategories.has(chip.textContent.trim());
+          chip.disabled = !isAvailable;
+          chip.setAttribute('aria-pressed', String(chip.classList.contains('is-selected')));
+        });
+        const count = picker.querySelectorAll('.trend-chip.is-selected').length;
+        const selectionStatus = picker.parentElement?.querySelector('[data-selection-status]');
+        if (selectionStatus) selectionStatus.textContent = `${count}개 선택 · 최대 3개`;
+        metadataReady = true;
+        searchButton.disabled = false;
+        searchButton.textContent = '트렌드 조회 →';
+        status.textContent = `최신 데이터 ${dates[0]} 기준`;
+        results.setAttribute('aria-busy', 'false');
+        showState('관심 카테고리를 선택해 보세요.', '날짜와 카테고리를 선택한 뒤 트렌드 조회를 눌러 주세요.');
+      } catch (_error) {
+        metadataReady = false;
+        dateInput.disabled = true;
+        searchButton.disabled = false;
+        searchButton.textContent = '다시 시도';
+        status.textContent = '트렌드 데이터에 연결하지 못했습니다.';
+        results.setAttribute('aria-busy', 'false');
+        showState('트렌드를 불러오지 못했어요.', '잠시 후 다시 시도해 주세요.');
+      }
+    };
+
+    const loadTrends = async () => {
+      if (!metadataReady) return loadMetadata();
+      const selected = [...picker.querySelectorAll('.trend-chip.is-selected')].map((chip) => chip.textContent.trim());
+      if (!selected.length) {
+        status.textContent = '카테고리를 1개 이상 선택해 주세요.';
+        return;
+      }
+      if (!dateInput.value) {
+        status.textContent = '조회 날짜를 선택해 주세요.';
+        return;
+      }
+      const query = new URLSearchParams({ trend_date: dateInput.value });
+      selected.forEach((category) => query.append('category', category));
+      searchButton.disabled = true;
+      status.textContent = `${dateInput.value} 트렌드를 조회하고 있습니다.`;
+      results.setAttribute('aria-busy', 'true');
+      showState('선택한 카테고리의 트렌드를 찾고 있습니다.', '잠시만 기다려 주세요.', '…');
+      try {
+        const response = await fetch(`${apiBase}/api/v1/public/trends?${query}`, { signal: AbortSignal.timeout(12000) });
+        if (!response.ok) throw new Error('trends_unavailable');
+        const payload = await response.json();
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        results.replaceChildren();
+        results.setAttribute('aria-busy', 'false');
+        if (!items.length) {
+          showState('이 날짜에는 결과가 없습니다.', '다른 날짜나 카테고리를 선택해 보세요.');
+        } else {
+          const heading = document.createElement('div');
+          heading.className = 'trends-results-heading';
+          const headingText = document.createElement('div');
+          const label = document.createElement('span');
+          label.className = 'mini-label';
+          label.textContent = dateInput.value;
+          const countTitle = document.createElement('h3');
+          countTitle.textContent = `트렌드 키워드 ${items.length}개`;
+          headingText.append(label, countTitle);
+          heading.append(headingText);
+          const list = document.createElement('div');
+          list.className = 'trend-result-list';
+          list.setAttribute('role', 'list');
+          items.forEach((item) => {
+            const row = document.createElement('article');
+            row.className = 'trend-result-item';
+            row.setAttribute('role', 'listitem');
+            const meta = document.createElement('div');
+            meta.className = 'trend-result-meta';
+            const category = document.createElement('span');
+            category.className = 'trend-result-category';
+            category.textContent = item.category || '';
+            const change = document.createElement('span');
+            const type = String(item.change_type || '').toLowerCase();
+            change.className = `trend-result-change is-${['up', 'down', 'new', 'steady'].includes(type) ? type : 'steady'}`;
+            change.textContent = item.change_raw || (type === 'new' ? '신규' : type === 'up' ? '상승' : type === 'down' ? '하락' : '유지');
+            meta.append(category, change);
+            const keyword = document.createElement('h4');
+            keyword.textContent = item.keyword || '';
+            row.append(meta, keyword);
+            list.append(row);
+          });
+          results.append(heading, list);
+        }
+        searchButton.textContent = '다시 조회 →';
+        status.textContent = `${dateInput.value} · ${items.length}개 키워드`;
+      } catch (_error) {
+        results.setAttribute('aria-busy', 'false');
+        showState('조회에 실패했어요.', '연결 상태를 확인한 뒤 다시 조회해 주세요.');
+        status.textContent = '트렌드 조회 중 문제가 발생했습니다.';
+      } finally {
+        searchButton.disabled = false;
+      }
+    };
+
+    searchButton.addEventListener('click', loadTrends);
+    loadMetadata();
+  }
+</script>

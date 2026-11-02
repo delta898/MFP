@@ -1,0 +1,47 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { siteData } from '../lib/site.ts';
+---
+<SiteLayout title="좋은 생각, 콘텐츠가 되는 일은 더 쉬워야 하니까" activeId="home">
+  <main class="home-page">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-dot"></span> YOUR SMART BLOG ASSISTANT</p>
+        <h1>좋은 생각,<br /><em>콘텐츠가 되는 일은</em><br />더 쉬워야 하니까.</h1>
+        <p class="hero-lede">{siteData.project.introduction}</p>
+        <div class="button-row">
+          <a class="button button-primary" href="/download/">BlogGenius 다운로드 <span aria-hidden="true">↗</span></a>
+          <a class="button button-quiet" href="/features/">기능 둘러보기 <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="hero-note">당신의 경험과 생각을 바탕으로, AI와 함께 만드는 콘텐츠</p>
+      </div>
+      <div class="hero-art" aria-label="아이디어가 블로그와 카드뉴스로 발전하는 콘텐츠 작업대" role="img">
+        <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+        <div class="idea-card"><span class="mini-label">YOUR IDEA</span><strong>이번 주말,<br />어디로 떠나볼까?</strong><span class="idea-tag">글감 메모 <i>✳</i></span></div>
+        <div class="flow-arrow" aria-hidden="true">↘</div>
+        <div class="output-card article-output"><span class="mini-label">BLOG ARTICLE</span><span class="article-lines"><i></i><i></i><i></i></span><strong>마음을 쉬게 하는<br />작은 여행</strong><span class="output-foot">읽히는 이야기로</span></div>
+        <div class="output-card social-output"><span class="mini-label">CARD NEWS</span><span class="social-symbol">✳</span><strong>좋은 여행을<br />만드는 세 가지</strong><span class="output-foot">01 / 05</span></div>
+        <span class="spark spark-a">✦</span><span class="spark spark-b">✳</span>
+      </div>
+    </section>
+    <section class="section section-soft">
+      <div class="wrap story-grid">
+        <div><p class="eyebrow">01 · FROM THOUGHT TO CONTENT</p><h2>빈 페이지 앞에서 막막한 시간을 줄이고,<br /><em>당신의 생각에 집중하도록.</em></h2></div>
+        <p class="section-copy">무엇을 쓸지 떠올렸는데 첫 문장을 시작하기 어려울 때, 블로그 하나를 카드뉴스까지 확장하고 싶을 때. BlogGenius는 주제와 참고사항을 출발점으로 삼아 생각을 읽히는 콘텐츠로 발전시키는 과정을 돕습니다.</p>
+      </div>
+    </section>
+    <section class="section wrap">
+      <div class="section-heading"><p class="eyebrow">02 · A SIMPLE WORKFLOW</p><h2>당신의 생각에서 콘텐츠가 나오기까지.</h2><p>복잡한 제작 과정을 작고 분명한 단계로.</p></div>
+      <div class="step-grid">
+        <article class="step-card"><span>01</span><div class="step-icon">✳</div><h3>글감을 건네요</h3><p>만들고 싶은 주제와 참고사항, 꼭 담고 싶은 관점을 적어요.</p><small>YOUR IDEA</small></article>
+        <article class="step-card"><span>02</span><div class="step-icon">✎</div><h3>AI와 함께 발전시켜요</h3><p>입력한 맥락을 바탕으로 블로그와 카드뉴스 콘텐츠를 만들어요.</p><small>AI ASSIST</small></article>
+        <article class="step-card"><span>03</span><div class="step-icon">↗</div><h3>검토하고 게시해요</h3><p>결과를 살펴보고 다듬은 뒤 나만의 콘텐츠로 완성해요.</p><small>READY TO SHARE</small></article>
+      </div>
+    </section>
+    <section class="section format-section">
+      <div class="wrap format-layout"><div><p class="eyebrow">03 · ONE IDEA, MORE WAYS</p><h2>하나의 글감,<br /><em>다양한 콘텐츠.</em></h2><p class="section-copy">하나의 아이디어를 블로그 글로 깊이 있게 풀고, 핵심을 카드뉴스로 나눠보세요. 만들고 싶은 형식에 맞춰 콘텐츠의 가능성을 넓혀갑니다.</p><a class="text-link" href="/features/">기능 자세히 보기 <span>↗</span></a></div><div class="format-art"><div class="format-source"><small>ONE TOPIC</small><strong>하나의 아이디어</strong><span>생각을 담아 보내면</span></div><div class="format-branch">↙　↘</div><div class="format-output"><article><small>BLOG ARTICLE</small><strong>생각을 콘텐츠로<br />이어가는 작은 습관</strong></article><article><small>CARD NEWS</small><strong>좋은 생각을 놓치지 않는<br />세 가지 방법</strong></article></div></div></div>
+    </section>
+    <section class="section wrap audience-section"><div class="section-heading"><p class="eyebrow">04 · MADE FOR YOUR MOMENTS</p><h2>이런 순간에 함께할게요.</h2><p>개인 크리에이터부터 마케팅·콘텐츠 팀까지,<br />각자의 방식으로 콘텐츠를 만드는 사람들을 위해.</p></div><div class="moment-list"><article><span>01</span><p>쓸 이야기는 있지만<br /><strong>글의 시작이 막막할 때</strong></p><span>↗</span></article><article><span>02</span><p>콘텐츠를 꾸준히 만들고 싶은데<br /><strong>매번 시간이 부족할 때</strong></p><span>↗</span></article><article><span>03</span><p>하나의 주제를 여러 형식으로<br /><strong>알기 쉽게 전하고 싶을 때</strong></p><span>↗</span></article></div></section>
+    <section class="closing-cta"><div class="wrap closing-inner"><p class="eyebrow">YOUR NEXT GOOD IDEA STARTS HERE</p><h2>다음 글감은 무엇인가요?</h2><p>아이디어가 콘텐츠가 되는 과정을 더 가볍게.</p><a class="button button-light" href="/download/">BlogGenius 시작하기 <span>↗</span></a></div></section>
+  </main>
+</SiteLayout>

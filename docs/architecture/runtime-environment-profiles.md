@@ -4,7 +4,7 @@
 
 BlogGenius selects one explicit runtime environment before creating any desktop Supabase client. Missing or invalid configuration disables Supabase-backed capabilities instead of falling back to production.
 
-The environment boundary does not choose a Git branch, deploy a project, or authorize production. Branch/target authorization belongs to the target-aware deployment guard planned for Stage 3.
+The environment boundary does not choose a Git branch or authorize production. Site Hosting uses the selected runtime environment to choose its static-site build configuration and Cloudflare Worker target; this is an application-specific routing rule, not a general deployment authorization. Other deployment targets still require their own explicit target-aware guard.
 
 ## Canonical environments
 

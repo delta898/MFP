@@ -11,6 +11,93 @@ This document covers:
 
 This document does not replace the structural contracts in [trends-backend.md](/Users/delta898/Project/NaverAutoBlog/docs/architecture/trends-backend.md). It narrows those contracts into the currently agreed server operation model.
 
+## Newsletter Signup Deployment and Verification
+
+The newsletter signup lifecycle runs through the same Trends Worker as the
+authenticated trends API, but on separate public paths. The browser calls the
+Worker without a Trends API token. The Worker validates the request and uses a
+private shared token when it calls the environment-matched Supabase Edge
+Function. Keep all settings environment-specific; never point a Development
+Worker at Production Supabase or use the Production Brevo allowlist/mode for a
+Development test.
+
+| Component | Development | Production |
+| --- | --- | --- |
+| Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` |
+| Trends Worker | `https://trendapi-dev.hangadac.com` | `https://trendapi.hangadac.com` |
+| Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` |
+| Edge Function | `/functions/v1/trends-mailing-list` in the matching project | Same path in the matching project |
+| Email policy | `NEWSLETTER_EMAIL_MODE=allowlist`, plus the test recipient in `NEWSLETTER_EMAIL_ALLOWLIST` | `NEWSLETTER_EMAIL_MODE=live` only after Production approval |
+
+Before enabling the website form in an environment, check these dependencies
+in order:
+
+1. **Database:** apply `supabase/migrations/202611020001_trends_mailing_list.sql`
+   to the intended Supabase project. The migration creates the private
+   `mailing` schema, subscriber table, and RPCs. Expose `mailing` in the
+   project's **Integrations → Data API → Settings → Exposed schemas** so
+   PostgREST can route RPC requests. Exposing the schema does not grant
+   `anon`/`authenticated` table access; the migration revokes direct access
+   and grants the RPC execution path to `service_role`.
+2. **Edge Function:** deploy `trends-mailing-list` to the same project. Set
+   that project's own `TRENDS_NEWSLETTER_WORKER_TOKEN`, Supabase server key,
+   `BREVO_API_KEY` (Brevo **API key**, not SMTP key),
+   `NEWSLETTER_EMAIL_FROM`, `BLOGGENIUS_ENV`, `NEWSLETTER_EMAIL_MODE`, and
+   environment-matched `NEWSLETTER_CONFIRMATION_URL`. Development also needs
+   `NEWSLETTER_EMAIL_ALLOWLIST` containing the intended test address.
+3. **Brevo network access:** if the Supabase Edge Function sends through a
+   Brevo account with IP access restrictions, authorize the current egress
+   IP/address shown by Brevo's security failure before retrying. A Brevo
+   `401` can be caused by this IP restriction even when the API key is
+   correct. Do not rotate a valid API key as the first response to an IP
+   verification failure.
+4. **Worker:** set `TRENDS_NEWSLETTER_FUNCTION_URL` to the matching project's
+   Edge Function URL and set `TRENDS_NEWSLETTER_WORKER_TOKEN` to the same
+   random raw token stored in that project's Edge Function secret. Keep the
+   shared token private; if exposed, replace it in both locations. Deploy the
+   Worker environment after code changes. Setting a secret and deploying site
+   assets are separate operations.
+5. **Site:** build/deploy the static site with the matching runtime profile.
+   Development uses `./run_dev.sh` and the `www-dev` hostname. The form calls
+   the Development Worker base URL embedded in the generated HTML.
+6. **End-to-end check:** submit an address permitted by the environment's mail
+   policy, confirm the email arrives, click the confirmation link and verify
+   the row becomes `active`, then use unsubscribe and verify the row becomes
+   `unsubscribed`. Check Worker, Edge Function, PostgREST, and Brevo logs by
+   timestamp when a step fails. Do not repeatedly submit while an earlier
+   request may have created a `pending` row; a new request rotates its action
+   tokens.
+
+### Failure signatures observed during Development validation
+
+- Supabase RPC returns `406` with PostgREST `PGRST106` for
+  `/rest/v1/rpc/request_trends_subscription`: `mailing` is not in the project's
+  exposed Data API schemas. Add it under Integrations → Data API → Settings;
+  reapplying the migration or redeploying the Function does not fix this
+  project-level API setting.
+- RPC returns `200`, followed by Function log
+  `TRENDS_MAILING_LIST_FAILED brevo_http_401`: the database path is working;
+  inspect Brevo API-key validity, sender configuration, and IP access controls.
+  In the validated incident, allowing the new egress IP fixed delivery; the
+  API key itself was valid.
+- Function invocation returns `401 unauthorized`: the private Worker token
+  did not pass the Edge Function's shared-token check. Use the raw matching
+  token in `Authorization: Bearer …`; hashing it locally can compare two
+  candidate values, but sending a digest does not authenticate unless that
+  digest itself is what both environments store. Rotate any token pasted into
+  chat or logs.
+- The site displays “구독 기능을 일시적으로 사용할 수 없습니다.”: inspect
+  the Dev Worker log. `newsletter integration is not configured` points to a
+  missing/invalid Worker Function URL or token; `newsletter backend rejected
+  request` includes the Edge Function HTTP status and directs the next check
+  to Supabase Function logs.
+
+Development end-to-end validation completed on 2026-11-02 (Asia/Seoul): the
+site signup sent a Brevo confirmation email, the confirmation link changed the
+subscriber row to active, and unsubscribe updated the row. Production rollout
+has not been performed. Daily campaign generation and scheduled bulk delivery
+are outside this verified lifecycle slice.
+
 ## Current Deployment Model
 
 The existing Node/Docker runtime is preserved under

@@ -1,0 +1,105 @@
+---
+const categories = [
+  'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
+  '맛집', '문학·책', '미술·디자인', '반려동물', '방송', '비즈니스·경제', '사진', '사회·정치',
+  '상품리뷰', '세계여행', '스타·연예인', '스포츠', '어학·외국어', '영화', '요리·레시피', '원예·재배',
+  '육아·결혼', '음악', '인테리어·DIY', '일상·생각', '자동차', '좋은글·이미지', '취미', '패션·미용',
+];
+const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'https://trendapi.hangadac.com').replace(/\/+$/, '');
+---
+<main class="trends-page-content page-main wrap trends-page subscribe-page">
+  <nav class="trends-section-nav" aria-label="트렌드 하위 메뉴"><a href="/trends/">트렌드 조회</a><a href="/trends/subscribe/" aria-current="page">트렌드 구독</a></nav>
+  <section class="page-intro trends-intro">
+    <p class="eyebrow"><span class="eyebrow-dot"></span> NAVER TRENDS LETTER</p>
+    <h1>관심 있는 트렌드만<br /><em>매일 아침 가볍게.</em></h1>
+    <p class="page-lede">놓치기 쉬운 오늘의 검색 흐름을 골라둔 관심사에 맞춰 이메일로 전해드려요.</p>
+  </section>
+  <section class="subscribe-card" aria-labelledby="subscribe-title" data-subscribe-form data-api-base={trendsApiBaseUrl}>
+    <div class="subscribe-card-heading"><div><p class="eyebrow">YOUR DAILY TREND BRIEFING</p><h2 id="subscribe-title">받고 싶은 카테고리를 선택하세요</h2><p>선택한 주제의 주요 키워드와 참고 링크를 보내드립니다.</p></div><span class="subscribe-card-icon" aria-hidden="true">✳</span></div>
+    <form class="subscribe-form">
+      <label class="subscribe-email-label" for="subscriber-email">이메일 주소</label>
+      <input id="subscriber-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required />
+      <div class="trends-category-heading subscribe-category-heading"><span>관심 카테고리</span><small>1개 이상 선택 · 최대 5개</small></div>
+      <div class="trends-category-list subscribe-category-list" data-category-picker data-max="5" aria-label="구독할 트렌드 카테고리">
+        {categories.map((category) => <button class="trend-chip" type="button" aria-pressed="false">{category}</button>)}
+      </div>
+      <p class="category-selection-status" data-selection-status aria-live="polite">카테고리를 1개 이상 선택해 주세요.</p>
+      <label class="subscribe-consent"><input name="consent" type="checkbox" required /><span>네이버 트렌드 뉴스레터를 이메일로 받는 데 동의합니다. 언제든지 수신을 취소할 수 있습니다.</span></label>
+      <div class="subscribe-form-actions">
+        <p class="subscribe-form-note" data-subscribe-status aria-live="polite">카테고리를 고르고 이메일 수신에 동의해 주세요.</p>
+        <button class="button button-primary subscribe-submit" type="submit" disabled>구독 신청하기 <span aria-hidden="true">↗</span></button>
+      </div>
+    </form>
+  </section>
+  <p class="subscribe-back-link"><a href="/trends/">← 트렌드 둘러보기</a></p>
+</main>
+<script>
+  document.querySelectorAll('[data-category-picker]').forEach((picker) => {
+    const limit = Number(picker.getAttribute('data-max')) || 5;
+    const status = picker.parentElement?.querySelector('[data-selection-status]');
+    const form = picker.closest('form');
+    const submit = form?.querySelector('.subscribe-submit');
+    const email = form?.querySelector('input[type="email"]');
+    const consent = form?.querySelector('input[name="consent"]');
+    const updateSubmit = () => {
+      if (!submit || !email || !consent) return;
+      submit.disabled = !email.validity.valid || picker.querySelectorAll('.trend-chip.is-selected').length === 0 || !consent.checked;
+    };
+    picker.querySelectorAll('.trend-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const selected = chip.classList.contains('is-selected');
+        const count = picker.querySelectorAll('.trend-chip.is-selected').length;
+        if (!selected && count >= limit) {
+          if (status) status.textContent = `최대 ${limit}개까지 선택할 수 있습니다.`;
+          return;
+        }
+        chip.classList.toggle('is-selected', !selected);
+        chip.setAttribute('aria-pressed', String(!selected));
+        const nextCount = picker.querySelectorAll('.trend-chip.is-selected').length;
+        if (status) status.textContent = nextCount ? `${nextCount}개 선택 · 최대 ${limit}개` : '카테고리를 1개 이상 선택해 주세요.';
+        updateSubmit();
+      });
+    });
+    email?.addEventListener('input', updateSubmit);
+    consent?.addEventListener('change', updateSubmit);
+    updateSubmit();
+  });
+  const subscription = document.querySelector('[data-subscribe-form]');
+  if (subscription) {
+    let apiBase = subscription.getAttribute('data-api-base') || '';
+    const form = subscription.querySelector('form');
+    const email = form?.querySelector('input[type="email"]');
+    const consent = form?.querySelector('input[name="consent"]');
+    const picker = form?.querySelector('[data-category-picker]');
+    const button = form?.querySelector('.subscribe-submit');
+    const status = form?.querySelector('[data-subscribe-status]');
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!email?.validity.valid || !consent?.checked || !picker || !button || !status) return;
+      const categories = [...picker.querySelectorAll('.trend-chip.is-selected')].map((chip) => chip.textContent.trim());
+      if (!categories.length || categories.length > 5) return;
+      button.disabled = true;
+      button.querySelector('span').textContent = '…';
+      status.removeAttribute('data-state');
+      status.textContent = '구독 신청을 처리하고 확인 메일을 보내고 있습니다.';
+      try {
+        const response = await fetch(`${apiBase}/api/v1/public/subscriptions`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: email.value, categories, consent: true }),
+          signal: AbortSignal.timeout(12000),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.success !== true) throw new Error(payload.message || '요청을 처리하지 못했습니다.');
+        status.dataset.state = 'success';
+        status.textContent = '신청이 접수되었습니다. 신규 신청은 확인 메일의 링크를 눌러 완료해 주세요. 이미 등록된 주소는 기존 구독이 유지됩니다.';
+        form.querySelectorAll('input, .trend-chip').forEach((control) => { control.disabled = true; });
+        button.hidden = true;
+      } catch (error) {
+        status.dataset.state = 'error';
+        status.textContent = error instanceof Error && error.message !== 'Failed to fetch' ? error.message : '신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        button.querySelector('span').textContent = '↗';
+        button.disabled = false;
+      }
+    });
+  }
+</script>

@@ -35,7 +35,63 @@ TRENDS_READ_TOKEN_SECRET=<development-read-token-secret>
 ```
 
 The local Worker is served by Wrangler on `http://localhost:8787`. It exposes
-the same routes as the Docker API.
+the protected core routes from the Docker API plus the public read-only routes
+used by the BlogGenius website.
+
+### Public website reads
+
+`GET /api/v1/public/trends/meta` returns the available categories and dates.
+`GET /api/v1/public/trends?trend_date=YYYY-MM-DD&category=...` returns up to 150
+rows for one date and at most three repeated `category` values. The Worker adds
+CORS only for configured origins. Production allows `https://www.bloggenius.kr`;
+Development also allows HTTP loopback origins for local preview. These routes
+do not use an internal token because the displayed trend data is public. CORS
+does not make the data private: it is a browser policy, not authentication, and
+non-browser callers can send a forged `Origin` header or omit it. Anyone can
+call these routes and read the same bounded public data, so never add private,
+licensed, or subscriber data here. Both routes read only the
+`naver_creator_advisor` source. Query bounds limit a request to one date, at
+most three categories, and at most 150 rows; they limit response and query size,
+not who can call the endpoint.
+
+The current public threshold is 60 requests per minute per observed
+`cf-connecting-ip`. Its counter is held in Worker isolate memory, may reset on
+restarts, and is not shared across isolates. Treat it as a soft per-IP guardrail:
+distributed requests and IP rotation can exceed the effective aggregate rate.
+The Worker emits a 60-second public `Cache-Control` hint, but verify deployed
+cache behavior; the header by itself does not guarantee that these responses
+are cached. Before broad Production use, configure Cloudflare edge-level rate
+limiting on `/api/v1/public/trends` and `/api/v1/public/trends/meta`, and monitor
+Worker and Supabase usage. A static-site API key would be visible to all
+visitors; stronger caller verification needs a server-validated mechanism such
+as Turnstile or a deliberately authenticated user flow.
+
+### Newsletter signup lifecycle
+
+The Worker also serves `POST /api/v1/public/subscriptions`,
+`POST /api/v1/public/subscriptions/confirm`, and
+`POST /api/v1/public/subscriptions/unsubscribe`. They accept only the configured
+website Origin, require JSON, cap request bodies at 4 KiB, and apply a separate
+best-effort limit of five requests per observed IP per minute. The signup route
+validates consent, email, and the supported category catalog before forwarding
+to the private Supabase `trends-mailing-list` Edge Function.
+
+After applying `supabase/migrations/202611020001_trends_mailing_list.sql` and
+deploying that function, configure `TRENDS_NEWSLETTER_FUNCTION_URL` and
+`TRENDS_NEWSLETTER_WORKER_TOKEN` for each Worker environment. Store the same
+random shared token as a Supabase function secret. The function uses Supabase's
+server credentials and requires `BREVO_API_KEY`, `NEWSLETTER_EMAIL_FROM`,
+`BLOGGENIUS_ENV`, and `NEWSLETTER_EMAIL_MODE`; for non-production, also set
+`NEWSLETTER_EMAIL_ALLOWLIST`. Only `allowlist` mode with a matching address can
+send in non-production; production sends only in `live` mode. Keep development
+and production sender modes and credentials separate.
+
+The signup/confirmation/unsubscribe flow is not a daily campaign sender. Its
+in-memory request limit is a soft guardrail, and Origin is not authentication.
+Configure Cloudflare edge rate-limit rules on all three mailing paths before
+promoting signup broadly; consider Turnstile or another server-validated
+challenge to reduce email bombing. See `docs/architecture/trends-backend.md`
+for state and data-access details.
 
 ## Deploy
 
@@ -108,6 +164,11 @@ authenticated metadata check, use that environment's internal token locally;
 never paste a secret into chat or commit it. The Production authenticated read
 has passed through `workers.dev`. The Production ingest path writes to live
 Supabase and should be verified by the operator's normal collector run.
+
+The public routes are separately checked through the focused Worker tests.
+After deployment, verify the Development public metadata endpoint using an
+allowed website or loopback `Origin`; the protected `/api/v1/trends/meta`
+endpoint must continue returning `401` without a token.
 
 After a DNS cutover, a local resolver may continue using the old Oracle address
 until its cache expires. Compare `dig +short trendapi.hangadac.com A` with

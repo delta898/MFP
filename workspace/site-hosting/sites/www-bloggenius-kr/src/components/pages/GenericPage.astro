@@ -1,0 +1,5 @@
+---
+import { siteData } from '../../lib/site.ts';
+const { label = '새 페이지' } = Astro.props;
+---
+<section class="page-intro"><p class="eyebrow">{siteData.displayName.toUpperCase()}</p><h1>{label}</h1><p class="page-lede">이 페이지의 내용을 준비하고 있습니다.</p><a class="button button-primary" href="/support/">지원 안내 <span>↗</span></a></section>

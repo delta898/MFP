@@ -12,16 +12,17 @@ const READY_ENV = Object.freeze({
     BLOGGENIUS_PRODUCTION_SUPABASE_URL: 'https://production.example.invalid'
 });
 
-test('feature branch can inspect handoff artifacts but cannot target development Supabase', () => {
+test('feature branch can prepare development Supabase changes without executing them', () => {
     const plan = buildPlan({
         env: READY_ENV,
         branch: 'feature/development-environment-05-hosted-development'
     });
 
     assert.equal(plan.readiness.ready, true);
-    assert.equal(plan.allowed, false);
+    assert.equal(plan.allowed, true);
     assert.equal(plan.executionOwner, 'supabase_environment_provider');
-    assert.ok(plan.steps.every((step) => step.preflight.reasons.includes('branch_target_denied')));
+    assert.ok(plan.steps.every((step) => step.preflight.allowed));
+    assert.match(formatPlan(plan), /BlogGenius remote mutations: none/);
 });
 
 test('dev branch produces a provider-neutral handoff without remote execution details', () => {

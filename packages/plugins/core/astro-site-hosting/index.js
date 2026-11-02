@@ -46,11 +46,11 @@ function createPlugin(deps = {}) {
         'site-deployments.list': (adapter, _accountId, input) => adapter.listDeployments(input)
     };
     const operations = {
-        'astro.build': { execute: ({ projectId, siteId }) => astroRuntime.build(projectId, siteId) },
+        'astro.build': { execute: ({ projectId, siteId }) => astroRuntime.build(projectId, siteId, deps.runtimeEnvironment?.environment || deps.runtimeEnvironment || 'production') },
         'astro.build-status': { execute: ({ projectId, siteId }) => astroRuntime.getBuildStatus(projectId, siteId) },
         'astro.preview': { execute: (input) => {
             switch (input.action) {
-                case 'start': return astroRuntime.startPreview(input.projectId, input.siteId);
+                case 'start': return astroRuntime.startPreview(input.projectId, input.siteId, deps.runtimeEnvironment?.environment || deps.runtimeEnvironment || 'production');
                 case 'stop': return astroRuntime.stopPreview(input.projectId, input.siteId);
                 case 'start-draft': return astroRuntime.startDraftPreview(input.draft);
                 case 'stop-draft': return astroRuntime.stopDraftPreview(input.projectId, input.draftId);
@@ -58,8 +58,11 @@ function createPlugin(deps = {}) {
             }
         } },
         'hosting.deploy': { execute: async ({ site, credentials, context = {} }) => {
-            const build = await astroRuntime.build(site.project_id, site.id);
-            const deployment = await cloudflareDeployer.deploy(site, credentials, context);
+            const configuredEnvironment = deps.runtimeEnvironment?.environment || deps.runtimeEnvironment || 'production';
+            const environment = context.environment === 'development' || (!context.environment && configuredEnvironment === 'development')
+                ? 'development' : 'production';
+            const build = await astroRuntime.build(site.project_id, site.id, environment);
+            const deployment = await cloudflareDeployer.deploy(site, credentials, { ...context, environment });
             return { ...deployment, screenshot: build?.screenshot || null, screenshot_error: build?.screenshot_error || '' };
         } },
         'provider.call': { execute: async ({ action, accountId, input }) => {

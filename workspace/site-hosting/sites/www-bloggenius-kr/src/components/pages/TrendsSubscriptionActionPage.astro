@@ -1,0 +1,49 @@
+---
+const { action } = Astro.props;
+const isConfirmation = action === 'confirm';
+const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'https://trendapi.hangadac.com').replace(/\/+$/, '');
+---
+<main class="page-main wrap trends-page trends-page-content subscribe-action-page" data-subscription-action={action} data-api-base={trendsApiBaseUrl}>
+  <nav class="trends-section-nav" aria-label="트렌드 하위 메뉴"><a href="/trends/">트렌드 조회</a><a href="/trends/subscribe/">트렌드 구독</a></nav>
+  <section class="subscribe-action-card" aria-labelledby="subscription-action-title">
+    <p class="eyebrow">NAVER TRENDS LETTER</p>
+    <h1 id="subscription-action-title">{isConfirmation ? '구독 신청을 확인할까요?' : '구독을 취소할까요?'}</h1>
+    <p>{isConfirmation ? '확인 버튼을 누르면 선택한 카테고리의 트렌드 메일을 받아보실 수 있습니다.' : '취소하면 네이버 트렌드 뉴스레터 발송이 중단됩니다.'}</p>
+    <button class="button button-primary" type="button" data-action-submit>{isConfirmation ? '구독 확인하기' : '구독 취소하기'}</button>
+    <p class="subscribe-action-status" data-action-status aria-live="polite">링크를 확인하고 있습니다.</p>
+    <a href="/trends/subscribe/">트렌드 구독 페이지로</a>
+  </section>
+</main>
+<script>
+  const actionPage = document.querySelector('[data-subscription-action]');
+  if (actionPage) {
+    let apiBase = actionPage.getAttribute('data-api-base') || '';
+    const action = actionPage.getAttribute('data-subscription-action') === 'confirm' ? 'confirm' : 'unsubscribe';
+    const endpoint = action === 'confirm' ? '/api/v1/public/subscriptions/confirm' : '/api/v1/public/subscriptions/unsubscribe';
+    const token = new URLSearchParams(window.location.search).get('token') || '';
+    const button = actionPage.querySelector('[data-action-submit]');
+    const status = actionPage.querySelector('[data-action-status]');
+    if (!token) {
+      button.disabled = true;
+      status.textContent = '링크가 올바르지 않습니다. 메일의 최신 링크를 확인해 주세요.';
+    } else {
+      status.textContent = '아래 버튼을 눌러 요청을 완료해 주세요.';
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        status.textContent = action === 'confirm' ? '구독을 확인하고 있습니다.' : '구독을 취소하고 있습니다.';
+        try {
+          const response = await fetch(`${apiBase}${endpoint}`, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }), signal: AbortSignal.timeout(12000),
+          });
+          const payload = await response.json();
+          if (!response.ok || payload.success !== true) throw new Error('request_failed');
+          status.textContent = action === 'confirm' ? '구독이 확인되었습니다. 다음 트렌드 브리핑부터 메일을 보내드릴게요.' : '구독을 취소했습니다. 이후 트렌드 메일은 발송되지 않습니다.';
+          button.hidden = true;
+        } catch {
+          status.textContent = '요청을 완료하지 못했습니다. 링크가 만료되지 않았는지 확인하고 다시 시도해 주세요.';
+          button.disabled = false;
+        }
+      });
+    }
+  }
+</script>

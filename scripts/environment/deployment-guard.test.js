@@ -61,13 +61,27 @@ test('feature branch can preflight local database reset without consulting a hos
     assert.equal(result.linkedProject.status, 'not_required');
 });
 
-test('feature branch cannot target hosted development even when the link matches', () => {
+test('feature branch can target hosted development only when the link matches', () => {
     const result = evaluateDeploymentPreflight({
         target: 'development',
         branch: 'feature/something',
         operation: 'function-deploy',
         env: DEV_ENV,
         linkedProject: { name: 'BlogGenius Development', ref: 'development-ref' }
+    });
+
+    assert.equal(result.allowed, true);
+    assert.equal(result.linkedProject.status, 'matched');
+});
+
+test('feature branch cannot target hosted production', () => {
+    const result = evaluateDeploymentPreflight({
+        target: 'production',
+        branch: 'feature/something',
+        operation: 'function-deploy',
+        env: PROD_ENV,
+        linkedProject: { name: 'BlogGenius Production', ref: 'production-ref' },
+        productionApproval: 'production-ref'
     });
 
     assert.equal(result.allowed, false);

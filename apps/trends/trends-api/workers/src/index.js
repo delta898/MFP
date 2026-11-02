@@ -4,6 +4,14 @@ const DEFAULT_CONFLICT = 'source,trend_date,category,keyword';
 const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
 const metaCache = new Map();
 const readRateWindows = new Map();
+const PUBLIC_TRENDS_PATHS = new Set(['/api/v1/public/trends', '/api/v1/public/trends/meta']);
+const PUBLIC_SUBSCRIPTION_PATHS = new Set(['/api/v1/public/subscriptions', '/api/v1/public/subscriptions/confirm', '/api/v1/public/subscriptions/unsubscribe']);
+const NEWSLETTER_CATEGORIES = new Set([
+    'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
+    '맛집', '문학·책', '미술·디자인', '반려동물', '방송', '비즈니스·경제', '사진', '사회·정치',
+    '상품리뷰', '세계여행', '스타·연예인', '스포츠', '어학·외국어', '영화', '요리·레시피', '원예·재배',
+    '육아·결혼', '음악', '인테리어·DIY', '일상·생각', '자동차', '좋은글·이미지', '취미', '패션·미용'
+]);
 
 function jsonResponse(status, value, headers = {}) {
     return new Response(JSON.stringify(value, null, 2), {
@@ -20,6 +28,12 @@ function getConfig(env) {
         readTokenIssuer: String(env.TRENDS_READ_TOKEN_ISSUER || 'bloggenius-license').trim(),
         readTokenAudience: String(env.TRENDS_READ_TOKEN_AUDIENCE || 'trends-api').trim(),
         readRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_API_READ_RATE_LIMIT_PER_MINUTE, 10) || 120),
+        publicAllowedOrigins: new Set(String(env.TRENDS_PUBLIC_ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean)),
+        allowLocalPreview: String(env.TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW || '').trim().toLowerCase() === 'true',
+        publicRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE, 10) || 60),
+        subscribeRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE, 10) || 5),
+        newsletterFunctionUrl: String(env.TRENDS_NEWSLETTER_FUNCTION_URL || '').trim().replace(/\/+$/, ''),
+        newsletterWorkerToken: String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim(),
         supabaseUrl: String(env.SUPABASE_URL || '').replace(/\/+$/, ''),
         supabaseKey: String(env.SUPABASE_SECRET_KEY || '').trim(),
         schema: String(env.TRENDS_SUPABASE_SCHEMA || DEFAULT_SCHEMA).trim() || DEFAULT_SCHEMA,
@@ -348,6 +362,179 @@ async function handleMeta(request, config) {
     }
 }
 
+function publicCorsHeaders(origin) {
+    return {
+        'access-control-allow-origin': origin,
+        'access-control-allow-methods': 'GET, OPTIONS',
+        'access-control-allow-headers': 'content-type',
+        'access-control-max-age': '600',
+        vary: 'Origin'
+    };
+}
+
+function subscriptionCorsHeaders(origin) {
+    return { ...publicCorsHeaders(origin), 'access-control-allow-methods': 'POST, OPTIONS' };
+}
+
+function publicOrigin(request, config) {
+    const origin = String(request.headers.get('origin') || '').trim();
+    if (origin && config.publicAllowedOrigins.has(origin)) return origin;
+    return config.allowLocalPreview && /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/.test(origin) ? origin : '';
+}
+
+function publicRateLimit(request, config) {
+    const now = Date.now();
+    const windowStart = Math.floor(now / 60000) * 60000;
+    const client = String(request.headers.get('cf-connecting-ip') || '').trim();
+    if (!client) return { allowed: false, retryAfter: 60 };
+    const key = `public:${client}`;
+    const current = readRateWindows.get(key);
+    const count = current?.windowStart === windowStart ? current.count + 1 : 1;
+    readRateWindows.set(key, { windowStart, count });
+    if (readRateWindows.size > 10000) {
+        for (const [entryKey, entry] of readRateWindows) if (entry.windowStart < windowStart) readRateWindows.delete(entryKey);
+    }
+    return { allowed: count <= config.publicRateLimitPerMinute, retryAfter: Math.max(1, Math.ceil((windowStart + 60000 - now) / 1000)) };
+}
+
+function subscriptionRateLimit(request, config) {
+    const now = Date.now();
+    const windowStart = Math.floor(now / 60000) * 60000;
+    const client = String(request.headers.get('cf-connecting-ip') || '').trim();
+    if (!client) return { allowed: false, retryAfter: 60 };
+    const key = `subscribe:${client}`;
+    const current = readRateWindows.get(key);
+    const count = current?.windowStart === windowStart ? current.count + 1 : 1;
+    readRateWindows.set(key, { windowStart, count });
+    if (readRateWindows.size > 10000) {
+        for (const [entryKey, entry] of readRateWindows) if (entry.windowStart < windowStart) readRateWindows.delete(entryKey);
+    }
+    return { allowed: count <= config.subscribeRateLimitPerMinute, retryAfter: Math.max(1, Math.ceil((windowStart + 60000 - now) / 1000)) };
+}
+
+async function readBoundedJson(request, maxBytes) {
+    const reader = request.body?.getReader();
+    if (!reader) return {};
+    const chunks = [];
+    let total = 0;
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) {
+            await reader.cancel();
+            throw new Error('Request body is too large');
+        }
+        chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function handlePublicSubscription(request, config, path, origin) {
+    const headers = subscriptionCorsHeaders(origin);
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+    if (request.method !== 'POST') return jsonResponse(405, { success: false, message: 'Method not allowed' }, { ...headers, allow: 'POST, OPTIONS' });
+    const rate = subscriptionRateLimit(request, config);
+    if (!rate.allowed) return jsonResponse(429, { success: false, message: '요청이 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.' }, { ...headers, 'retry-after': String(rate.retryAfter) });
+    let functionUrl;
+    try { functionUrl = new URL(config.newsletterFunctionUrl); } catch {}
+    if (!functionUrl || functionUrl.protocol !== 'https:' || !functionUrl.hostname.endsWith('.supabase.co') || functionUrl.pathname !== '/functions/v1/trends-mailing-list' || functionUrl.search || functionUrl.username || !config.newsletterWorkerToken) {
+        console.error('[trends-api-workers] newsletter integration is not configured');
+        return jsonResponse(503, { success: false, message: '구독 기능을 일시적으로 사용할 수 없습니다.' }, headers);
+    }
+    const length = Number(request.headers.get('content-length') || 0);
+    if (length > 4096) return jsonResponse(413, { success: false, message: 'Request body is too large' }, headers);
+    if (!String(request.headers.get('content-type') || '').toLowerCase().startsWith('application/json')) return jsonResponse(415, { success: false, message: 'Expected application/json' }, headers);
+    let body;
+    try { body = await readBoundedJson(request, 4096); }
+    catch (error) {
+        if (error.message === 'Request body is too large') return jsonResponse(413, { success: false, message: error.message }, headers);
+        return jsonResponse(400, { success: false, message: '올바른 요청이 아닙니다.' }, headers);
+    }
+    let payload;
+    if (path.endsWith('/confirm') || path.endsWith('/unsubscribe')) {
+        const token = String(body?.token || '').trim();
+        if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) return jsonResponse(400, { success: false, message: '유효하지 않거나 만료된 링크입니다.' }, headers);
+        payload = { action: path.endsWith('/confirm') ? 'confirm' : 'unsubscribe', token };
+    } else {
+        const email = String(body?.email || '').trim().toLowerCase();
+        const categories = Array.isArray(body?.categories) ? [...new Set(body.categories.map((value) => String(value).trim()))] : [];
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || categories.length < 1 || categories.length > 5 || categories.some((value) => !NEWSLETTER_CATEGORIES.has(value))) {
+            return jsonResponse(400, { success: false, message: '이메일 주소와 카테고리를 확인해 주세요.' }, headers);
+        }
+        if (body?.consent !== true) return jsonResponse(400, { success: false, message: '이메일 수신 동의가 필요합니다.' }, headers);
+        payload = { action: 'subscribe', email, categories, consent: true };
+    }
+    try {
+        const response = await fetch(functionUrl.toString(), {
+            method: 'POST', headers: { authorization: `Bearer ${config.newsletterWorkerToken}`, 'content-type': 'application/json' },
+            body: JSON.stringify(payload), signal: AbortSignal.timeout(12000)
+        });
+        let result = {};
+        try { result = await response.json(); } catch {}
+        if (!response.ok) {
+            console.error('[trends-api-workers] newsletter backend rejected request', response.status, result?.error || 'unknown');
+            return jsonResponse(response.status === 400 ? 400 : 503, { success: false, message: response.status === 400 ? '입력한 정보를 확인해 주세요.' : '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, headers);
+        }
+        return jsonResponse(200, { success: true, message: String(result.message || '요청을 처리했습니다.') }, headers);
+    } catch (error) {
+        console.error('[trends-api-workers] newsletter backend unavailable', error.message);
+        return jsonResponse(503, { success: false, message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, headers);
+    }
+}
+
+function publicFilters(params, config) {
+    const allowed = new Set(['trend_date', 'category']);
+    for (const key of params.keys()) if (!allowed.has(key)) throw new Error(`Unsupported public filter: ${key}`);
+    const dates = params.getAll('trend_date');
+    if (dates.length !== 1) throw new Error('trend_date is required');
+    const trendDate = normalizeYmd(dates[0], 'trend_date');
+    if (!trendDate) throw new Error('trend_date is required');
+    const categories = [...new Set(params.getAll('category').map((value) => value.trim()).filter(Boolean))];
+    if (!categories.length || categories.length > 3) throw new Error('Select between one and three categories');
+    if (categories.some((value) => value.length > 40 || /[\u0000-\u001f,"'()\\%*]/.test(value))) throw new Error('Invalid category');
+    return {
+        trendDate, dateFrom: '', dateTo: '', categories,
+        keyword: '', source: 'naver_creator_advisor', changeType: '', changeAmountMin: null,
+        changeAmountMax: null, limit: Math.min(150, config.exportMaxRows)
+    };
+}
+
+async function handlePublicTrends(request, config, path, origin) {
+    const headers = { ...publicCorsHeaders(origin), 'cache-control': 'public, max-age=60, s-maxage=60' };
+    const url = new URL(request.url);
+    if (path.endsWith('/meta')) {
+        if ([...url.searchParams.keys()].length) return jsonResponse(400, { success: false, message: 'Public metadata does not accept filters' }, headers);
+        try {
+            const { value, cache } = await loadMeta(config, {
+                source: 'naver_creator_advisor', trendDate: '', dateFrom: '', dateTo: ''
+            });
+            return jsonResponse(200, {
+                success: true,
+                categories: value.categories,
+                availableDates: value.availableDates,
+                dateRange: value.dateRange
+            }, { ...headers, 'x-trends-cache': cache });
+        } catch (error) {
+            console.error('[trends-api-workers] public metadata failed', error.message);
+            return jsonResponse(503, { success: false, message: 'Trend metadata is temporarily unavailable' }, headers);
+        }
+    }
+    let filters;
+    try { filters = publicFilters(url.searchParams, config); }
+    catch (error) { return jsonResponse(400, { success: false, message: error.message }, headers); }
+    try {
+        const rows = await supabaseRequest(config, `${encodeURIComponent(config.table)}?${postgrestFilter(filters)}`);
+        return jsonResponse(200, { success: true, count: Array.isArray(rows) ? rows.length : 0, items: Array.isArray(rows) ? rows : [] }, headers);
+    } catch (error) {
+        console.error('[trends-api-workers] public query failed', error.message);
+        return jsonResponse(503, { success: false, message: 'Trend data is temporarily unavailable' }, headers);
+    }
+}
+
 async function handleIngest(request, config) {
     if (!hasInternalAccess(request, config)) return jsonResponse(401, { success: false, message: 'Unauthorized' });
     const requestEnvironment = String(request.headers.get('x-trends-environment') || '').trim().toLowerCase();
@@ -411,6 +598,20 @@ export async function handleRequest(request, env) {
     const method = request.method.toUpperCase();
     if (method === 'GET' && url.pathname === '/health') {
         return jsonResponse(200, { success: true, service: 'trends-api', environment: config.environment || 'unselected' });
+    }
+    if (PUBLIC_TRENDS_PATHS.has(url.pathname)) {
+        const origin = publicOrigin(request, config);
+        if (!origin) return jsonResponse(403, { success: false, message: 'Origin is not allowed' }, { vary: 'Origin' });
+        if (method === 'OPTIONS') return new Response(null, { status: 204, headers: publicCorsHeaders(origin) });
+        if (method !== 'GET') return jsonResponse(405, { success: false, message: 'Method not allowed' }, { ...publicCorsHeaders(origin), allow: 'GET, OPTIONS' });
+        const rate = publicRateLimit(request, config);
+        if (!rate.allowed) return jsonResponse(429, { success: false, message: 'Too many requests' }, { ...publicCorsHeaders(origin), 'retry-after': String(rate.retryAfter) });
+        return handlePublicTrends(request, config, url.pathname, origin);
+    }
+    if (PUBLIC_SUBSCRIPTION_PATHS.has(url.pathname)) {
+        const origin = publicOrigin(request, config);
+        if (!origin) return jsonResponse(403, { success: false, message: 'Origin is not allowed' }, { vary: 'Origin' });
+        return handlePublicSubscription(request, config, url.pathname, origin);
     }
     if (method === 'POST' && url.pathname === '/internal/ingest/naver-trends') return handleIngest(request, config);
     if (method === 'GET' && ['/api/v1/trends', '/api/v1/trends/meta', '/exports/trends.csv', '/exports/trends.xlsx'].includes(url.pathname)) {

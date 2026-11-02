@@ -35,6 +35,14 @@ function createSiteHostingSiteService(deps = {}) {
     const astroRuntime = deps.astroRuntime;
     if (!astroRuntime) throw new TypeError('Site Hosting runtime port is required.');
     const manuscriptDraftService = deps.manuscriptDraftService || null;
+    const runtimeEnvironment = typeof deps.runtimeEnvironment === 'string'
+        ? deps.runtimeEnvironment : deps.runtimeEnvironment?.environment;
+    const siteHostingEnvironment = runtimeEnvironment === 'production' ? 'production'
+        : runtimeEnvironment === 'development' ? 'development' : 'local';
+    const deploymentForEnvironment = (site) => site?.deployments?.[siteHostingEnvironment]
+        || (siteHostingEnvironment === 'production' ? site?.deployment : undefined);
+    const customDomainForEnvironment = (site) => site?.custom_domain_bindings?.[siteHostingEnvironment]
+        || (siteHostingEnvironment === 'production' ? site?.custom_domain_binding : undefined);
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
@@ -412,9 +420,9 @@ function createSiteHostingSiteService(deps = {}) {
             throw error;
         }
         let address = '';
-        if (addressType === 'worker') address = String(site.deployment?.url || '');
+        if (addressType === 'worker') address = String(deploymentForEnvironment(site)?.url || '');
         else if (addressType === 'domain') {
-            const hostname = String(site.custom_domain_binding?.hostname || '').trim();
+            const hostname = String(customDomainForEnvironment(site)?.hostname || '').trim();
             if (hostname && !/[\s/\\?#@]/u.test(hostname)) address = `https://${hostname}/`;
         }
         let url;
@@ -638,7 +646,7 @@ function createSiteHostingSiteService(deps = {}) {
         if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug)) {
             throw siteInputError('글 주소를 확인할 수 없습니다.', 'SITE_HOSTING_POST_ID_INVALID', 400);
         }
-        const workerUrl = String(site.deployment?.url || '');
+        const workerUrl = String(deploymentForEnvironment(site)?.url || '');
         let baseUrl;
         try { baseUrl = new URL(workerUrl); } catch (_error) { baseUrl = null; }
         if (!baseUrl || baseUrl.protocol !== 'https:' || !baseUrl.hostname || baseUrl.username || baseUrl.password) {
@@ -666,6 +674,9 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function deploy(projectId, siteId, context = {}) {
+        if (siteHostingEnvironment === 'local') {
+            throw siteInputError('로컬 환경에서는 Cloudflare 배포를 할 수 없습니다. 개발 앱을 실행해 개발 Worker에 배포해 주세요.', 'SITE_HOSTING_REMOTE_DEPLOY_LOCAL_ENVIRONMENT', 403);
+        }
         let site = repository.get(projectId, siteId);
         if (!site) {
             const error = new Error('사이트를 찾을 수 없습니다.');
@@ -683,7 +694,8 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const requestedAccountId = String(context.account_id || '').trim();
         const configuredAccountId = String(site.cloudflare_account?.id || '').trim();
-        const deployedAccountId = String(site.deployment?.worker_account_id || '').trim();
+        const currentDeployment = deploymentForEnvironment(site);
+        const deployedAccountId = String(currentDeployment?.worker_account_id || '').trim();
         if (configuredAccountId && deployedAccountId && configuredAccountId !== deployedAccountId) {
             throw siteInputError('저장된 Cloudflare 계정과 현재 배포 계정이 달라 배포를 중단했습니다. 설정 상태를 확인해 주세요.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_BINDING_MISMATCH', 409);
         }
@@ -703,9 +715,9 @@ function createSiteHostingSiteService(deps = {}) {
         if (!configuredAccountId || site.cloudflare_account?.name !== account.name) {
             site = repository.recordCloudflareAccount(projectId, siteId, account, now());
         }
-        const deployed = await astroRuntime.deploy(site, credentials, context);
+        const deployed = await astroRuntime.deploy(site, credentials, { ...context, environment: siteHostingEnvironment });
         const deployedAt = now();
-        repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
+        repository.recordDeployment(projectId, siteId, { ...deployed, environment: siteHostingEnvironment, deployed_at: deployedAt });
         return { ...deployed, cloudflare_account: account, deployed_at: deployedAt };
     }
 
@@ -1064,11 +1076,14 @@ function createSiteHostingSiteService(deps = {}) {
     async function list(projectId) {
         const sites = repository.list(projectId);
         return sites.map((site) => {
-            const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, deployment, cloudflare_account, custom_domain_binding, screenshot, last_build, created_at, updated_at } = site;
+            const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, cloudflare_account, screenshot, last_build, created_at, updated_at } = site;
+            const deployment = deploymentForEnvironment(site);
+            const custom_domain_binding = customDomainForEnvironment(site);
+            const environmentHostname = hostnameForEnvironment(hostname);
             const root = knowledgeCollectionRoot(site);
             return {
-                id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain: domain || '',
-                custom_domain: formatCustomDomain(hostname, domain), deployment, cloudflare_account, custom_domain_binding, screenshot, last_build,
+                id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname: environmentHostname, domain: domain || '',
+                custom_domain: custom_domain_binding?.hostname || formatCustomDomain(environmentHostname, domain), deployment, cloudflare_account, custom_domain_binding, screenshot, last_build,
                 posting_target: getPostTargetEligibility(site),
                 knowledge_collection: root ? { name: pathApi.basename(root) || root } : null,
                 screenshot_url: screenshot?.latest_build?.path || screenshot?.template?.path
@@ -1721,6 +1736,14 @@ function createSiteHostingSiteService(deps = {}) {
         return normalizedHostname ? `${normalizedHostname}.${normalizedDomain}` : normalizedDomain;
     }
 
+    function hostnameForEnvironment(hostname, environment = siteHostingEnvironment) {
+        const normalized = String(hostname || '').trim();
+        if (!normalized || environment === 'production') return normalized;
+        const labels = normalized.split('.');
+        if (!labels[0].endsWith('-dev')) labels[0] = `${labels[0]}-dev`;
+        return labels.join('.');
+    }
+
     function normalizeDnsName(value, label) {
         const raw = String(value || '').trim().replace(/\.$/, '');
         if (!raw) return '';
@@ -1736,7 +1759,7 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     function getSiteCloudflareAccountId(site) {
-        return String(site?.deployment?.worker_account_id || site?.cloudflare_account?.id || '').trim();
+        return String(deploymentForEnvironment(site)?.worker_account_id || site?.cloudflare_account?.id || '').trim();
     }
 
     async function getCloudflareAdapter(accountId) {
@@ -1779,6 +1802,9 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function connectCustomDomain(projectId, siteId, payload = {}) {
+        if (siteHostingEnvironment === 'local') {
+            throw siteInputError('로컬 환경에서는 Cloudflare 도메인을 변경할 수 없습니다. 개발 앱에서 개발 도메인을 연결해 주세요.', 'SITE_HOSTING_DOMAIN_LOCAL_ENVIRONMENT', 403);
+        }
         const site = repository.get(projectId, siteId);
         if (!site) {
             const error = new Error('사이트를 찾을 수 없습니다.');
@@ -1786,13 +1812,14 @@ function createSiteHostingSiteService(deps = {}) {
             error.status = 404;
             throw error;
         }
-        if (!site.deployment?.worker_name) {
+        const deployment = deploymentForEnvironment(site);
+        if (!deployment?.worker_name) {
             const error = new Error('먼저 사이트를 Cloudflare에 배포해 주세요.');
             error.code = 'SITE_HOSTING_DEPLOYMENT_REQUIRED';
             error.status = 409;
             throw error;
         }
-        const subdomain = normalizeDnsName(payload.hostname, '호스트 이름');
+        let subdomain = normalizeDnsName(payload.hostname, '호스트 이름');
         const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
         const zones = await adapter.listDomains(accountId);
@@ -1805,12 +1832,13 @@ function createSiteHostingSiteService(deps = {}) {
             throw error;
         }
         const domain = String(zone.name || '').toLowerCase();
+        subdomain = hostnameForEnvironment(subdomain);
         const hostname = formatCustomDomain(subdomain, domain);
         try {
             const binding = await adapter.bindSiteDomain({
                 accountId,
                 hostname,
-                workerName: site.deployment.worker_name,
+                workerName: deployment.worker_name,
                 zoneId: String(zone.id)
             });
             const connectedAt = now();
@@ -1819,6 +1847,7 @@ function createSiteHostingSiteService(deps = {}) {
                 hostname,
                 site_hostname: subdomain,
                 domain,
+                environment: siteHostingEnvironment,
                 zone_id: zone.id,
                 zone_name: zone.name,
                 connected_at: connectedAt
@@ -1836,15 +1865,18 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function disconnectWorker(projectId, siteId, payload = {}) {
+        if (siteHostingEnvironment === 'local') {
+            throw siteInputError('로컬 환경에서는 Cloudflare Worker를 변경할 수 없습니다.', 'SITE_HOSTING_REMOTE_DEPLOY_LOCAL_ENVIRONMENT', 403);
+        }
         const site = repository.get(projectId, siteId);
         if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
         if (payload.confirmed !== true) {
             throw siteInputError('기본 연결 해제 확인이 필요합니다.', 'SITE_HOSTING_WORKER_DISCONNECT_CONFIRMATION_REQUIRED', 400);
         }
-        if (String(site.custom_domain_binding?.hostname || '').trim()) {
+        if (String(customDomainForEnvironment(site)?.hostname || '').trim()) {
             throw siteInputError('기본 연결을 해제하기 전에 연결 도메인을 먼저 해지해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED', 409);
         }
-        const deployment = site.deployment || {};
+        const deployment = deploymentForEnvironment(site) || {};
         const workerName = String(deployment.worker_name || '').trim();
         const workerAccountId = String(deployment.worker_account_id || '').trim();
         const workerCreatedOn = String(deployment.worker_created_on || '').trim();
@@ -1904,8 +1936,8 @@ function createSiteHostingSiteService(deps = {}) {
                 throw fail('확인 중 Cloudflare Worker 상태가 바뀌어 해지하지 않았습니다. 상태를 확인한 뒤 다시 시도해 주세요.');
             }
             if (!before.worker) {
-                const updated = repository.clearDeployment(projectId, siteId, now());
-                return { worker_name: workerName, deployment: updated.deployment || null, disconnected: true, already_absent: true };
+                const updated = repository.clearDeployment(projectId, siteId, now(), siteHostingEnvironment);
+                return { worker_name: workerName, deployment: deploymentForEnvironment(updated), disconnected: true, already_absent: true };
             }
             if (typeof adapter.deleteSiteResource !== 'function') {
                 throw fail('Cloudflare Worker 삭제 기능을 사용할 수 없어 해지하지 않았습니다. 앱을 업데이트한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_WORKER_DELETE_UNAVAILABLE', 503);
@@ -1938,11 +1970,14 @@ function createSiteHostingSiteService(deps = {}) {
         if (after.worker_count || after.binding_count) {
             throw fail('Cloudflare에서 Worker 또는 도메인 연결이 남아 있어 앱의 연결 정보를 지우지 않았습니다. Cloudflare에서 상태를 확인해 주세요.', 'SITE_HOSTING_WORKER_DELETE_REMAINS', 409);
         }
-        const updated = repository.clearDeployment(projectId, siteId, now());
-        return { worker_name: workerName, deployment: updated.deployment || null, disconnected: true };
+        const updated = repository.clearDeployment(projectId, siteId, now(), siteHostingEnvironment);
+        return { worker_name: workerName, deployment: deploymentForEnvironment(updated), disconnected: true };
     }
 
     async function disconnectCustomDomain(projectId, siteId, payload = {}) {
+        if (siteHostingEnvironment === 'local') {
+            throw siteInputError('로컬 환경에서는 Cloudflare 도메인을 변경할 수 없습니다.', 'SITE_HOSTING_DOMAIN_LOCAL_ENVIRONMENT', 403);
+        }
         const site = repository.get(projectId, siteId);
         if (!site) {
             const error = new Error('사이트를 찾을 수 없습니다.');
@@ -1953,12 +1988,12 @@ function createSiteHostingSiteService(deps = {}) {
         if (payload.confirmed !== true) {
             throw siteInputError('도메인 연결 해제 확인이 필요합니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_CONFIRMATION_REQUIRED', 400);
         }
-        const saved = site.custom_domain_binding || {};
+        const saved = customDomainForEnvironment(site) || {};
         const bindingId = String(saved.id || '').trim();
         const hostname = String(saved.hostname || '').trim().toLowerCase();
         const zoneId = String(saved.zone_id || '').trim();
         const zoneName = String(saved.zone_name || '').trim().toLowerCase();
-        const workerName = String(site.deployment?.worker_name || '').trim();
+        const workerName = String(deploymentForEnvironment(site)?.worker_name || '').trim();
         if (!bindingId || !hostname || !zoneId || !zoneName || !workerName) {
             throw siteInputError('저장된 도메인 연결 정보를 확인할 수 없어 해제하지 않았습니다. 사이트 설정을 확인해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_BINDING_INVALID', 409);
         }
@@ -2017,8 +2052,8 @@ function createSiteHostingSiteService(deps = {}) {
                 if (before.records.some(managedDnsRecord)) {
                     throw fail('Worker 연결은 이미 없지만 DNS 레코드가 남아 있습니다. DNS는 직접 삭제하지 않았으니 Cloudflare에서 확인해 주세요. 사이트의 연결 정보는 보존했습니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_DNS_REMAINS', 409);
                 }
-                const updated = repository.clearCustomDomainBinding(projectId, siteId, now());
-                return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true, already_detached: true };
+                const updated = repository.clearCustomDomainBinding(projectId, siteId, now(), siteHostingEnvironment);
+                return { hostname, custom_domain_binding: customDomainForEnvironment(updated), disconnected: true, already_detached: true };
             }
             await adapter.unbindSiteDomain({ accountId, bindingId });
         } catch (cause) {
@@ -2064,17 +2099,29 @@ function createSiteHostingSiteService(deps = {}) {
         if (typeof repository.clearCustomDomainBinding !== 'function') {
             throw fail('Cloudflare 연결은 해제됐지만 사이트의 연결 정보를 갱신하지 못했습니다. 앱을 재시작한 뒤 상태를 확인해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_LOCAL_UPDATE_FAILED', 500);
         }
-        const updated = repository.clearCustomDomainBinding(projectId, siteId, now());
-        return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true };
+        const updated = repository.clearCustomDomainBinding(projectId, siteId, now(), siteHostingEnvironment);
+        return { hostname, custom_domain_binding: customDomainForEnvironment(updated), disconnected: true };
     }
 
     async function prepareSiteDeletion(projectId, siteId) {
         const site = repository.get(projectId, siteId);
         if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const otherEnvironments = siteHostingEnvironment === 'local' ? ['development', 'production']
+            : [siteHostingEnvironment === 'development' ? 'production' : 'development'];
+        const hasOtherEnvironmentDeployment = otherEnvironments.some((environment) => {
+            const deployment = site.deployments?.[environment]
+                || (environment === 'production' ? site.deployment : null);
+            const binding = site.custom_domain_bindings?.[environment]
+                || (environment === 'production' ? site.custom_domain_binding : null);
+            return Boolean(deployment?.worker_name || binding?.hostname);
+        });
+        if (hasOtherEnvironmentDeployment) {
+            throw siteInputError('다른 환경에 배포 또는 도메인 연결이 남아 있어 사이트 원본을 삭제할 수 없습니다. 해당 환경의 연결을 먼저 해제해 주세요.', 'SITE_HOSTING_OTHER_ENVIRONMENT_DEPLOYMENT_EXISTS', 409);
+        }
         const steps = [];
-        const binding = site.custom_domain_binding || {};
+        const binding = customDomainForEnvironment(site) || {};
         const hostname = String(binding.hostname || '').trim().toLowerCase();
-        const deployment = site.deployment || {};
+        const deployment = deploymentForEnvironment(site) || {};
         const workerName = String(deployment.worker_name || '').trim();
         let cloudflareSnapshot = null;
         const blocked = (message, code = 'SITE_HOSTING_DELETE_PREFLIGHT_BLOCKED') => {
@@ -2082,8 +2129,8 @@ function createSiteHostingSiteService(deps = {}) {
             error.deletionPlan = { ready: false, site_name: site.name, steps, blocked_reason: message };
             return error;
         };
-        if (site.custom_domain_binding && !hostname) throw blocked('사이트에 저장된 도메인 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
-        if (site.deployment && !workerName) throw blocked('사이트에 저장된 기본 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
+        if (customDomainForEnvironment(site) && !hostname) throw blocked('사이트에 저장된 도메인 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
+        if (deploymentForEnvironment(site) && !workerName) throw blocked('사이트에 저장된 기본 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
         if (typeof repository.getArchiveTarget !== 'function' || typeof repository.archive !== 'function') {
             throw blocked('사이트 파일을 안전하게 보관할 수 없어 삭제 계획을 만들지 못했습니다.', 'SITE_HOSTING_ARCHIVE_UNAVAILABLE');
         }
@@ -2154,7 +2201,7 @@ function createSiteHostingSiteService(deps = {}) {
             steps: [...steps, { kind: 'archive', label: `사이트 파일 보관: ${archiveTarget}`, status: 'ready' }],
             ready: true, expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
         };
-        const localSnapshot = JSON.stringify({ id: site.id, name: site.name, updated_at: site.updated_at, deployment: site.deployment || null, custom_domain_binding: site.custom_domain_binding || null });
+        const localSnapshot = JSON.stringify({ id: site.id, name: site.name, updated_at: site.updated_at, deployment: deploymentForEnvironment(site), custom_domain_binding: customDomainForEnvironment(site) });
         siteDeletionPlans.set(planId, { plan, cloudflareSnapshot, localSnapshot, archiveTarget, archiveAt, expiresAt: Date.now() + 5 * 60 * 1000 });
         for (const [id, item] of siteDeletionPlans) if (item.expiresAt < Date.now()) siteDeletionPlans.delete(id);
         return plan;
@@ -2179,9 +2226,9 @@ function createSiteHostingSiteService(deps = {}) {
         siteDeletionPlans.delete(String(payload.plan_id));
 
         const site = repository.get(projectId, siteId);
-        if (site?.custom_domain_binding?.hostname) await disconnectCustomDomain(projectId, siteId, { confirmed: true });
+        if (customDomainForEnvironment(site)?.hostname) await disconnectCustomDomain(projectId, siteId, { confirmed: true });
         const current = repository.get(projectId, siteId);
-        if (current?.deployment?.worker_name) await disconnectWorker(projectId, siteId, { confirmed: true });
+        if (deploymentForEnvironment(current)?.worker_name) await disconnectWorker(projectId, siteId, { confirmed: true });
         const archived = repository.archive(projectId, siteId, savedPlan.archiveAt, savedPlan.archiveTarget);
         return { ...archived, completed: true };
     }
