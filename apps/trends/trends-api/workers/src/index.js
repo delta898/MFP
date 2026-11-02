@@ -34,6 +34,8 @@ function getConfig(env) {
         subscribeRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE, 10) || 5),
         newsletterFunctionUrl: String(env.TRENDS_NEWSLETTER_FUNCTION_URL || '').trim().replace(/\/+$/, ''),
         newsletterWorkerToken: String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim(),
+        newsletterExpectedCategories: Math.max(1, Number.parseInt(env.TRENDS_NEWSLETTER_EXPECTED_CATEGORIES, 10) || 32),
+        newsletterItemsPerCategory: Math.max(1, Number.parseInt(env.TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY, 10) || 20),
         supabaseUrl: String(env.SUPABASE_URL || '').replace(/\/+$/, ''),
         supabaseKey: String(env.SUPABASE_SECRET_KEY || '').trim(),
         schema: String(env.TRENDS_SUPABASE_SCHEMA || DEFAULT_SCHEMA).trim() || DEFAULT_SCHEMA,
@@ -114,6 +116,9 @@ function normalizeYmd(value, name) {
     const text = String(value || '').trim();
     if (!text) return '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error(`${name} must be YYYY-MM-DD`);
+    const [year, month, day] = text.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.toISOString().slice(0, 10) !== text) throw new Error(`${name} must be a valid calendar date`);
     return text;
 }
 
@@ -592,6 +597,61 @@ async function handleIngest(request, config) {
     }
 }
 
+async function handleNewsletterCollectionComplete(request, config, env) {
+    if (!hasInternalAccess(request, config)) return jsonResponse(401, { success: false, message: 'Unauthorized' });
+    const requestEnvironment = String(request.headers.get('x-trends-environment') || '').trim().toLowerCase();
+    if (!config.environment || requestEnvironment !== config.environment) {
+        return jsonResponse(409, { success: false, message: 'Trends environment target mismatch' });
+    }
+    let body;
+    try { body = await request.json(); }
+    catch { return jsonResponse(400, { success: false, message: 'Invalid JSON body' }); }
+
+    let trendDate;
+    try { trendDate = normalizeYmd(body?.trendDate, 'trendDate'); }
+    catch { return jsonResponse(400, { success: false, message: 'trendDate must be YYYY-MM-DD' }); }
+    const expectedTotal = config.newsletterExpectedCategories * config.newsletterItemsPerCategory;
+    if (!trendDate || body?.environment !== config.environment || body?.source !== 'naver_creator_advisor'
+        || Number(body?.expectedCategories) !== config.newsletterExpectedCategories
+        || Number(body?.itemsPerCategory) !== config.newsletterItemsPerCategory
+        || Number(body?.itemCount) !== expectedTotal) {
+        return jsonResponse(400, { success: false, message: 'Collection completion signal does not match the configured dataset contract' });
+    }
+    if (!env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW?.create) {
+        console.error('[trends-api-workers] newsletter collection Workflow binding is unavailable');
+        return jsonResponse(503, { success: false, message: 'Newsletter collection workflow is unavailable' });
+    }
+
+    try {
+        const instanceId = `collection-${trendDate}`;
+        let instance;
+        let duplicate = false;
+        try {
+            instance = await env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW.create({
+                id: instanceId,
+                params: {
+                    environment: config.environment,
+                    trendDate,
+                    source: 'naver_creator_advisor',
+                    signalItemCount: expectedTotal
+                }
+            });
+        } catch {
+            instance = await env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW.get(instanceId);
+            const state = await instance.status();
+            if (state?.status === 'errored' || state?.status === 'terminated') {
+                await instance.restart();
+            } else {
+                duplicate = true;
+            }
+        }
+        return jsonResponse(202, { success: true, accepted: true, duplicate, workflowId: instance.id || instanceId, trendDate });
+    } catch (error) {
+        console.error('[trends-api-workers] newsletter collection Workflow trigger failed', error.message);
+        return jsonResponse(503, { success: false, message: 'Newsletter collection workflow could not be started' });
+    }
+}
+
 export async function handleRequest(request, env) {
     const config = getConfig(env);
     const url = new URL(request.url);
@@ -614,6 +674,7 @@ export async function handleRequest(request, env) {
         return handlePublicSubscription(request, config, url.pathname, origin);
     }
     if (method === 'POST' && url.pathname === '/internal/ingest/naver-trends') return handleIngest(request, config);
+    if (method === 'POST' && url.pathname === '/internal/newsletter/collection-complete') return handleNewsletterCollectionComplete(request, config, env);
     if (method === 'GET' && ['/api/v1/trends', '/api/v1/trends/meta', '/exports/trends.csv', '/exports/trends.xlsx'].includes(url.pathname)) {
         const internalRoute = url.pathname.startsWith('/exports/');
         const access = await readAccess(request, config);

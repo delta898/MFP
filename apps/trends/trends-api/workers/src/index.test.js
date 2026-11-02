@@ -93,6 +93,43 @@ test('existing authenticated endpoint remains protected', async () => {
     assert.equal(response.status, 401);
 });
 
+test('collector completion signals are authenticated, environment-bound, shape-validated, and create one dated Workflow', async () => {
+    const created = [];
+    const integrationEnv = {
+        ...env,
+        TRENDS_ENV: 'development',
+        TRENDS_API_TOKEN: 'collector-only-test-token',
+        TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: {
+            create: async (input) => { created.push(input); return { id: input.id }; },
+            get: async (id) => ({ id, status: async () => ({ status: 'running' }) })
+        }
+    };
+    const makeSignal = (body, { token = 'collector-only-test-token', target = 'development' } = {}) => new Request(
+        'https://trendapi.example.test/internal/newsletter/collection-complete',
+        { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-trends-environment': target, 'content-type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    const signal = {
+        environment: 'development', trendDate: '2026-11-02', source: 'naver_creator_advisor',
+        expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
+    };
+
+    const unauthorized = await handleRequest(makeSignal(signal, { token: 'wrong' }), integrationEnv);
+    assert.equal(unauthorized.status, 401);
+    const wrongTarget = await handleRequest(makeSignal(signal, { target: 'production' }), integrationEnv);
+    assert.equal(wrongTarget.status, 409);
+    const incomplete = await handleRequest(makeSignal({ ...signal, itemCount: 639 }), integrationEnv);
+    assert.equal(incomplete.status, 400);
+    const invalidDate = await handleRequest(makeSignal({ ...signal, trendDate: '2026-02-30' }), integrationEnv);
+    assert.equal(invalidDate.status, 400);
+
+    const response = await handleRequest(makeSignal(signal), integrationEnv);
+    assert.equal(response.status, 202);
+    assert.deepEqual(created, [{
+        id: 'collection-2026-11-02',
+        params: { environment: 'development', trendDate: '2026-11-02', source: 'naver_creator_advisor', signalItemCount: 640 }
+    }]);
+});
+
 test('newsletter signup forwards only validated consented values through the private function token', async () => {
     const integrationEnv = {
         ...env,

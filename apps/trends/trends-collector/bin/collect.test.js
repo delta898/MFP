@@ -8,6 +8,7 @@ const {
     formatCollectorHelp,
     parseCollectorCliArgs,
     pushPayloadToApi,
+    signalCollectionComplete,
     resolveCollectorConfig,
     resolveCollectorExecutionMode,
     runCollector,
@@ -310,6 +311,44 @@ test('pushPayloadToApi sends the selected environment with ingest requests', asy
     assert.equal(capturedHeaders.Authorization, 'Bearer development-token');
 });
 
+test('signalCollectionComplete sends only a validated completion marker to the environment-matched API', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => { axios.post = originalPost; });
+    let request;
+    axios.post = async (url, body, options) => {
+        request = { url, body, options };
+        return { data: { success: true, workflowId: 'collection-2026-08-29' } };
+    };
+    const payload = { trendDate: '2026-08-29', itemCount: 4 };
+    const completeness = { complete: true, expectedCategories: 2, keywordsPerCategory: 2, actualTotal: 4 };
+    const result = await signalCollectionComplete(payload, completeness, {
+        environment: 'development', source: 'naver_creator_advisor',
+        apiBaseUrl: 'https://trendapi-dev.example.com/', apiToken: 'dev-token', dryRun: false
+    }, { info: () => {} });
+
+    assert.equal(request.url, 'https://trendapi-dev.example.com/internal/newsletter/collection-complete');
+    assert.deepEqual(request.body, {
+        environment: 'development', trendDate: '2026-08-29', source: 'naver_creator_advisor',
+        expectedCategories: 2, itemsPerCategory: 2, itemCount: 4
+    });
+    assert.equal(request.options.headers.Authorization, 'Bearer dev-token');
+    assert.equal(result.workflowId, 'collection-2026-08-29');
+    await assert.rejects(() => signalCollectionComplete(payload, { ...completeness, complete: false }, {
+        environment: 'development', source: 'naver_creator_advisor', apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token'
+    }), /불완전한 수집 결과/);
+});
+
+test('signalCollectionComplete does not call an unconfigured Production newsletter Workflow', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => { axios.post = originalPost; });
+    axios.post = async () => { throw new Error('Production must not signal in this stage'); };
+    const result = await signalCollectionComplete({ trendDate: '2026-08-29' }, { complete: true }, {
+        environment: 'production', source: 'naver_creator_advisor',
+        apiBaseUrl: 'https://trendapi.example.com', apiToken: 'prod-token', dryRun: false
+    });
+    assert.deepEqual(result, { skipped: true, reason: 'newsletter_not_enabled_for_environment' });
+});
+
 test('interactive Production collection confirms and writes the same payload without recollecting', async (t) => {
     const originalGet = axios.get;
     const originalPost = axios.post;
@@ -320,9 +359,9 @@ test('interactive Production collection confirms and writes the same payload wit
     axios.get = async () => ({ data: { success: true, environment: 'production' } });
 
     let postedPayload;
-    axios.post = async (_url, payload) => {
-        postedPayload = payload;
-        return { data: { success: true, accepted: payload.itemCount } };
+    axios.post = async (url, payload) => {
+        if (url.endsWith('/internal/ingest/naver-trends')) postedPayload = payload;
+        return { data: { success: true, accepted: payload.itemCount, workflowId: 'collection-2026-08-29' } };
     };
     let collectionCount = 0;
     let confirmedPayload;
@@ -357,6 +396,7 @@ test('interactive Production collection confirms and writes the same payload wit
     assert.equal(collectionCount, 1);
     assert.strictEqual(confirmedPayload, result.payload);
     assert.strictEqual(postedPayload, result.payload);
+    assert.deepEqual(result.newsletterSignal, { skipped: true, reason: 'newsletter_not_enabled_for_environment' });
     assert.equal(result.executionMode, 'interactive');
     assert.equal(result.apiResult.accepted, 1);
 });
@@ -458,4 +498,46 @@ test('runCollector refuses to write incomplete collection after retries', async 
         logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
     }), /결과가 불완전하여 API 반영을 중단합니다/);
     assert.equal(attempts, 3);
+});
+
+test('runCollector keeps a successful trend write when the newsletter signal fails', async (t) => {
+    const originalGet = axios.get;
+    const originalPost = axios.post;
+    t.after(() => {
+        axios.get = originalGet;
+        axios.post = originalPost;
+    });
+    axios.get = async () => ({ data: { success: true, environment: 'development' } });
+    const postedUrls = [];
+    axios.post = async (url) => {
+        postedUrls.push(url);
+        if (url.endsWith('/internal/newsletter/collection-complete')) {
+            const error = new Error('Request failed with status code 404');
+            error.response = { status: 404, data: { message: 'Not found' } };
+            throw error;
+        }
+        return { data: { success: true, accepted: 1, trendDate: '2026-08-29' } };
+    };
+    const warnings = [];
+    const result = await runCollector({
+        environment: 'development',
+        naverId: 'operator',
+        apiBaseUrl: 'https://trendapi-dev.example.com',
+        apiToken: 'development-token',
+        expectedCategories: 1,
+        keywordsPerCategory: 1,
+        maxRetries: 0,
+        collector: {
+            fetchTrends: async () => ({ date: '2026-08-29', keywords: [{ category: 'A', keyword: 'a1' }] })
+        },
+        cliOptions: {},
+        isTTY: false,
+        logger: { info: () => {}, warn: (message) => warnings.push(message), error: () => {}, debug: () => {} }
+    });
+
+    assert.equal(result.apiResult.success, true);
+    assert.deepEqual(result.newsletterSignal, { sent: false, error: 'Newsletter signal API 404: Not found' });
+    assert.equal(postedUrls.length, 2);
+    assert.match(warnings[0], /trendDate=2026-08-29/);
+    assert.match(warnings[0], /다음 날짜 수집을 계속합니다/);
 });

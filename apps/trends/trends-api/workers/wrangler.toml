@@ -22,6 +22,14 @@ TRENDS_PUBLIC_ALLOWED_ORIGINS = "https://www-dev.bloggenius.kr,https://www.blogg
 TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE = "60"
 TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
 TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "true"
+TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
+TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+
+[[workflows]]
+name = "bloggenius-trends-readiness-dev"
+binding = "TRENDS_NEWSLETTER_COLLECTION_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"
+script_name = "bloggenius-trends-newsletter-dev"
 
 [env.production]
 name = "bloggenius-trends-api-production"

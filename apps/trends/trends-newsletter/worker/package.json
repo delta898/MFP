@@ -1,0 +1,13 @@
+{
+  "name": "@bloggenius/trends-newsletter-workflow-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test ../src/readiness.test.js",
+    "dev": "wrangler dev",
+    "deploy:development": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -388,6 +388,46 @@ async function pushPayloadToApi(payload, config, logger) {
     }
 }
 
+async function signalCollectionComplete(payload, completeness, config, logger = console) {
+    if (config.dryRun) return { skipped: true, reason: 'dry_run' };
+    if (config.environment !== 'development') {
+        return { skipped: true, reason: 'newsletter_not_enabled_for_environment' };
+    }
+    if (!completeness?.complete) throw new Error('불완전한 수집 결과는 뉴스레터 완료 신호를 보낼 수 없습니다.');
+    if (!config.apiBaseUrl || !config.apiToken || !config.environment) {
+        throw new Error('수집 완료 신호에는 환경별 Trends API 주소, 내부 토큰, 환경 값이 필요합니다.');
+    }
+
+    const signal = {
+        environment: config.environment,
+        trendDate: payload.trendDate,
+        source: config.source,
+        expectedCategories: completeness.expectedCategories,
+        itemsPerCategory: completeness.keywordsPerCategory,
+        itemCount: completeness.actualTotal
+    };
+    try {
+        const response = await axios.post(
+            `${config.apiBaseUrl.replace(/\/+$/, '')}/internal/newsletter/collection-complete`,
+            signal,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Trends-Environment': config.environment,
+                    Authorization: `Bearer ${config.apiToken}`
+                },
+                timeout: 15000
+            }
+        );
+        logger.info(`✅ newsletter 수집 완료 신호 전달: trendDate=${payload.trendDate || '-'}, workflow=${response?.data?.workflowId || 'accepted'}`);
+        return response.data;
+    } catch (error) {
+        const apiStatus = error?.response?.status;
+        const apiMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message;
+        throw new Error(apiStatus ? `Newsletter signal API ${apiStatus}: ${apiMessage}` : `Newsletter signal failed: ${apiMessage}`);
+    }
+}
+
 function formatApiResultSummary(apiResult = {}) {
     const parts = [];
     if (Number.isFinite(apiResult.accepted)) parts.push(`accepted=${apiResult.accepted}`);
@@ -550,10 +590,18 @@ async function runCollector(inputConfig = {}) {
         await verifyCollectorApiEnvironment({ ...config, dryRun: false }, logger);
     }
     const apiResult = await pushPayloadToApi(payload, { ...config, dryRun: false }, logger);
+    let newsletterSignal;
+    try {
+        newsletterSignal = await signalCollectionComplete(payload, completeness, config, logger);
+    } catch (error) {
+        newsletterSignal = { sent: false, error: error.message };
+        logger.warn(`⚠️ newsletter 신호 실패: trendDate=${payload.trendDate || '-'}, error=${error.message}. 트렌드 수집은 정상 저장되었으며 다음 날짜 수집을 계속합니다.`);
+    }
     logger.info(`✅ collector 완료: ${formatApiResultSummary(apiResult)}`);
     return {
         payload,
         apiResult,
+        newsletterSignal,
         executionMode,
         completeness
     };
@@ -591,6 +639,7 @@ module.exports = {
     prepareCollectorRuntime,
     promptForProductionConfirmation,
     pushPayloadToApi,
+    signalCollectionComplete,
     resolveCollectorConfig,
     resolveCollectorExecutionMode,
     runCollector,

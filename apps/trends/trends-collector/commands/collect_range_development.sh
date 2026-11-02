@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COLLECTOR="$SCRIPT_DIR/collect_production.sh"
+COLLECTOR="$SCRIPT_DIR/collect_development.sh"
 START_DATE="2026-01-01"
 END_DATE="$(python3 -c 'from datetime import date; print(date.today().isoformat())')"
 DELAY_SECONDS=3
@@ -11,7 +11,7 @@ SWIPE_DELAY_MS=400
 usage() {
   cat <<'EOF'
 사용법:
-  ./apps/trends/trends-collector/commands/collect_production_range.sh [옵션]
+  ./apps/trends/trends-collector/commands/collect_range_development.sh [옵션]
 
 옵션:
   --start DATE   수집 시작일 (YYYY-MM-DD 또는 YYYYMMDD, 기본: 2026-01-01)
@@ -22,10 +22,10 @@ usage() {
   -h, --help     도움말 표시
 
 예시:
-  ./apps/trends/trends-collector/commands/collect_production_range.sh
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 2026-01-01 --end 2026-10-29
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 20260101 --end 20261029 --delay 5
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 20260101 --swipe-delay-ms 900
+  ./apps/trends/trends-collector/commands/collect_range_development.sh
+  ./apps/trends/trends-collector/commands/collect_range_development.sh --start 2026-01-01 --end 2026-10-29
+  ./apps/trends/trends-collector/commands/collect_range_development.sh --start 20260101 --end 20261029 --delay 5
+  ./apps/trends/trends-collector/commands/collect_range_development.sh --start 20260101 --swipe-delay-ms 900
 EOF
 }
 
@@ -137,14 +137,14 @@ fi
 echo "수집 기간: $START_DATE ~ $END_DATE"
 echo "날짜 사이 대기: ${DELAY_SECONDS}초"
 echo "스와이프 후 대기: ${SWIPE_DELAY_MS}ms"
-echo "대상: Production"
+echo "대상: Development"
 
 day="$START_DATE"
 
 while :; do
   echo
   echo "===== $day 수집 시작 ====="
-  "$COLLECTOR" --confirm-production --date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS"
+  "$COLLECTOR" --date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS"
   echo "===== $day 완료 ====="
 
   [[ "$day" == "$END_DATE" ]] && break

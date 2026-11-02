@@ -41,6 +41,7 @@
 - `architecture/knowledge-providers.md`
 - `architecture/trends-backend.md`
 - `architecture/trends-backend-deployment.md`
+- `architecture/trends-newsletter-automation.md` (event-triggered collection readiness, separate edition and delivery state, AI fallback, delivery idempotency, environment isolation, and cost model)
 - `architecture/keyword-research-backend.md`
 - `architecture/workspace-layout.md`
 - `decisions/2026-10-03-site-hosting-sibling-storage.md`
@@ -114,6 +115,7 @@
 
 ## Active Work
 
+- `plans/active/2026-11-02-newsletter-development-readiness-workflow.md` (Collector completion signals, event-triggered Dev Workflow, and separate collection/edition/delivery state)
 - `plans/active/2026-10-14-ai-gateway-plugin-development.md` (manifest 기반 Core Plugin 계약 위에서 provider-neutral AI Gateway 구현)
 - `plans/active/2026-10-15-sns-ai-generation-service.md` (SNS AI 경로를 공통 AI Generation Application interface로 연결)
 - `plans/archive/2026-10-14-plugin-architecture-foundation-fbr.md` (dev에 통합된 plugin 기반 구조와 제품 경로 전환 기록)
