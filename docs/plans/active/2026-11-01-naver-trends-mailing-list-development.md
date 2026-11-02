@@ -123,4 +123,5 @@ The collection-readiness child stage is archived at
 - Merged `codex/newsletter-dev-workflow` into this parent feature branch and archived its finalized development record.
 - Synchronized stale test expectations and Supabase inventory entries for the newsletter schema, migration, Edge Function, and Development runtime behavior.
 - Full unit suite passed: 2,466 passed, 1 skipped, 0 failed. The `npm run test:unit` wrapper's pretest audit separately reports existing dependency advisories; the suite itself was executed directly and passed.
+- 2026-11-03: The user ran `npm audit fix` again after integration; only the root `package-lock.json` changed. Their follow-up report shows 43 advisories (2 high, 37 moderate, 4 low), down from 47 (3 high, 40 moderate, 4 low). The remaining high findings are nested under the npm CLI dependency (`brace-expansion` and `undici`). `npm audit fix --force` was avoided because its report proposes downgrading npm to 9.6.2 and Milkdown Crepe to 7.5.9. The new lockfile has not yet had the full unit suite rerun.
 - This parent feature is integrated into the local `dev` branch. No remote push was requested or performed.
