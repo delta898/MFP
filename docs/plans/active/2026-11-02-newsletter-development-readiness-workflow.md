@@ -5,7 +5,7 @@
 - Branch: `codex/newsletter-dev-workflow`
 - Start date: 2026-11-02
 - Base/parent branch: `feature/naver-trends-mailing-list`
-- Status: Local implementation and focused verification complete; Dev migration and deployments remain operator actions
+- Status: Collection readiness is committed; Development Worker CD is implemented locally; Dev migration and first hosted deployment remain operator actions
 
 ## User need and goal
 
@@ -23,6 +23,7 @@ Newsletter automation must be developed in Development before Production. The co
 ## Explicit non-goals
 
 - No Production Workflow/API binding, secrets, migration, or deployment.
+- No automatic Supabase migration or Edge Function deployment; the existing hosted-environment workflow intentionally validates drift without applying remote changes.
 - No newsletter edition creation, AI generation, approval UI, Brevo campaign sending, recipient delivery rows, Telegram notification, or public archive.
 - No recurring schedule. The account rejected scheduled Workflow triggers on deployment; event-triggering from the collector path is the selected direction.
 - No Cloudflare management API token on the Mac Studio.
@@ -49,6 +50,8 @@ Newsletter automation must be developed in Development before Production. The co
 - 2026-11-02: The user reported Cloudflare rejected Workflow schedules as requiring a paid plan for this account. Rechecked the local loop: it was bounded to 18 checks/35 steps; the previous 1,024-step figure was not applicable to that implementation.
 - 2026-11-03: Revised the design to collector completion events so daily and range collections are supported without schedule dependency or a Cloudflare API token on the Mac.
 - 2026-11-03: Added the post-ingest Collector signal, authenticated Trends API route, cross-Worker Workflow binding, single-pass readiness verification, and Dev-only Supabase state migration. Collection, edition, and delivery states are separate; collection RPC preserves edition/delivery fields.
+- 2026-11-03: Committed the collection-readiness implementation as `b3fdbf02` (`feat: add dev newsletter collection readiness workflow`); the untracked `credentials/` directory was excluded.
+- 2026-11-03: Added a GitHub Actions Dev Worker CI/CD workflow. Pushes to `codex/**` and PRs targeting this parent feature or `dev` validate both Workers with focused tests and Wrangler dry-runs; only a push to `dev` deploys, Workflow Worker first and Development Trends API Worker second. The deployment job uses the GitHub `development` environment and requires a scoped Cloudflare API token plus account ID.
 
 ## Verification and remaining work
 
@@ -56,5 +59,7 @@ Newsletter automation must be developed in Development before Production. The co
 - Wrangler dry-runs packaged both Workers successfully and showed the expected cross-Worker Workflow binding. Logs were directed to a writable temporary path.
 - Production collector signaling is explicitly skipped until Production rollout, so this Dev-only stage does not break existing Production collection.
 - `git diff --check` passed.
-- User must apply the SQL migration to Dev Supabase, deploy the Newsletter Workflow first, then deploy the Dev Trends API Worker, and run one day plus a range/repeat signal.
-- No full repository suite, commit, merge, push, or deployment is included.
+- User must add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the GitHub `development` environment, merge this feature to `dev` when ready, then confirm the first successful CD run. No push or merge has occurred.
+- Apply the SQL migration to Dev Supabase as a separate reviewed operation; this workflow deliberately does not run `supabase db push` or deploy Edge Functions.
+- After first hosted deployment and migration, run one day plus a range/repeat signal in Development. Production remains untouched.
+- No full repository suite, merge, push, or remote deployment is included.

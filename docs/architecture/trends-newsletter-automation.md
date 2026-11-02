@@ -219,6 +219,30 @@ reviewed. There must be no shared test subscribers, no cross-environment links,
 no Development confirmation token resolving against Production, and no
 Development test campaign sent outside the configured allowlist.
 
+## Development Worker Delivery
+
+`.github/workflows/deploy-trends-newsletter-development.yml` is the Development
+Cloudflare Worker CI/CD path. Pushes to `codex/**` and pull requests targeting
+`feature/naver-trends-mailing-list` or `dev` run focused tests and Wrangler
+dry-runs only. This lets the current feature branch be validated before its
+changes reach `dev`. A push to `dev` validates both Workers, then deploys the
+newsletter Workflow Worker first and the Development Trends API Worker second.
+Manual dispatch is restricted to the `dev` branch for deployment. A concurrency
+group prevents overlapping Development releases.
+
+Configure the GitHub `development` environment with `CLOUDFLARE_API_TOKEN` as
+an environment secret and `CLOUDFLARE_ACCOUNT_ID` as an environment variable.
+The token should have only the Workers deployment permissions required for
+these two scripts. Runtime Worker secrets remain in Cloudflare and are not
+copied into GitHub Actions. The workflow does not deploy Supabase migrations or
+Edge Functions: database/function rollout remains a separate, explicitly
+reviewed step, consistent with the existing environment-validation workflow.
+Production has no automatic deployment path in this workflow.
+To guarantee that Development is changed only after pre-merge validation, protect
+the GitHub `dev` branch by requiring pull requests and the `Validate Newsletter
+Workers` check. A direct push to `dev` cannot be validated before it lands; the
+push workflow validates it afterward and deploys only if validation succeeds.
+
 ## Cost and Free-Tier Notes (checked 2026-11-02)
 
 “Cloudflare AI Gateway and Workflows are free” is not an accurate total-cost
