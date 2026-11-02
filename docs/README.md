@@ -115,7 +115,6 @@
 
 ## Active Work
 
-- `plans/active/2026-11-02-newsletter-development-readiness-workflow.md` (Collector completion signals, event-triggered Dev Workflow, and separate collection/edition/delivery state)
 - `plans/active/2026-10-14-ai-gateway-plugin-development.md` (manifest 기반 Core Plugin 계약 위에서 provider-neutral AI Gateway 구현)
 - `plans/active/2026-10-15-sns-ai-generation-service.md` (SNS AI 경로를 공통 AI Generation Application interface로 연결)
 - `plans/archive/2026-10-14-plugin-architecture-foundation-fbr.md` (dev에 통합된 plugin 기반 구조와 제품 경로 전환 기록)
@@ -148,6 +147,8 @@
 - `plans/active/paid-plans-and-credits-plan.md`
 
 ## Archived Plans
+
+- `plans/archive/2026-11-02-newsletter-development-readiness-workflow.md` (Dev collector completion signal and event-triggered readiness Workflow; integrated into newsletter parent feature)
 
 - `plans/archive/2026-10-14-platform-kernel-application-boundary-development.md` (Platform Kernel/Application/Plugin foundation slice; merged into plugin architecture parent)
 - `plans/archive/2026-10-02-site-creation-development.md` (completed serial sub-feature; Site creation, Astro build/preview, Cloudflare deployment/domain connection, and Site management UI)

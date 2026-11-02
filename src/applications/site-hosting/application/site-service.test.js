@@ -361,7 +361,7 @@ test('site deletion refuses to plan removal when Worker ownership cannot be veri
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
         const templates = localTemplates();
         const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
-        const service = createSiteHostingSiteService({ fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'plan-1' });
+        const service = createSiteHostingSiteService({ fs, path, workspaceDir, projectRepository, repository, templates, runtimeEnvironment: 'production', createId: () => 'plan-1' });
         repository.create('project-1', { id: 'site-1', name: '삭제 대상', template_id: 'minimal-homepage' });
         repository.recordDeployment('project-1', 'site-1', { worker_name: 'bg-site-1', url: 'https://bg-site-1.workers.dev', managed_by_app: false });
         await assert.rejects(service.prepareSiteDeletion('project-1', 'site-1'), { code: 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED' });
@@ -404,6 +404,7 @@ test('site deletion detaches the recorded custom domain before deleting its veri
         let id = 0;
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, repository, templates,
+            runtimeEnvironment: 'production',
             getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'account-1' } }),
             createCloudflareSdkAdapter: () => adapter,
             createId: () => `plan-${++id}`,
@@ -560,7 +561,7 @@ test('site settings preserve the existing template, rebuild locally, and refresh
     });
     assert.equal(result.build_error, '');
     assert.deepEqual(result.screenshot, { build_id: 'build-2' });
-    assert.deepEqual(runtimeCalls, [['project-1', 'site-1']]);
+    assert.deepEqual(runtimeCalls, [['project-1', 'site-1', 'production']]);
     assert.equal(repositoryCalls[0].name, 'After');
     await assert.rejects(service.applySettings('project-1', 'site-1', { name: 'After', template_id: 'other', customization: {}, setup_inputs: {} }), {
         code: 'SITE_HOSTING_TEMPLATE_CHANGE_NOT_ALLOWED'
@@ -896,6 +897,7 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         const calls = [];
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, templates: localTemplates(),
+            runtimeEnvironment: 'production',
             createId: () => 'site-1', now: () => '2026-10-02T00:00:00.000Z',
             astroRuntime: { build: async () => { calls.push('build'); return { screenshot: { path: '.bloggenius/build-build1.jpg', build_id: 'build1' } }; } },
             getCloudflareDeploymentCredentials: async () => ({ accessToken: 'secret', account: { id: 'a'.repeat(32) } }),
@@ -927,6 +929,7 @@ test('site deployment validates and saves an explicit Cloudflare account before 
         const calls = [];
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, repository, templates: localTemplates(), createId: () => 'site-1',
+            runtimeEnvironment: 'production',
             astroRuntime: { build: async () => { calls.push('build'); return {}; } },
             getCloudflareDeploymentCredentials: async (accountId) => {
                 calls.push(['credentials', accountId]);
@@ -967,6 +970,7 @@ test('site deployment keeps the selected Cloudflare account if the local build f
         const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: localTemplates() });
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, repository, templates: localTemplates(), createId: () => 'site-1',
+            runtimeEnvironment: 'production',
             astroRuntime: { build: async () => { throw new Error('local build failed'); } },
             getCloudflareDeploymentCredentials: async (accountId) => ({ accessToken: 'test-token', account: { id: accountId, name: 'Selected account' } }),
             cloudflareDeployer: { deploy: async () => assert.fail('Cloudflare must not be called after a failed build') }
@@ -1002,6 +1006,7 @@ test('Worker disconnect requires app ownership and removes only a verified stand
         };
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'site-1',
+            runtimeEnvironment: 'production',
             now: () => '2026-10-06T00:00:00.000Z', astroRuntime: { build: async () => ({}) },
             cloudflareDeployer: { deploy: async () => ({
                 worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', deployment_id: 'deployment-1',
@@ -1022,7 +1027,7 @@ test('Worker disconnect requires app ownership and removes only a verified stand
             ...repository.get('project-1', 'site-1').deployment, managed_by_app: true, deployed_at: '2026-10-06T00:00:00Z'
         });
         const result = await service.disconnectWorker('project-1', 'site-1', { confirmed: true });
-        assert.deepEqual(result, { worker_name: 'bg-site-1', deployment: null, disconnected: true });
+        assert.deepEqual(result, { worker_name: 'bg-site-1', deployment: undefined, disconnected: true });
         assert.equal(deletionCalls, 1);
         const [site] = await service.list('project-1');
         assert.equal(site.deployment, undefined);
@@ -1051,6 +1056,7 @@ test('Worker disconnect blocks custom domains, unverified current deployments, a
         };
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'site-1',
+            runtimeEnvironment: 'production',
             astroRuntime: { build: async () => ({}) },
             cloudflareDeployer: { deploy: async () => ({
                 worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', deployment_id: 'deployment-1',
@@ -1108,6 +1114,7 @@ test('custom domain disconnect verifies the Cloudflare binding and DNS before cl
         };
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, templates: localTemplates(),
+            runtimeEnvironment: 'production',
             createId: () => 'site-1', now: () => '2026-10-06T00:00:00.000Z',
             astroRuntime: { build: async () => ({}) },
             cloudflareDeployer: { deploy: async () => ({ worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/' }) },
@@ -1167,6 +1174,7 @@ test('custom domain disconnect keeps local binding when Cloudflare leaves the ma
         };
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository, templates: localTemplates(), createId: () => 'site-1',
+            runtimeEnvironment: 'production',
             astroRuntime: { build: async () => ({}) },
             cloudflareDeployer: { deploy: async () => ({ worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/' }) },
             getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'a'.repeat(32) } }),

@@ -5,7 +5,7 @@
 - Branch: `codex/newsletter-dev-workflow`
 - Start date: 2026-11-02
 - Base/parent branch: `feature/naver-trends-mailing-list`
-- Status: Development collection readiness and Worker CD are implemented; Dev migration is applied; ready to merge into the parent feature branch. Hosted Worker deployment and end-to-end collection verification remain.
+- Status: Merged into `feature/naver-trends-mailing-list`; full unit suite passed. Hosted Worker deployment and end-to-end collection verification remain.
 
 ## User need and goal
 
@@ -63,3 +63,10 @@ Newsletter automation must be developed in Development before Production. The co
 - User must add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the GitHub `development` environment, merge the parent feature to `dev` when ready, then confirm the first successful CD run. This workflow deliberately does not run `supabase db push` or deploy Edge Functions.
 - After first hosted deployment and migration, run one day plus a range/repeat signal in Development. Production remains untouched.
 - No hosted Worker deployment or end-to-end collection run is included in this stage.
+
+
+- 2026-11-03: Merged into `feature/naver-trends-mailing-list`; inventory and test expectations were synchronized with the new migration, Edge Function, and Development runtime behavior. Full unit suite passed: 2,466 passed, 1 skipped, 0 failed.
+
+## Final result
+
+The Development collection-completion signal, private readiness Workflow, per-date run state, and Worker CD configuration are integrated into the parent feature. The parent feature is being integrated into local `dev`; no remote `dev` push or Production deployment is included. First hosted Dev CD and end-to-end range/repeat signal checks remain follow-up work.

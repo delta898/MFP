@@ -61,6 +61,6 @@ test('Local Supabase exposes the backend-only Trends schema through PostgREST', 
         'utf8'
     );
 
-    assert.match(config, /schemas = \["public", "graphql_public", "trends"\]/);
+    assert.match(config, /schemas = \["public", "graphql_public", "trends", "mailing"\]/);
     assert.match(hardening, /revoke all on all tables in schema trends from anon, authenticated/i);
 });

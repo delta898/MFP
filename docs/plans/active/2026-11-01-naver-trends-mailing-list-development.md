@@ -5,7 +5,7 @@
 - Branch: `feature/naver-trends-mailing-list`
 - Start date: 2026-11-01
 - Base branch: `dev`
-- Status: Signup, confirmation, and unsubscribe API/UI implemented and end-to-end verified in Development; daily campaign automation design documented; implementation stages and Production rollout remain open
+- Status: Signup, confirmation, unsubscribe, and Development collection-readiness workflow are implemented; subscriber lifecycle is end-to-end verified in Development; campaign generation/delivery and Production rollout remain open
 
 ## User need
 
@@ -112,11 +112,15 @@ The trends lookup is connected to the public read-only Worker. This stage adds s
 - The browser form then displayed the generic unavailable message until the Development Worker token/configuration and deployment were brought into alignment. The user rotated the shared token after it had been pasted into chat and reconfigured it. The final end-to-end flow succeeded.
 - The function's `503 temporarily_unavailable` response intentionally hides provider details. Diagnose through the correlated Edge Function console log and PostgREST/Brevo events rather than repeatedly retrying the form; repeated pending requests rotate confirmation tokens.
 
-See [Trends Backend Deployment](../../architecture/trends-backend-deployment.md#newsletter-signup-deployment-and-verification) for the repeatable environment checklist and failure signatures. Production migration/schema exposure, Function secrets/deployment, Brevo IP access, Worker URL/token/secrets/deployment, and `www.bloggenius.kr` site deployment must each be verified independently before Production signup is enabled. No Production campaign rollout, commit, merge, push, or release has occurred. Daily trend campaign generation, link verification, scheduled bulk delivery, retry/idempotency, archive publication, Telegram monitoring, and cost guardrails remain future implementation stages as documented in `trends-newsletter-automation.md`.
+See [Trends Backend Deployment](../../architecture/trends-backend-deployment.md#newsletter-signup-deployment-and-verification) for the repeatable environment checklist and failure signatures. Production migration/schema exposure, Function secrets/deployment, Brevo IP access, Worker URL/token/secrets/deployment, and `www.bloggenius.kr` site deployment must each be verified independently before Production signup is enabled. No Production campaign rollout or release has occurred. The Development workflow stage has been merged locally into `dev`; remote `dev` has not been pushed. Daily trend campaign generation, link verification, scheduled bulk delivery, retry/idempotency, archive publication, Telegram monitoring, and cost guardrails remain future implementation stages as documented in `trends-newsletter-automation.md`.
 
-The next child implementation stage is recorded in
-[`2026-11-02-newsletter-development-readiness-workflow.md`](2026-11-02-newsletter-development-readiness-workflow.md).
-It adds a Dev-only Cloudflare Workflow that polls Dev Supabase `trends` data
-for the previous Korea calendar day's complete configured dataset. Local tests
-and Wrangler dry-run passed; the scheduled Worker has not been deployed and no
-mail, AI, or Telegram action is included.
+The collection-readiness child stage is archived at
+[`../archive/2026-11-02-newsletter-development-readiness-workflow.md`](../archive/2026-11-02-newsletter-development-readiness-workflow.md). It adds a Dev-only event-triggered Cloudflare Workflow, collector completion signal, and date-scoped run state. The user applied the Dev migration. Full unit tests passed before integration into `dev`; first hosted Dev CD and end-to-end collection signal verification remain.
+
+
+### Integration status (2026-11-03)
+
+- Merged `codex/newsletter-dev-workflow` into this parent feature branch and archived its finalized development record.
+- Synchronized stale test expectations and Supabase inventory entries for the newsletter schema, migration, Edge Function, and Development runtime behavior.
+- Full unit suite passed: 2,466 passed, 1 skipped, 0 failed. The `npm run test:unit` wrapper's pretest audit separately reports existing dependency advisories; the suite itself was executed directly and passed.
+- This parent feature is integrated into the local `dev` branch. No remote push was requested or performed.
