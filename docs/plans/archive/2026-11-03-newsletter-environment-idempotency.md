@@ -5,7 +5,7 @@
 - Branch: `codex/newsletter-dev-retry-policy`
 - Start date: 2026-11-03
 - Base/parent branch: `dev`
-- Status: implementation and full unit suite complete; ready to merge into dev; Development migration and Worker deployment pending
+- Status: merged into dev; Development migration and Worker deployment pending
 
 ## User need and goal
 
@@ -38,5 +38,5 @@ Development testing must allow intentional repeat requests for the same trend da
 
 - Focused Trends API Worker, collector, and Newsletter Worker tests pass.
 - Full unit suite: 2,483 passed, 1 skipped (2,484 total). The normal `pretest:unit` audit gate still reports the repository dependency advisories, so the suite body was run with `--ignore-scripts`.
-- Remote Development migration application and Cloudflare deployment remain manual follow-up steps.
+- Merged to `dev` as commit `6c2d38f8`. Remote Development migration application and Cloudflare Worker deployment remain follow-up steps.
 - After deployment, send two intentional Dev signals for one date and confirm two attempt records, two Workflow instances, and the latest edition updates; resend one identical signal ID and confirm it does not create another instance.
