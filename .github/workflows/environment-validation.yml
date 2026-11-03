@@ -243,7 +243,7 @@ jobs:
           npm ci
           npm run build
           test -s dist/index.html
-          rg -l 'https://trendapi-dev.hangadac.com' dist
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.hangadac.com' dist
       - uses: actions/upload-artifact@v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         with:
