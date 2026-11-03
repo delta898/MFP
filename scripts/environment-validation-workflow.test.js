@@ -31,7 +31,7 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /denoland\/setup-deno@v2[\s\S]*deno check supabase\/functions\/trends-mailing-list\/index\.ts[\s\S]*deno test supabase\/functions\/trends-mailing-list\/handler_test\.ts/);
     assert.match(workflow, /supabase db push[\s\S]*--dry-run[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
     assert.match(workflow, /supabase db push[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
-    assert.match(workflow, /Deploy Development newsletter Edge Function[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*supabase functions deploy trends-mailing-list[\s\S]*--project-ref "\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
+    assert.match(workflow, /Deploy Development newsletter Edge Function[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*supabase functions deploy trends-mailing-list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
     assert.doesNotMatch(workflow, /supabase link/);
     assert.match(workflow, /supabase migration list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
     assert.match(workflow, /supabase functions list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);

@@ -152,3 +152,9 @@ and avoiding duplicate delivery per date and subscriber.
   fast-forward merged into `dev` and pushed. The feature branch was deleted
   after the push succeeded. Live Development email delivery remains to be
   verified after CI/CD completes.
+- The first post-merge CI run stopped at Edge Function deployment because the
+  Supabase CLI requires explicit `--yes` consent for hosted mutations in
+  non-interactive runs. The deployment command was updated to use
+  `--remote=<Development project ref> --yes`, matching the current CLI target
+  syntax and avoiding the deprecated `--project-ref` warning. Focused workflow
+  contract tests pass; the corrected CI deployment still needs a rerun.

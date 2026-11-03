@@ -123,7 +123,8 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         run: |
           supabase functions deploy trends-mailing-list \
-            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --yes
       - name: Read remote migration state
         shell: bash
         run: |
