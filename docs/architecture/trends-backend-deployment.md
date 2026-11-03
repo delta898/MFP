@@ -11,100 +11,193 @@ This document covers:
 
 This document does not replace the structural contracts in [trends-backend.md](/Users/delta898/Project/NaverAutoBlog/docs/architecture/trends-backend.md). It narrows those contracts into the currently agreed server operation model.
 
-## Newsletter Signup Deployment and Verification
+## Newsletter Deployment and Environment Promotion
 
-The newsletter signup lifecycle runs through the same Trends Worker as the
-authenticated trends API, but on separate public paths. The browser calls the
-Worker without a Trends API token. The Worker validates the request and uses a
-private shared token when it calls the environment-matched Supabase Edge
-Function. Keep all settings environment-specific; never point a Development
-Worker at Production Supabase or use the Production Brevo allowlist/mode for a
-Development test.
+Development is the verified environment for the newsletter lifecycle. Keep the
+following roles distinct when operating it or preparing a Production rollout:
 
-| Component | Development | Production |
-| --- | --- | --- |
-| Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` |
-| Trends Worker | `https://trendapi-dev.hangadac.com` | `https://trendapi.hangadac.com` |
-| Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` |
-| Edge Function | `/functions/v1/trends-mailing-list` in the matching project | Same path in the matching project |
-| Email policy | `NEWSLETTER_EMAIL_MODE=allowlist`, plus the test recipient in `NEWSLETTER_EMAIL_ALLOWLIST` | `NEWSLETTER_EMAIL_MODE=live` only after Production approval |
+| Role | Development | Production | Responsibility |
+| --- | --- | --- | --- |
+| Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` | Static signup, confirmation, and unsubscribe pages |
+| Trends API Worker | `bloggenius-trends-api` at `trendapi-dev.hangadac.com` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Public signup/confirmation/unsubscribe HTTP paths, plus authenticated Trends API paths |
+| Newsletter Workflow Worker | `bloggenius-trends-newsletter-dev` | Not configured for Production | Receives collection workflows and sends newsletter batches; it is not the browser signup endpoint |
+| Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` | Mailing data, RPCs, and `trends-mailing-list` Edge Function |
 
-Before enabling the website form in an environment, check these dependencies
-in order:
+The browser calls the environment's Trends API hostname. The API Worker
+validates the public request and forwards it to that environment's private
+Supabase Edge Function with a shared bearer token. Its
+`TRENDS_NEWSLETTER_COLLECTION_WORKFLOW` binding is only for authenticated
+collection-complete signals; it does not route browser requests to the
+Newsletter Workflow Worker. Keep every URL, credential, database, sender
+policy, and domain environment-specific.
 
-1. **Database:** apply `supabase/migrations/202611020001_trends_mailing_list.sql`
-   to the intended Supabase project. The migration creates the private
-   `mailing` schema, subscriber table, and RPCs. Expose `mailing` in the
-   project's **Integrations → Data API → Settings → Exposed schemas** so
-   PostgREST can route RPC requests. Exposing the schema does not grant
-   `anon`/`authenticated` table access; the migration revokes direct access
-   and grants the RPC execution path to `service_role`.
-2. **Edge Function:** deploy `trends-mailing-list` to the same project. Set
-   that project's own `TRENDS_NEWSLETTER_WORKER_TOKEN`, Supabase server key,
-   `BREVO_API_KEY` (Brevo **API key**, not SMTP key),
-   `NEWSLETTER_EMAIL_FROM`, `BLOGGENIUS_ENV`, `NEWSLETTER_EMAIL_MODE`, and
-   environment-matched `NEWSLETTER_CONFIRMATION_URL`. Development also needs
-   `NEWSLETTER_EMAIL_ALLOWLIST` containing the intended test address.
-3. **Brevo network access:** if the Supabase Edge Function sends through a
-   Brevo account with IP access restrictions, authorize the current egress
-   IP/address shown by Brevo's security failure before retrying. A Brevo
-   `401` can be caused by this IP restriction even when the API key is
-   correct. Do not rotate a valid API key as the first response to an IP
-   verification failure.
-4. **Worker:** set `TRENDS_NEWSLETTER_FUNCTION_URL` to the matching project's
-   Edge Function URL and set `TRENDS_NEWSLETTER_WORKER_TOKEN` to the same
-   random raw token stored in that project's Edge Function secret. Keep the
-   shared token private; if exposed, replace it in both locations. Deploy the
-   Worker environment after code changes. Setting a secret and deploying site
-   assets are separate operations.
-5. **Site:** build/deploy the static site with the matching runtime profile.
-   Development uses `./run_dev.sh` and the `www-dev` hostname. The form calls
-   the Development Worker base URL embedded in the generated HTML.
-6. **End-to-end check:** submit an address permitted by the environment's mail
-   policy, confirm the email arrives, click the confirmation link and verify
-   the row becomes `active`, then use unsubscribe and verify the row becomes
-   `unsubscribed`. Check Worker, Edge Function, PostgREST, and Brevo logs by
-   timestamp when a step fails. Do not repeatedly submit while an earlier
-   request may have created a `pending` row; a new request rotates its action
-   tokens.
+The Development API Worker uses the base (unnamed) Wrangler environment,
+deployed with `--env=""`. Cloudflare's dashboard labels that base environment
+“Production”; the Worker service name and its Development variables identify
+the actual application environment. Production API configuration is the
+explicit `[env.production]` section and is deployed with `--env production`.
+
+### Configuration ownership
+
+| Setting | Trends API Worker | Newsletter Workflow Worker | Supabase Edge Function |
+| --- | --- | --- | --- |
+| Function URL | `TRENDS_NEWSLETTER_FUNCTION_URL` as a plain `wrangler.toml` variable, matching the project's Function URL | Not used for subscription; the delivery adapter has its own configured Supabase target | N/A |
+| Shared token | `TRENDS_NEWSLETTER_WORKER_TOKEN` secret for signup, confirmation, and unsubscribe forwarding | Same environment's token secret for `deliver_batch` calls | Same environment's `TRENDS_NEWSLETTER_WORKER_TOKEN` secret for authentication |
+| Project/runtime marker | `TRENDS_ENV` | `BLOGGENIUS_ENV` and `SUPABASE_PROJECT_REF` | `BLOGGENIUS_ENV`, `SUPABASE_URL`, and server-side key |
+| Email policy | N/A | Development delivery stays allowlist-only | Development uses `NEWSLETTER_EMAIL_MODE=allowlist` and `NEWSLETTER_EMAIL_ALLOWLIST`; Production requires `live` only after explicit rollout approval |
+
+Use one randomly generated raw token per environment and store it in that
+environment's API Worker, Newsletter Workflow Worker, and Edge Function. The
+Development token must differ from the Production token. Never put tokens,
+Supabase keys, or Brevo keys in `wrangler.toml`, site build variables, Git, or
+chat. `TRENDS_NEWSLETTER_FUNCTION_URL` is not a secret: declare it in the
+matching `[vars]` section so a Wrangler deployment preserves it. It will not
+appear in `wrangler secret list`.
+
+### Development reference procedure
+
+1. Apply the mailing-list migration and all newsletter state/delivery
+   migrations to the Development project. Confirm the `mailing` schema is
+   exposed to PostgREST while table access remains service-role-only.
+2. Deploy `trends-mailing-list` to the Development Supabase project. Set its
+   Development-only database key, shared token, Brevo API key/sender,
+   confirmation URL, unsubscribe signing secret, environment marker, and
+   allowlist policy. Include the intended test recipient in
+   `NEWSLETTER_EMAIL_ALLOWLIST`.
+3. In `apps/trends/trends-api/workers/wrangler.toml`, keep the Development
+   Function URL in base `[vars]`. Set the Development shared token as a secret
+   on `bloggenius-trends-api` (base environment).
+4. Set the same Development token on `bloggenius-trends-newsletter-dev`, along
+   with its Development Supabase server key. Its checked-in `wrangler.toml`
+   contains the Development workflow and email-policy variables.
+5. Deploy the Newsletter Workflow Worker, then the Trends API Worker. The API
+   Worker deploy output should show `TRENDS_ENV="development"`, the
+   Development Function URL, and the `TRENDS_NEWSLETTER_COLLECTION_WORKFLOW`
+   binding to the Development Workflow script.
+6. Build/deploy the site with the Development runtime profile; verify the
+   generated signup page embeds `https://trendapi-dev.hangadac.com` as its API
+   base. Do not infer the target Worker from the URL alone; verify the
+   Cloudflare Custom Domain is attached to the Development API Worker.
+7. Submit only an allowlisted test address. Confirm the email arrives, use the
+   confirmation link, verify `active` state, then test unsubscribe and verify
+   `unsubscribed` state. Inspect the matching Worker and Supabase Function logs
+   if any step fails.
+
+For manual CLI operations, run commands from each Worker package directory.
+The API Worker's `npm run secret:development` uses `wrangler secret put` in the
+base environment; its deploy command explicitly passes `--env=""`. The
+Newsletter Worker's `npm run deploy:development` deploys its default
+Development script. `wrangler secret list --env=""` lists secret names only;
+it cannot reveal their values. A `secret put` publishes a new Worker version.
+Do not use `secret put` for the Function URL; keep it in Wrangler variables.
+
+### Production promotion checklist (not yet executed)
+
+The Development setup is a reference for mapping configuration, not a command
+to copy Development values into Production. Production newsletter workflow
+delivery is not currently configured: the Newsletter Worker has no Production
+environment, and the API Worker's production environment has no newsletter
+Workflow binding or newsletter Function URL. Production sender activation and
+the operator path for any resend remain separate decisions. Do not enable
+Production email or deploy a Production newsletter Workflow until those
+decisions are approved.
+
+When Production rollout is approved, perform these steps in order:
+
+1. **Review the release candidate.** Identify the exact reviewed commit and
+   inspect every pending SQL migration against Production. Check that the
+   Production newsletter does not target Development tables, Functions,
+   domains, allowlists, or mail credentials. Take the normal Production
+   database backup/recovery precautions before applying schema changes.
+2. **Prepare Production data structures.** Apply the required mailing and
+   newsletter migrations to Production only after reviewing their effects and
+   rollback/recovery plan. Confirm the private `mailing` schema, RPC grants,
+   and PostgREST exposed-schema setting match Development's intended contract.
+3. **Deploy the Production Edge Function.** Deploy
+   `trends-mailing-list` to `hocfjolcthvtgfaxjmse`. Configure Production-only
+   Supabase server credentials, a new Production shared token,
+   `BLOGGENIUS_ENV=production`, `NEWSLETTER_EMAIL_MODE=live` only after the
+   explicit email activation approval, the Production sender/Brevo key,
+   `NEWSLETTER_CONFIRMATION_URL=https://www.bloggenius.kr/trends/confirm/`, and
+   a Production unsubscribe signing secret. Do not configure a Development
+   allowlist or reuse Development mail credentials.
+4. **Configure the Production API Worker.** Add the Production Function URL to
+   `[env.production.vars]` in `apps/trends/trends-api/workers/wrangler.toml`.
+   Set the new Production token with
+   `npm run secret:production -- TRENDS_NEWSLETTER_WORKER_TOKEN` from
+   `apps/trends/trends-api/workers`. Verify the Production secret list and
+   deployment bindings without printing secret values.
+5. **Decide and configure Production collection/delivery separately.** If
+   Production newsletters should be triggered by collection, add a separately
+   named Production Workflow Worker and explicit Production Workflow binding
+   with Production-only Supabase configuration. Set the same Production token
+   on that Worker and the Production Edge Function. Confirm that the signal,
+   resend authorization, delivery revision model, recipient ledger, and
+   recovery path are approved before enabling any send. The Dev binding is not
+   a Production binding.
+6. **Deploy and inspect Workers.** Deploy the Newsletter Worker only after its
+   Production environment and target project have been reviewed. Deploy the
+   API Worker with `npm run deploy:production`. Confirm the Production API
+   domain targets `bloggenius-trends-api-production`, its Function URL points
+   to the Production Supabase project, and any Workflow binding targets only
+   the Production Worker.
+7. **Promote the site last.** Build/deploy the Production site after the API
+   and Function are ready. Verify the generated HTML uses
+   `https://trendapi.hangadac.com`, not the Development hostname.
+8. **Run the approved Production acceptance check.** Use only an explicitly
+   approved recipient and send mode. Verify signup, confirmation, subscription
+   state, unsubscribe, and relevant logs. This sends real email and must not be
+   treated as a dry run. Keep rollback ready and stop on any unexpected
+   cross-environment reference.
+
+Do not copy raw Development secrets into Production. Record only secret names,
+target environment, and rotation date in operational notes; never record
+secret values. A rollback must restore the previous site/Worker deployment and
+preserve subscriber and delivery history; do not delete mailing records as a
+rollback shortcut.
 
 ### Failure signatures observed during Development validation
 
-- Supabase RPC returns `406` with PostgREST `PGRST106` for
-  `/rest/v1/rpc/request_trends_subscription`: `mailing` is not in the project's
-  exposed Data API schemas. Add it under Integrations → Data API → Settings;
-  reapplying the migration or redeploying the Function does not fix this
-  project-level API setting.
-- RPC returns `200`, followed by Function log
-  `TRENDS_MAILING_LIST_FAILED brevo_http_401`: the database path is working;
-  inspect Brevo API-key validity, sender configuration, and IP access controls.
-  In the validated incident, allowing the new egress IP fixed delivery; the
-  API key itself was valid.
-- A campaign recipient row has `outcome_code = provider_rejected` and no
-  provider message ID: inspect that invocation's Edge Function logs for
-  `TRENDS_NEWSLETTER_PROVIDER_RESPONSE`. It records the Brevo HTTP status,
-  provider error code, a sanitized/truncated message, and trend date. It omits
-  recipient addresses and never returns provider diagnostics to the caller.
-  A rejected request may not appear in Brevo's transactional event log because
-  Brevo did not accept it. The database outcome remains the stable generic
-  `provider_rejected` value; detailed diagnosis belongs in the Function log.
-- Function invocation returns `401 unauthorized`: the private Worker token
-  did not pass the Edge Function's shared-token check. Use the raw matching
-  token in `Authorization: Bearer …`; hashing it locally can compare two
-  candidate values, but sending a digest does not authenticate unless that
-  digest itself is what both environments store. Rotate any token pasted into
-  chat or logs.
-- The site displays “구독 기능을 일시적으로 사용할 수 없습니다.”: inspect
-  the Dev Worker log. `newsletter integration is not configured` points to a
-  missing/invalid Worker Function URL or token; `newsletter backend rejected
-  request` includes the Edge Function HTTP status and directs the next check
-  to Supabase Function logs.
+- The site displays “구독 기능을 일시적으로 사용할 수 없습니다.” when the
+  API Worker's Function URL is invalid/missing or its shared token is empty.
+  `newsletter integration is not configured` in API Worker logs confirms this
+  preflight branch.
+- The site displays “요청을 처리하지 못했습니다. 잠시 후 다시 시도해
+  주세요.” after the API Worker passed its configuration check but the
+  Function request failed or returned a non-400 error. The API log
+  `newsletter backend rejected request` includes the HTTP status and sanitized
+  backend error. Supabase Function invocation logs help distinguish token,
+  email-policy, database, and provider failures.
+- `TRENDS_NEWSLETTER_EMAIL_POLICY_DENIED` with
+  `environment=development` and `mode=allowlist` means the request reached the
+  Edge Function but the recipient is not in `NEWSLETTER_EMAIL_ALLOWLIST`.
+  Add the intended test address while preserving existing entries; do not
+  rotate a token for this error.
+- Edge Function `401 unauthorized` means the API/Workflow Worker token does
+  not match that environment's `TRENDS_NEWSLETTER_WORKER_TOKEN` secret.
+- Database RPC failures should be diagnosed from the Function log code and
+  PostgREST response. A `406` / `PGRST106` means the `mailing` schema is not
+  exposed to the project's Data API.
+- `brevo_http_401` or `TRENDS_NEWSLETTER_PROVIDER_RESPONSE` points to Brevo
+  credentials, sender policy, or provider network access; do not rotate a
+  working key before checking the reported provider cause.
+- If Brevo has IP access restrictions, authorize the current egress address
+  shown in its rejection before retrying. A Brevo `401` may be caused by this
+  restriction even when the API key is valid.
+- For campaign delivery, a recipient outcome `provider_rejected` with no
+  provider message ID should be investigated through that invocation's
+  `TRENDS_NEWSLETTER_PROVIDER_RESPONSE` Function log. It contains sanitized
+  provider diagnostics; the database outcome stays generic and Brevo may have
+  no event because it rejected the request before accepting it.
 
 Development end-to-end validation completed on 2026-11-02 (Asia/Seoul): the
 site signup sent a Brevo confirmation email, the confirmation link changed the
-subscriber row to active, and unsubscribe updated the row. Production rollout
-has not been performed. Daily campaign generation and scheduled bulk delivery
-are outside this verified lifecycle slice.
+subscriber row to active, and unsubscribe updated the row. During the
+2026-11-03 recovery, Supabase logs showed that the request reached the
+Development Edge Function and was denied by its allowlist; adding the intended
+test recipient addressed that policy gate. Production rollout has not been
+performed. Daily campaign generation and scheduled bulk delivery are outside
+this verified lifecycle slice.
 
 ## Current Deployment Model
 
