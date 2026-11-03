@@ -140,6 +140,11 @@ stderr를 분리해 보관하고, 실패한 경우 해당 명령의 출력과 ex
 따라서 `Verify Hosted Development Drift`가 실패하면 `Read remote migration state` 또는
 `Read remote Function state` 중 실패한 step에서 Supabase CLI 오류를 확인할 수 있다.
 
+GitHub-hosted runner는 IPv6를 지원하지 않아 direct database endpoint에 연결할 수 없다. Development
+migration 조회 전에 명시적인 project ref로 `supabase link`를 실행해 Supavisor의 IPv4 pooler 연결을
+준비한다. 이 설정은 CI의 임시 checkout에만 기록되며 개발자 로컬 link나 원격 Supabase 상태는 바꾸지
+않는다.
+
 Production checklist는 `release/*` 또는 `main`에서만 생성할 수 있으며, 현재 revision과 같은 artifact를
 검증한 development workflow run을 명시해야 한다. 결과의 `ready_for_user_approval`은 자동 배포 허가가
 아니다. 이후 사용자 승인과 production preflight가 모두 별도로 필요하다.

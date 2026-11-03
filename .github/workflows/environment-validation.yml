@@ -96,6 +96,11 @@ jobs:
           name: supabase-release-${{ github.sha }}
       - name: Validate public development connection
         run: npm run env:development:ready
+      - name: Configure ephemeral Development database connection
+        run: |
+          supabase link \
+            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
       - name: Read remote migration state
         shell: bash
         run: |
