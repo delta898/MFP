@@ -5,8 +5,8 @@
 - Branch: `feature/trends-newsletter-edition-generation`
 - Start date: 2026-11-03
 - Base/parent branch: `dev`
-- Status: implementation complete; Development Worker deployment and live Workflow verification pending
-- Commit state: uncommitted; commit only when the user requests it
+- Status: implementation and Development deployment complete; live Workflow verification pending
+- Commit: `548c6370` (`feat: generate shared trends newsletter editions`), merged to and pushed on `dev`
 
 ## User need and goal
 
@@ -147,8 +147,11 @@ edition.
 - Wrangler deploy dry-run passes with the Development Supabase/Workflow binding
   and no Production targets. The config now specifies the Development Gateway
   ID, `development` BYOK alias, OpenAI provider, `gpt-6-luna` model, Dev site
-  links, and ordered WordPress/Naver RSS feeds. Confirm the Gateway ID against
-  the Cloudflare dashboard before live deployment.
+  links, and ordered WordPress/Naver RSS feeds.
+- Development deployment run `41567562592` succeeded: newsletter Workflow
+  Worker and Development Trends API Worker both deployed. Development Supabase
+  drift validation run `41567562559` also succeeded, including migration and
+  Function state comparison and public smoke checks.
 - `git diff --check` passes.
 - Do not call billable AI services in automated tests; mock the Gateway. A real
   Development model connection check requires an explicit user-run/approved
@@ -162,8 +165,9 @@ edition.
   `202611030002` are both applied to project `bvtlwjbmjnfphxlrkzhm`.
 - After migration, all 20 focused Worker tests pass, Wrangler deploy dry-run
   passes for Development bindings, and `git diff --check` passes.
-- Cloudflare Worker deployment remains pending. No AI Gateway call, live RSS
-  fetch, or live edition persistence has been verified yet.
+- No AI Gateway call, live RSS fetch, or live edition persistence has been
+  verified yet; a new Development collector signal is required for this
+  end-to-end check.
 - Review corrections: allow the sequential 12-second RSS timeout for each of
   the configured maximum eight feeds within the Workflow step timeout; use
   OpenAI GPT-6 Luna's Chat Completions parameter names and zero reasoning
