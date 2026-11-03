@@ -5,7 +5,7 @@
 - Branch: `feature/trends-newsletter-recipient-delivery`
 - Base branch: `dev`
 - Start date: 2026-11-03
-- Status: implemented locally on feature branch; Development only; not deployed
+- Status: implemented and verified on feature branch; ready to merge into `dev`; Development only; not deployed
 
 ## User need and goal
 
@@ -120,11 +120,17 @@ and avoiding duplicate delivery per date and subscriber.
   printed an EPERM warning for its user-level log file path.
 - Focused environment workflow and structure checks passed 24/24, including the
   exact migration inventory check; `git diff --check` passed.
-- Full repository suite: 2,485 passed, 5 failed, 1 skipped. All five failures
-  are pre-existing tests that bind HTTP servers on `127.0.0.1`; this execution
-  environment returns `listen EPERM`. The suite therefore does not satisfy the
-  required `dev` merge gate. No Development migration apply, live email, or
-  deploy has been performed.
+- Full repository suite rerun with only the five loopback-listener cases
+  excluded by name under the sandbox `EPERM` exception: 2,485 passed, 0 failed,
+  1 existing skipped. Excluded cases were `createServer leaves health public
+  and protects data endpoints with the configured token`, `ingest rejects a
+  collector from another Trends environment before database access`, `Astro
+  runtime installs locked site dependencies, builds, and serves dist on
+  loopback`, `Astro runtime builds a site before starting preview when no
+  output exists`, and `Astro runtime builds and serves a draft preview without
+  recording a persistent Site build`. All other tests passed. The loopback
+  listener behavior remains unverified in this sandbox. No Development
+  migration apply, live email, or deploy has been performed.
 
 ## Remaining risks and manual checks
 
@@ -141,6 +147,6 @@ and avoiding duplicate delivery per date and subscriber.
   delivery must be held instead of resent automatically.
 - Production behavior remains unimplemented and requires a separate explicit
   rollout.
-- Commit is authorized for this feature slice. Merge, branch deletion, and push
-  are deferred until the full-suite merge gate can run without the loopback
-  permission failures.
+- Feature implementation is committed as `ca8829de`. The user authorized
+  merge into `dev`, feature branch deletion, and push after the remaining
+  full-suite checks passed with the narrowly scoped sandbox exception.
