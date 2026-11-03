@@ -5,7 +5,7 @@
 - Branch: `feature/trends-newsletter-recipient-delivery`
 - Base branch: `dev`
 - Start date: 2026-11-03
-- Status: implemented and verified on feature branch; ready to merge into `dev`; Development only; not deployed
+- Status: merged into `dev` and pushed; Development CI/CD deployment is triggered by the push; Development only
 
 ## User need and goal
 
@@ -86,8 +86,8 @@ and avoiding duplicate delivery per date and subscriber.
    dated run without exposing recipient PII in Workflow step data.
 5. Update architecture/runbook documentation and Development CI so a `dev`
    push deploys this Edge Function after migrations and verifies remote
-   Function state. Then run focused tests and Wrangler dry-run validation. No
-   actual deploy or Git operation is included.
+   Function state. Focused tests and Wrangler dry-run validation are completed;
+   the push to `dev` triggers the actual Development deployment through CI/CD.
 
 ## Progress and verification
 
@@ -147,6 +147,8 @@ and avoiding duplicate delivery per date and subscriber.
   delivery must be held instead of resent automatically.
 - Production behavior remains unimplemented and requires a separate explicit
   rollout.
-- Feature implementation is committed as `ca8829de`. The user authorized
-  merge into `dev`, feature branch deletion, and push after the remaining
-  full-suite checks passed with the narrowly scoped sandbox exception.
+- Feature implementation is committed as `ca8829de`; the sandbox verification
+  exception and final full-suite record are committed as `70f7c340`. Both were
+  fast-forward merged into `dev` and pushed. The feature branch was deleted
+  after the push succeeded. Live Development email delivery remains to be
+  verified after CI/CD completes.
