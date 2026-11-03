@@ -25,8 +25,19 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
         <button class="button button-primary subscribe-submit" type="submit" disabled>구독 신청하기 <span aria-hidden="true">↗</span></button>
       </div>
     </form>
+    <section class="subscribe-completion" data-subscribe-completion hidden aria-labelledby="subscribe-completion-title">
+      <div class="subscribe-completion-copy" role="status" aria-live="polite">
+        <span class="subscribe-completion-icon" aria-hidden="true">✓</span>
+        <h2 id="subscribe-completion-title" data-completion-title tabindex="-1">메일함을 확인해 주세요</h2>
+        <p data-completion-message></p>
+      </div>
+      <nav class="subscribe-completion-actions" aria-label="다음으로 이동">
+        <a class="button button-primary" href="/trends/">트렌드 둘러보기 <span aria-hidden="true">↗</span></a>
+        <a class="button button-quiet" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
+      </nav>
+    </section>
   </section>
-  <p class="subscribe-back-link"><a href="/trends/">← 트렌드 둘러보기</a></p>
+  <p class="subscribe-back-link" data-subscribe-back-link><a href="/trends/">← 트렌드 둘러보기</a></p>
 </main>
 <script>
   document.querySelectorAll('[data-category-picker]').forEach((picker) => {
@@ -68,6 +79,11 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
     const picker = form?.querySelector('[data-category-picker]');
     const button = form?.querySelector('.subscribe-submit');
     const status = form?.querySelector('[data-subscribe-status]');
+    const cardHeading = subscription.querySelector('.subscribe-card-heading');
+    const completion = subscription.querySelector('[data-subscribe-completion]');
+    const completionTitle = completion?.querySelector('[data-completion-title]');
+    const completionMessage = completion?.querySelector('[data-completion-message]');
+    const backLink = document.querySelector('[data-subscribe-back-link]');
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!email?.validity.valid || !consent?.checked || !picker || !button || !status) return;
@@ -85,15 +101,34 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
         });
         const payload = await response.json();
         if (!response.ok || payload.success !== true) throw new Error(payload.message || '요청을 처리하지 못했습니다.');
-        status.dataset.state = 'success';
         const messages = {
-          pending: '신청이 접수되었습니다. 메일의 확인 페이지에서 카테고리를 조정한 뒤 구독을 완료해 주세요.',
-          change_requested: '카테고리 변경 확인 메일을 보냈습니다. 확인 전까지 기존 구독 설정이 유지됩니다.',
-          already_active: '이미 선택한 카테고리로 구독 중입니다. 기존 구독을 유지합니다.',
+          pending: {
+            title: '메일함에서 구독을 확인해 주세요',
+            message: '확인 메일을 보냈습니다. 메일의 확인 페이지에서 카테고리를 확인한 뒤 구독을 완료해 주세요.',
+          },
+          change_requested: {
+            title: '메일에서 변경을 확인해 주세요',
+            message: '카테고리 변경 확인 메일을 보냈습니다. 메일의 링크를 누르기 전까지 기존 구독 설정이 유지됩니다.',
+          },
+          already_active: {
+            title: '이미 구독 중입니다',
+            message: '이미 선택한 카테고리로 구독 중입니다. 기존 구독을 유지합니다.',
+          },
         };
-        status.textContent = messages[payload.message] || '요청이 접수되었습니다.';
-        form.querySelectorAll('input, .trend-chip').forEach((control) => { control.disabled = true; });
-        button.hidden = true;
+        const completionCopy = messages[payload.message] || {
+          title: '요청이 접수되었습니다',
+          message: '안내 메일을 보냈습니다. 메일함에서 다음 절차를 확인해 주세요.',
+        };
+        if (completionTitle && completionMessage && completion) {
+          completionTitle.textContent = completionCopy.title;
+          completionMessage.textContent = completionCopy.message;
+          completion.hidden = false;
+          form.hidden = true;
+          if (cardHeading) cardHeading.hidden = true;
+          subscription.setAttribute('aria-labelledby', completionTitle.id);
+          if (backLink) backLink.hidden = true;
+          completionTitle.focus();
+        }
       } catch (error) {
         status.dataset.state = 'error';
         status.textContent = error instanceof Error && error.message !== 'Failed to fetch' ? error.message : '신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
