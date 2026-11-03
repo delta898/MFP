@@ -1,6 +1,6 @@
 import { buildRecipientBriefing } from "../../../apps/trends/trends-newsletter/src/delivery.js";
 
-type Action = "subscribe" | "confirm" | "unsubscribe" | "deliver_batch";
+type Action = "subscribe" | "preview_confirmation" | "confirm" | "unsubscribe" | "deliver_batch";
 type HandlerOptions = {
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
@@ -130,7 +130,7 @@ export function createHandler(options: HandlerOptions = {}) {
     return false;
   }
 
-  async function sendConfirmation(email: string, token: string, unsubscribeToken: string) {
+  async function sendConfirmation(email: string, token: string, unsubscribeToken?: string, categoryChange = false) {
     const key = getEnv("BREVO_API_KEY")?.trim() || "";
     const from = sender();
     const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
@@ -145,17 +145,17 @@ export function createHandler(options: HandlerOptions = {}) {
         || (!expectedHost && !localAllowed)) throw new Error("email_sender_not_configured");
     url.pathname = "/trends/confirm/";
     url.searchParams.set("token", token);
-    const unsubscribeUrl = new URL("/trends/unsubscribe/", url.origin);
-    unsubscribeUrl.searchParams.set("token", unsubscribeToken);
+    const unsubscribeUrl = unsubscribeToken ? new URL("/trends/unsubscribe/", url.origin) : null;
+    if (unsubscribeUrl && unsubscribeToken) unsubscribeUrl.searchParams.set("token", unsubscribeToken);
     const response = await fetcher("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: { "api-key": key, accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({
         sender: from,
         to: [{ email }],
-        subject: "[BlogGenius] 네이버 트렌드 구독을 확인해 주세요",
-        textContent: `네이버 트렌드 뉴스레터 구독을 완료하려면 아래 링크를 열어 주세요.\n${url}\n\n링크는 48시간 동안 유효합니다. 구독 신청을 취소하려면 아래 링크를 열어 주세요.\n${unsubscribeUrl}\n\n직접 신청하지 않았다면 이 메일을 무시해 주세요.`,
-        htmlContent: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#1d2b24"><p style="letter-spacing:.15em;color:#315f4c;font-weight:bold">NAVER TRENDS LETTER</p><h1 style="font-size:24px">구독 신청을 확인해 주세요</h1><p>아래 버튼을 눌러 구독을 완료해 주세요. 링크는 48시간 동안 유효합니다.</p><p style="margin:28px 0"><a href="${url.toString()}" style="display:inline-block;background:#315f4c;color:#fff;padding:14px 22px;border-radius:999px;text-decoration:none;font-weight:bold">구독 확인하기</a></p><p style="font-size:13px;color:#68766d">직접 신청하지 않았다면 이 메일을 무시해 주세요. <a href="${unsubscribeUrl.toString()}">신청 취소</a></p></div>`,
+        subject: categoryChange ? "[BlogGenius] 트렌드 뉴스레터 카테고리 변경을 확인해 주세요" : "[BlogGenius] 네이버 트렌드 구독을 확인해 주세요",
+        textContent: `${categoryChange ? "네이버 트렌드 뉴스레터 카테고리 변경을 완료하려면" : "네이버 트렌드 뉴스레터 구독을 완료하려면"} 아래 링크를 열어 주세요.\n${url}\n\n링크는 48시간 동안 유효합니다.${unsubscribeUrl ? ` 구독을 취소하려면 아래 링크를 열어 주세요.\n${unsubscribeUrl}` : " 기존 구독 설정은 변경 확인 전까지 유지됩니다."}\n\n직접 요청하지 않았다면 이 메일을 무시해 주세요.`,
+        htmlContent: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#1d2b24"><p style="letter-spacing:.15em;color:#315f4c;font-weight:bold">NAVER TRENDS LETTER</p><h1 style="font-size:24px">${categoryChange ? "카테고리 변경을 확인해 주세요" : "구독 신청을 확인해 주세요"}</h1><p>${categoryChange ? "아래 페이지에서 카테고리를 확인하고 변경을 완료해 주세요. 기존 설정은 확인 전까지 유지됩니다." : "아래 버튼을 눌러 구독을 완료해 주세요."} 링크는 48시간 동안 유효합니다.</p><p style="margin:28px 0"><a href="${url.toString()}" style="display:inline-block;background:#315f4c;color:#fff;padding:14px 22px;border-radius:999px;text-decoration:none;font-weight:bold">${categoryChange ? "카테고리 확인하기" : "구독 확인하기"}</a></p><p style="font-size:13px;color:#68766d">직접 요청하지 않았다면 이 메일을 무시해 주세요.${unsubscribeUrl ? ` <a href="${unsubscribeUrl.toString()}">신청 취소</a>` : ""}</p></div>`,
       }),
       signal: AbortSignal.timeout(10000),
     });
@@ -375,10 +375,11 @@ export function createHandler(options: HandlerOptions = {}) {
           p_consent_version: "2026-11-02",
         });
         if (String(outcome) === "pending") await sendConfirmation(email, confirmation, unsubscribe);
-        return json(200, { success: true, message: "pending" });
+        if (String(outcome) === "change_requested") await sendConfirmation(email, confirmation, undefined, true);
+        return json(200, { success: true, message: String(outcome) });
       }
       if (action === "deliver_batch") return await deliverBatch(body);
-      if (action === "confirm" || action === "unsubscribe") {
+      if (action === "preview_confirmation" || action === "confirm" || action === "unsubscribe") {
         const token = String(body.token || "").trim();
         if (action === "unsubscribe" && /^u_[0-9a-f-]{36}_[a-f0-9]{64}$/i.test(token)) {
           const [, rawId, signature] = token.match(/^u_([0-9a-f-]{36})_([a-f0-9]{64})$/i) || [];
@@ -392,7 +393,24 @@ export function createHandler(options: HandlerOptions = {}) {
           return json(200, { success: true, message: "unsubscribed" });
         }
         if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) return json(400, { success: false, error: "invalid_token" });
-        const outcome = await mailingRpc(action === "confirm" ? "confirm_trends_subscription" : "unsubscribe_trends_subscription", { p_token_hash: await sha256(token) });
+        if (action === "preview_confirmation") {
+          const preview = await mailingRpc("preview_trends_subscription_confirmation", { p_token_hash: await sha256(token) });
+          if (!preview?.valid || !Array.isArray(preview.categories)) return json(400, { success: false, error: "invalid_or_expired_token" });
+          return json(200, { success: true, message: "preview", categories: preview.categories });
+        }
+        let outcome;
+        if (action === "confirm") {
+          let categories = Array.isArray(body.categories) ? [...new Set(body.categories.map((item) => String(item).trim()))] : [];
+          if (!categories.length) {
+            const preview = await mailingRpc("preview_trends_subscription_confirmation", { p_token_hash: await sha256(token) });
+            if (!preview?.valid || !Array.isArray(preview.categories)) return json(400, { success: false, error: "invalid_or_expired_token" });
+            categories = preview.categories;
+          }
+          if (categories.length < 1 || categories.length > 10 || categories.some((item) => !NEWSLETTER_CATEGORIES.has(item))) return json(400, { success: false, error: "invalid_subscription_categories" });
+          outcome = await mailingRpc("confirm_trends_subscription_with_categories", { p_token_hash: await sha256(token), p_categories: categories, p_consent_version: "2026-11-02" });
+        } else {
+          outcome = await mailingRpc("unsubscribe_trends_subscription", { p_token_hash: await sha256(token) });
+        }
         if (String(outcome) !== (action === "confirm" ? "confirmed" : "unsubscribed")) return json(400, { success: false, error: "invalid_or_expired_token" });
         return json(200, { success: true, message: action === "confirm" ? "confirmed" : "unsubscribed" });
       }

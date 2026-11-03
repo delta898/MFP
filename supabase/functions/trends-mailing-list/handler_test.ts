@@ -199,6 +199,78 @@ Deno.test("sends the confirmation payload through the mocked Brevo boundary for 
   assertStringIncludes(emailPayload.textContent, "https://www-dev.bloggenius.kr/trends/unsubscribe/?token=");
 });
 
+Deno.test("previews confirmation categories without exposing the raw token to Supabase", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const handler = createHandler({
+    env: baseEnv,
+    fetcher: async (input, init = {}) => {
+      calls.push({ url: String(input), init });
+      return Response.json({ valid: true, categories: ["게임", "교육·학문"] });
+    },
+  });
+  const token = "A".repeat(43);
+  const response = await handler(request({ action: "preview_confirmation", token }));
+  const result = await response.json();
+  const rpcPayload = JSON.parse(String(calls[0].init.body));
+
+  assertEquals(response.status, 200);
+  assertEquals(result.categories, ["게임", "교육·학문"]);
+  assertEquals(calls[0].url.includes("preview_trends_subscription_confirmation"), true);
+  assertEquals(rpcPayload.p_token_hash === token, false);
+  assertEquals(rpcPayload.p_token_hash.length, 64);
+});
+
+Deno.test("confirms the recipient-edited categories through the atomic confirmation RPC", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const handler = createHandler({
+    env: baseEnv,
+    fetcher: async (input, init = {}) => {
+      calls.push({ url: String(input), init });
+      return Response.json("confirmed");
+    },
+  });
+  const response = await handler(request({
+    action: "confirm",
+    token: "B".repeat(43),
+    categories: ["게임", "교육·학문"],
+  }));
+  const result = await response.json();
+  const rpcPayload = JSON.parse(String(calls[0].init.body));
+
+  assertEquals(response.status, 200);
+  assertEquals(result.message, "confirmed");
+  assertEquals(calls[0].url.includes("confirm_trends_subscription_with_categories"), true);
+  assertEquals(rpcPayload.p_categories, ["게임", "교육·학문"]);
+  assertEquals(rpcPayload.p_token_hash === "B".repeat(43), false);
+});
+
+Deno.test("sends category-change confirmation without replacing the active unsubscribe link", async () => {
+  let emailPayload: Record<string, unknown> | undefined;
+  const handler = createHandler({
+    env: baseEnv,
+    tokenFactory: () => "change-token-abcdefghijklmnopqrstuvwxyz0123456789",
+    fetcher: async (input, init = {}) => {
+      const url = String(input);
+      if (url.includes("/rpc/request_trends_subscription")) return Response.json("change_requested");
+      if (url === "https://api.brevo.com/v3/smtp/email") {
+        emailPayload = JSON.parse(String(init.body));
+        return new Response(null, { status: 201 });
+      }
+      throw new Error(`unexpected_url:${url}`);
+    },
+  });
+
+  const response = await handler(request({
+    action: "subscribe", email: "reader@example.com", categories: ["게임"], consent: true,
+  }));
+
+  assertEquals(response.status, 200);
+  assertEquals((await response.json()).message, "change_requested");
+  assertStringIncludes(String(emailPayload?.subject), "카테고리 변경");
+  assertStringIncludes(String(emailPayload?.textContent), "기존 구독 설정은 변경 확인 전까지 유지됩니다.");
+  assertEquals(String(emailPayload?.textContent).includes("/trends/unsubscribe/"), false);
+});
+
 Deno.test("sends a personalized Development campaign to an allowlisted subscriber and returns aggregate-only data", async () => {
   let emailPayload: Record<string, unknown> | undefined;
   const { handler, calls } = deliveryHandler({ onBrevo: (payload) => { emailPayload = payload; } });

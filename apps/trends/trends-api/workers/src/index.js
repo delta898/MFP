@@ -5,7 +5,7 @@ const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
 const metaCache = new Map();
 const readRateWindows = new Map();
 const PUBLIC_TRENDS_PATHS = new Set(['/api/v1/public/trends', '/api/v1/public/trends/meta']);
-const PUBLIC_SUBSCRIPTION_PATHS = new Set(['/api/v1/public/subscriptions', '/api/v1/public/subscriptions/confirm', '/api/v1/public/subscriptions/unsubscribe']);
+const PUBLIC_SUBSCRIPTION_PATHS = new Set(['/api/v1/public/subscriptions', '/api/v1/public/subscriptions/confirm', '/api/v1/public/subscriptions/confirm/preview', '/api/v1/public/subscriptions/unsubscribe']);
 const NEWSLETTER_CATEGORIES = new Set([
     'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
     '맛집', '문학·책', '미술·디자인', '반려동물', '방송', '비즈니스·경제', '사진', '사회·정치',
@@ -460,14 +460,21 @@ async function handlePublicSubscription(request, config, path, origin) {
         return jsonResponse(400, { success: false, message: '올바른 요청이 아닙니다.' }, headers);
     }
     let payload;
-    if (path.endsWith('/confirm') || path.endsWith('/unsubscribe')) {
+    if (path.endsWith('/confirm') || path.endsWith('/confirm/preview') || path.endsWith('/unsubscribe')) {
         const token = String(body?.token || '').trim();
         if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) return jsonResponse(400, { success: false, message: '유효하지 않거나 만료된 링크입니다.' }, headers);
-        payload = { action: path.endsWith('/confirm') ? 'confirm' : 'unsubscribe', token };
+        const isConfirm = path.includes('/confirm');
+        const isPreview = path.endsWith('/confirm/preview');
+        const categories = Array.isArray(body?.categories) ? [...new Set(body.categories.map((value) => String(value).trim()))] : [];
+        const hasCategories = body?.categories !== undefined;
+        if (!isPreview && isConfirm && hasCategories && (categories.length < 1 || categories.length > 10 || categories.some((value) => !NEWSLETTER_CATEGORIES.has(value)))) {
+            return jsonResponse(400, { success: false, message: '카테고리를 1개 이상 선택해 주세요.' }, headers);
+        }
+        payload = { action: isPreview ? 'preview_confirmation' : isConfirm ? 'confirm' : 'unsubscribe', token, ...(isConfirm && !isPreview && hasCategories ? { categories } : {}) };
     } else {
         const email = String(body?.email || '').trim().toLowerCase();
         const categories = Array.isArray(body?.categories) ? [...new Set(body.categories.map((value) => String(value).trim()))] : [];
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || categories.length < 1 || categories.length > 5 || categories.some((value) => !NEWSLETTER_CATEGORIES.has(value))) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || categories.length < 1 || categories.length > 10 || categories.some((value) => !NEWSLETTER_CATEGORIES.has(value))) {
             return jsonResponse(400, { success: false, message: '이메일 주소와 카테고리를 확인해 주세요.' }, headers);
         }
         if (body?.consent !== true) return jsonResponse(400, { success: false, message: '이메일 수신 동의가 필요합니다.' }, headers);
@@ -484,7 +491,7 @@ async function handlePublicSubscription(request, config, path, origin) {
             console.error('[trends-api-workers] newsletter backend rejected request', response.status, result?.error || 'unknown');
             return jsonResponse(response.status === 400 ? 400 : 503, { success: false, message: response.status === 400 ? '입력한 정보를 확인해 주세요.' : '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, headers);
         }
-        return jsonResponse(200, { success: true, message: String(result.message || '요청을 처리했습니다.') }, headers);
+        return jsonResponse(200, { success: true, message: String(result.message || '요청을 처리했습니다.'), ...(Array.isArray(result.categories) ? { categories: result.categories } : {}) }, headers);
     } catch (error) {
         console.error('[trends-api-workers] newsletter backend unavailable', error.message);
         return jsonResponse(503, { success: false, message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, headers);

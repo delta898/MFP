@@ -83,6 +83,40 @@ appear in `wrangler secret list`.
    `unsubscribed` state. Inspect the matching Worker and Supabase Function logs
    if any step fails.
 
+### Confirmation-page category editing
+
+The signup and confirmation pages share the static site's category catalog.
+The confirmation page first calls the read-only
+`/api/v1/public/subscriptions/confirm/preview` route, then submits the chosen
+categories only when the recipient presses the confirmation button. The API
+Worker forwards these public actions to the environment's `trends-mailing-list`
+Function. Both site pickers currently cap selection at three; the API Worker,
+Edge Function, subscriber table, and staged confirmation-request table accept
+up to ten. This keeps the current product limit in the UI while allowing that
+limit to increase to ten without changing server validation or schema.
+
+For this feature, promote in this order: apply
+`202611040001_trends_subscription_confirmation_category_editing.sql` to the
+target Supabase project; deploy the matching `trends-mailing-list` Edge
+Function; deploy the API Worker with the preview route; then build and deploy
+the matching static site. On a `dev` push, `.github/workflows/environment-validation.yml`
+automates this sequence: it applies pending Development migrations, deploys
+the Edge Function, validates and deploys both Development Workers, builds the
+Development site artifact, and deploys that artifact to the existing
+`bg-www-bloggenius-kr-dev` Worker. The site deploy step requires the GitHub
+`development` environment's Cloudflare API token and account ID and refuses to
+deploy unless that existing Development Worker is present. Production has no
+automated deployment job today. When adding it, extend the same gated sequence
+with a separate Production GitHub Environment and independently reviewed
+Supabase project, Function, API Worker, site Worker, hostname, URLs, and
+credentials; do not reuse the Development constants. The migration adds only
+staged category-change requests; active subscriber categories and unsubscribe tokens stay unchanged
+until explicit confirmation. Existing pending signup links continue to work.
+Verify both first-time confirmation and active-subscriber category change in
+Development before applying the same reviewed sequence to Production. Keep
+Production mail policy and site/API environment configuration independently
+scoped as described above.
+
 For manual CLI operations, run commands from each Worker package directory.
 The API Worker's `npm run secret:development` uses `wrangler secret put` in the
 base environment; its deploy command explicitly passes `--env=""`. The

@@ -75,7 +75,7 @@ jobs:
       github.ref == 'refs/heads/dev' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift'))
-    needs: release-artifact
+    needs: [release-artifact, validate-development-site]
     runs-on: ubuntu-latest
     environment: development
     env:
@@ -219,6 +219,39 @@ jobs:
           npm test
           npx wrangler deploy --env='' --dry-run
 
+  validate-development-site:
+    name: Build Development Site
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'dev') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+      - name: Build Development site
+        working-directory: workspace/site-hosting/sites/www-bloggenius-kr
+        env:
+          BLOGGENIUS_ENV: development
+          BLOGGENIUS_SITE_URL: https://www-dev.bloggenius.kr
+          PUBLIC_TRENDS_API_BASE_URL: https://trendapi-dev.hangadac.com
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          rg -l 'https://trendapi-dev.hangadac.com' dist
+      - uses: actions/upload-artifact@v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        with:
+          name: development-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
+          if-no-files-found: error
+          retention-days: 7
+
   deploy-development-workers:
     name: Deploy Development Workers
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
@@ -247,6 +280,31 @@ jobs:
         run: |
           npm ci
           npm run deploy:development
+
+  deploy-development-site:
+    name: Deploy Development Site
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: [deploy-development-workers, validate-development-site]
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      BLOGGENIUS_ENV: development
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/download-artifact@v7
+        with:
+          name: development-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
+      - name: Install Cloudflare deploy dependencies
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Deploy the existing Development site Worker
+        run: node scripts/deploy-development-site.js
 
   production-checklist:
     name: Generate Production Approval Checklist
