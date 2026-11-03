@@ -168,7 +168,7 @@ confirm you are targeting Development before running the relevant command:
    migrations. If that step failed, deploy it manually from the repository root:
 
    ```sh
-   supabase functions deploy trends-mailing-list --project-ref bvtlwjbmjnfphxlrkzhm
+   supabase functions deploy trends-mailing-list --remote=bvtlwjbmjnfphxlrkzhm --yes
    ```
 
 3. Confirm both Edge Function and Worker have the same

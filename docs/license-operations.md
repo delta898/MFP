@@ -186,9 +186,9 @@ order by plan_code;
 Supabase CLI 기준 예시:
 
 ```bash
-supabase functions deploy send-license-code --project-ref <PROJECT_REF> --no-verify-jwt
-supabase secrets set BREVO_API_KEY=<YOUR_BREVO_KEY> --project-ref <PROJECT_REF>
-supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" --project-ref <PROJECT_REF>
+supabase functions deploy send-license-code --remote=<PROJECT_REF> --no-verify-jwt --yes
+supabase secrets set BREVO_API_KEY=<YOUR_BREVO_KEY> --remote=<PROJECT_REF> --yes
+supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" --remote=<PROJECT_REF> --yes
 ```
 
 체크 포인트:

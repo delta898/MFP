@@ -103,10 +103,10 @@ function buildRolloutPlan(options = {}) {
     ];
     const commands = Object.freeze([
         'npm run env:development:ready',
-        'supabase db push --dry-run --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"',
-        'supabase db push --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"',
+        'supabase db push --dry-run --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"',
+        'supabase db push --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes',
         ...inputs.manifest.edge_functions.map((item) => (
-            `supabase functions deploy ${item.name} --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"`
+            `supabase functions deploy ${item.name} --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes`
         )),
         'npm run env:development:smoke'
     ]);

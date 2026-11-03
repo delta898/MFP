@@ -60,11 +60,13 @@ explicit target + operation
 | production | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME` | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF` |
 
 현재 Supabase CLI link는 `supabase/.temp/linked-project.json`에서 읽는다. 이 파일은 Git에
-포함하지 않는다. hosted 명령이 `--project-ref`를 명시하지 않은 경우 configured name/ref와
+포함하지 않는다. Supabase CLI hosted 명령은 `--remote=<project-ref>`로 대상을 명시하고,
+configured name/ref와
 linked name/ref가 모두 일치해야 한다.
 
 Stage 5부터 SaaS hosted 명령은 기존 production link를 바꾸지 않도록 명시적인 ref를 사용할 수 있다.
-preflight의 `--project-ref`는 Supabase CLI에 전달할 동일 ref여야 하며 configured target ref와
+preflight 도구 자체의 `--project-ref` 입력은 Supabase CLI에 전달하는 `--remote=<project-ref>`와
+동일한 ref여야 하며 configured target ref와
 정확히 일치해야 한다.
 
 ```bash
