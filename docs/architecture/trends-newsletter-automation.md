@@ -102,7 +102,7 @@ addresses in Workflow payloads or logs. Production sending is denied.
    target configurable so a future Naver change does not require rewriting the
    orchestration logic.
 4. Persist collection state separately from edition and delivery state in
-   `mailing.trends_newsletter_runs`, keyed by trend date in each isolated
+   `mailing.trends_newsletter_daily_status`, keyed by trend date in each isolated
    environment database. Development assigns a UUID to each completion signal
    and starts one Workflow attempt per distinct UUID; replaying the same UUID
    reuses the same Workflow. This lets Development rerun generation without
@@ -114,9 +114,14 @@ addresses in Workflow payloads or logs. Production sending is denied.
    source date, content version, AI model/fallback metadata, selected links,
    approval/publication state, and timestamps.
 6. In batches of at most five, read active subscribers in UUID keyset order.
-   Build each email from selected categories, the top 10 keywords and movement
-   details, the full-trends link, shared greeting/article, and the fixed
-   BlogGenius download banner/link.
+   The current signup UI limits selection to three categories; the API and
+   database allow up to ten so the product limit can change without tightening
+   those boundaries. Include all 20 collected keywords from each selected
+   category, ordered by rising items first
+   with the largest increase first, then `NEW`, then falling items with the
+   smallest decrease first (for example, -2 before -5), and steady items last.
+   Keep Naver's display order for ties. Add movement details, the full-trends
+   link, shared greeting/article, and the fixed BlogGenius download banner/link.
 7. Check the Development allowlist before submission and atomically re-check
    active subscription state while claiming the unique
    `(trend_date, subscriber_id)` delivery row. `sent`, `failed`, `held`, and
@@ -130,10 +135,10 @@ addresses in Workflow payloads or logs. Production sending is denied.
    validation failure, provider failure, and a held run.
 
 The Development readiness slice reads only `trends.items` for the signaled
-date and upserts a durable record in `mailing.trends_newsletter_runs`. The
+date and upserts a durable record in `mailing.trends_newsletter_daily_status`. The
 record has independent `collection_status`, `edition_status`, and
 `delivery_status` fields. Each signal also has a row in
-`mailing.trends_newsletter_attempts`, keyed by its UUID, with its own collection
+`mailing.trends_newsletter_collection_logs`, keyed by its UUID, with its own collection
 report, status, bounded error code, and edition snapshot. Collection signals
 update only collection evidence. After collection is verified complete, the
 Development Workflow rebuilds the shared edition on each new signal; the

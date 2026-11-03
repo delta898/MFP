@@ -28,7 +28,7 @@ does not publish an archive post or notify Telegram.
 4. The Workflow reads the signaled date from Development Supabase, independently
    verifies 32 categories × 20 distinct keywords, and calls the state RPC.
 5. The collection RPC upserts one row per date in
-   `mailing.trends_newsletter_runs`, changing only collection fields.
+   `mailing.trends_newsletter_daily_status`, changing only collection fields.
 6. After a complete collection, the Workflow records a separate attempt by
    signal UUID, then checks the configured RSS sources in priority order, selects the newest
    valid item from the first usable feed, asks the configured Cloudflare AI
@@ -44,9 +44,12 @@ does not publish an archive post or notify Telegram.
    failures mark that attempt held and do not send email; a new signal can retry it.
 8. Once an edition is ready, the Workflow calls the private
    `trends-mailing-list` Edge Function in keyset batches of at most five active
-   subscribers. The Edge Function selects each subscriber's categories, reads
-   that date's trends, renders the top 10 items per selected category with
-   movement details, and adds the shared article and BlogGenius download CTA.
+   subscribers. The UI limits selection to three categories; API and storage
+   allow up to ten. The Edge Function reads all 20 items per selected category,
+   ordering increases by largest
+   amount first, then `NEW`, then decreases closest to zero first, then steady
+   items; ties retain Naver display order. It adds movement details, the shared
+   article, and BlogGenius download CTA.
    It checks `NEWSLETTER_EMAIL_MODE=allowlist` and the recipient list before
    calling Brevo. The Workflow receives aggregate counts and cursors only.
 9. Supabase records one unique outcome per `(trend_date, subscriber_id)`.
@@ -84,6 +87,12 @@ linked/ref target is Development:
   per-date/per-subscriber delivery ledger and service-only claim, outcome,
   summary, and stable-token unsubscribe RPCs. It also prevents a ready shared
   edition from changing after delivery claims begin.
+- `202611030005_trends_subscriber_category_limit.sql` raises the stored
+  subscriber category ceiling to ten while the public signup UI remains at
+  three.
+- `202611030006_rename_trends_newsletter_tables.sql` renames the date status,
+  collection log, and subscriber tables without deleting or recreating rows;
+  it also updates the dependent RPC function bodies.
 
 These RPCs are separate from the mailing-list signup Edge Function.
 
@@ -163,7 +172,7 @@ dry-runs on feature branches and pull requests without deployment.
 For manual recovery only, after a failed or intentionally skipped Dev release,
 confirm you are targeting Development before running the relevant command:
 
-1. Apply all four SQL migrations to the Development Supabase project.
+1. Apply all six SQL migrations to the Development Supabase project.
 2. A push to `dev` deploys the `trends-mailing-list` Edge Function after
    migrations. If that step failed, deploy it manually from the repository root:
 
@@ -190,7 +199,8 @@ confirm you are targeting Development before running the relevant command:
    ```
 
 6. Run one Development collection date and inspect the matching Workflow,
-   `mailing.trends_newsletter_runs`, `mailing.trends_newsletter_attempts`, and
+   `mailing.trends_newsletter_daily_status`,
+   `mailing.trends_newsletter_collection_logs`, and
    `mailing.trends_newsletter_editions` rows. Re-run the same date and confirm a
    new attempt and edition snapshot are created; retrying an identical signal
    UUID must reuse its existing Workflow. Run a date range and confirm one

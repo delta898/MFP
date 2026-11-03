@@ -1,7 +1,7 @@
 import { NAVER_TRENDS_CATEGORIES } from './readiness.js';
 
-const MAX_CATEGORIES = 5;
-const ITEMS_PER_CATEGORY = 10;
+const MAX_CATEGORIES = 10;
+const ITEMS_PER_CATEGORY = 20;
 const DEVELOPMENT_SITE_HOST = 'www-dev.bloggenius.kr';
 
 function escapeHtml(value) {
@@ -71,8 +71,21 @@ function validateCategories(categories) {
 function categoryItems(category, trends) {
     const rows = (Array.isArray(trends) ? trends : [])
         .filter((row) => row?.category === category)
-        .sort((left, right) => Number(left.display_order) - Number(right.display_order))
-        .slice(0, ITEMS_PER_CATEGORY);
+        .sort((left, right) => {
+            const groups = { up: 0, new: 1, down: 2, steady: 3 };
+            const leftType = String(left.change_type || '').toLowerCase();
+            const rightType = String(right.change_type || '').toLowerCase();
+            const groupOrder = (groups[leftType] ?? 4) - (groups[rightType] ?? 4);
+            if (groupOrder) return groupOrder;
+
+            const leftAmount = Number(left.change_amount);
+            const rightAmount = Number(right.change_amount);
+            if (leftType === 'up' && Number.isFinite(leftAmount) && Number.isFinite(rightAmount)
+                && leftAmount !== rightAmount) return rightAmount - leftAmount;
+            if (leftType === 'down' && Number.isFinite(leftAmount) && Number.isFinite(rightAmount)
+                && leftAmount !== rightAmount) return leftAmount - rightAmount;
+            return Number(left.display_order) - Number(right.display_order);
+        });
     if (rows.length !== ITEMS_PER_CATEGORY || rows.some((row) => !cleanText(row.keyword, 120))) {
         throw new Error(`Trend data is incomplete for ${category}.`);
     }

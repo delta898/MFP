@@ -19,8 +19,8 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
     <form class="subscribe-form">
       <label class="subscribe-email-label" for="subscriber-email">이메일 주소</label>
       <input id="subscriber-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required />
-      <div class="trends-category-heading subscribe-category-heading"><span>관심 카테고리</span><small>1개 이상 선택 · 최대 5개</small></div>
-      <div class="trends-category-list subscribe-category-list" data-category-picker data-max="5" aria-label="구독할 트렌드 카테고리">
+      <div class="trends-category-heading subscribe-category-heading"><span>관심 카테고리</span><small>1개 이상 선택 · 최대 3개</small></div>
+      <div class="trends-category-list subscribe-category-list" data-category-picker data-max="3" aria-label="구독할 트렌드 카테고리">
         {categories.map((category) => <button class="trend-chip" type="button" aria-pressed="false">{category}</button>)}
       </div>
       <p class="category-selection-status" data-selection-status aria-live="polite">카테고리를 1개 이상 선택해 주세요.</p>
@@ -35,7 +35,7 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
 </main>
 <script>
   document.querySelectorAll('[data-category-picker]').forEach((picker) => {
-    const limit = Number(picker.getAttribute('data-max')) || 5;
+    const limit = Number(picker.getAttribute('data-max')) || 3;
     const status = picker.parentElement?.querySelector('[data-selection-status]');
     const form = picker.closest('form');
     const submit = form?.querySelector('.subscribe-submit');
@@ -77,7 +77,7 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
       event.preventDefault();
       if (!email?.validity.valid || !consent?.checked || !picker || !button || !status) return;
       const categories = [...picker.querySelectorAll('.trend-chip.is-selected')].map((chip) => chip.textContent.trim());
-      if (!categories.length || categories.length > 5) return;
+      if (!categories.length || categories.length > 3) return;
       button.disabled = true;
       button.querySelector('span').textContent = '…';
       status.removeAttribute('data-state');

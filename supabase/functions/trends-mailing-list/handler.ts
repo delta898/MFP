@@ -362,7 +362,7 @@ export function createHandler(options: HandlerOptions = {}) {
       if (action === "subscribe") {
         const email = String(body.email || "").trim().toLowerCase();
         const categories = Array.isArray(body.categories) ? [...new Set(body.categories.map((item) => String(item).trim()))] : [];
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || body.consent !== true || categories.length < 1 || categories.length > 5 || categories.some((item) => !NEWSLETTER_CATEGORIES.has(item))) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || body.consent !== true || categories.length < 1 || categories.length > 10 || categories.some((item) => !NEWSLETTER_CATEGORIES.has(item))) {
           return json(400, { success: false, error: "invalid_subscription" });
         }
         if (!canSendTo(email)) {

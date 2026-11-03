@@ -39,11 +39,11 @@ function makeBriefing(overrides = {}) {
     });
 }
 
-test('builds personalized HTML and text with top ten movement details and curated links', () => {
+test('builds personalized HTML and text with all twenty movement details and curated links', () => {
     const briefing = makeBriefing();
     assert.match(briefing.subject, /2026년 11월 2일/);
     assert.equal(briefing.selectedCategories[0], 'IT·컴퓨터');
-    assert.equal((briefing.html.match(/<li /g) || []).length, 10);
+    assert.equal((briefing.html.match(/<li /g) || []).length, 20);
     assert.match(briefing.html, /keyword &amp; 1/);
     assert.match(briefing.html, /▲ 1/);
     assert.match(briefing.html, /▼ 2/);
@@ -56,9 +56,33 @@ test('builds personalized HTML and text with top ten movement details and curate
     assert.match(briefing.text, /구독 취소/);
 });
 
-test('rejects malformed dates, categories, incomplete trend rows, and cross-environment links', () => {
+test('orders increases by largest amount, then NEW, decreases closest to zero, then steady', () => {
+    const rows = [
+        { category: 'IT·컴퓨터', keyword: 'up-5', change_type: 'up', change_amount: 5, display_order: 1 },
+        { category: 'IT·컴퓨터', keyword: 'down-5', change_type: 'down', change_amount: 5, display_order: 2 },
+        { category: 'IT·컴퓨터', keyword: 'new', change_type: 'new', display_order: 3 },
+        { category: 'IT·컴퓨터', keyword: 'up-44', change_type: 'up', change_amount: 44, display_order: 4 },
+        { category: 'IT·컴퓨터', keyword: 'down-2', change_type: 'down', change_amount: 2, display_order: 5 },
+        { category: 'IT·컴퓨터', keyword: 'down-100', change_type: 'down', change_amount: 100, display_order: 6 },
+        { category: 'IT·컴퓨터', keyword: 'steady', change_type: 'steady', display_order: 7 },
+        ...Array.from({ length: 13 }, (_, index) => ({
+            category: 'IT·컴퓨터', keyword: `steady-${index}`, change_type: 'steady', display_order: index + 8
+        }))
+    ];
+    const briefing = makeBriefing({ trends: rows });
+    const positions = ['up-44', 'up-5', 'new', 'down-2', 'down-5', 'down-100', 'steady']
+        .map((keyword) => briefing.text.indexOf(keyword));
+    assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+    assert.equal((briefing.html.match(/<li /g) || []).length, 20);
+});
+
+test('rejects malformed dates, over-limit categories, incomplete trend rows, and cross-environment links', () => {
     assert.throws(() => makeBriefing({ trendDate: '2026-02-30' }), /date/i);
     assert.throws(() => makeBriefing({ categories: ['not-a-category'] }), /categories/i);
+    assert.throws(() => makeBriefing({ categories: [
+        'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행',
+        '드라마', '만화·애니', '맛집', '문학·책', '미술·디자인'
+    ] }), /categories/i);
     assert.throws(() => makeBriefing({ trends: trendsFor('IT·컴퓨터', 9) }), /incomplete/i);
     assert.throws(() => makeBriefing({ trendsUrl: 'https://www.bloggenius.kr/trends/' }), /links/i);
     assert.throws(() => makeBriefing({ unsubscribeUrl: 'https://evil.example/trends/unsubscribe/' }), /links/i);

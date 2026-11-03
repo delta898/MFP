@@ -133,6 +133,32 @@ Deno.test("rejects invalid subscription input before database or mail calls", as
   assertEquals(calls, 0);
 });
 
+Deno.test("accepts four categories through the API while the site UI applies its own smaller limit", async () => {
+  const handler = createHandler({
+    env: baseEnv,
+    tokenFactory: () => "test-token-abcdefghijklmnopqrstuvwxyz0123456789",
+    fetcher: async (input) => String(input).includes("request_trends_subscription")
+      ? new Response(JSON.stringify("pending"), { status: 200 })
+      : new Response(null, { status: 201 }),
+  });
+  const response = await handler(request({
+    action: "subscribe", email: "reader@example.com",
+    categories: ["IT·컴퓨터", "건강·의학", "게임", "공연·전시"], consent: true,
+  }));
+  assertEquals(response.status, 200);
+});
+
+Deno.test("rejects more than ten categories before database or mail calls", async () => {
+  let calls = 0;
+  const handler = createHandler({ env: baseEnv, fetcher: async () => { calls++; return new Response(); } });
+  const response = await handler(request({
+    action: "subscribe", email: "reader@example.com",
+    categories: ["IT·컴퓨터", "건강·의학", "게임", "공연·전시", "교육·학문", "국내여행", "드라마", "만화·애니", "맛집", "문학·책", "미술·디자인"], consent: true,
+  }));
+  assertEquals(response.status, 400);
+  assertEquals(calls, 0);
+});
+
 Deno.test("blocks addresses outside the Development allowlist before database or mail calls", async () => {
   let calls = 0;
   const handler = createHandler({ env: baseEnv, fetcher: async () => { calls++; return new Response(); } });

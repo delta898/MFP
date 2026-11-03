@@ -217,7 +217,7 @@ Brevo, or Worker-to-function credentials.
 
 The Edge Function accepts calls only with the private
 `TRENDS_NEWSLETTER_WORKER_TOKEN` shared between the Worker and Supabase. It
-stores the authoritative list in the `mailing.trends_subscribers` table. RLS
+stores the authoritative list in the `mailing.trends_newsletter_subscribers` table. RLS
 is enabled and direct access is revoked from `anon` and `authenticated`; only
 server-side `service_role` calls can invoke the mailing RPCs. Email addresses
 are normalized to lowercase. The row stores the selected category list, the
