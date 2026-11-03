@@ -52,6 +52,16 @@ function movementLabel(row) {
     return cleanText(row.change_raw, 40) || '변동 정보 없음';
 }
 
+function movementBadgeStyle(row) {
+    const styles = {
+        up: 'border:1px solid #f0c7c1;background:#fff0ed;color:#a63830',
+        down: 'border:1px solid #c9d9f0;background:#edf4ff;color:#2e5e98',
+        new: 'border:1px solid #d9c9ef;background:#f4edff;color:#68419a',
+        steady: 'border:1px solid #d9dfda;background:#eff2ef;color:#5d6961'
+    };
+    return styles[String(row.change_type || '').toLowerCase()] || styles.steady;
+}
+
 function formatDate(trendDate) {
     return new Intl.DateTimeFormat('ko-KR', {
         year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
@@ -143,7 +153,7 @@ export function buildRecipientBriefing({ trendDate, categories, trends, edition,
         <section style="margin:28px 0 0;padding:22px;border:1px solid #dce5df;border-radius:16px;background:#fff">
           <h2 style="margin:0 0 14px;color:#244b3c;font-size:19px">${escapeHtml(category)}</h2>
           <ol style="margin:0;padding-left:22px">
-            ${items.map((item) => `<li style="padding:8px 0;border-bottom:1px solid #edf1ee"><span style="font-weight:700;color:#1e2b25">${escapeHtml(cleanText(item.keyword, 120))}</span><span style="float:right;color:#61736a;font-size:13px">${escapeHtml(movementLabel(item))}</span></li>`).join('')}
+            ${items.map((item) => `<li style="padding:8px 0;border-bottom:1px solid #edf1ee"><span style="font-weight:700;color:#1e2b25">${escapeHtml(cleanText(item.keyword, 120))}</span><span style="display:inline-block;float:right;min-width:42px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.2;text-align:center;white-space:nowrap;${movementBadgeStyle(item)}">${escapeHtml(movementLabel(item))}</span></li>`).join('')}
           </ol>
         </section>`).join('');
 
