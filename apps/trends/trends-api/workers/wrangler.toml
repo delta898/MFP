@@ -24,6 +24,7 @@ TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
 TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "true"
 TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
 TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+TRENDS_NEWSLETTER_FUNCTION_URL = "https://bvtlwjbmjnfphxlrkzhm.supabase.co/functions/v1/trends-mailing-list"
 
 [[workflows]]
 name = "bloggenius-trends-readiness-dev"

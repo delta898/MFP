@@ -77,9 +77,10 @@ validates consent, email, and the supported category catalog before forwarding
 to the private Supabase `trends-mailing-list` Edge Function.
 
 After applying `supabase/migrations/202611020001_trends_mailing_list.sql` and
-deploying that function, configure `TRENDS_NEWSLETTER_FUNCTION_URL` and
-`TRENDS_NEWSLETTER_WORKER_TOKEN` for each Worker environment. Store the same
-random shared token as a Supabase function secret. The function uses Supabase's
+deploying that function, keep `TRENDS_NEWSLETTER_FUNCTION_URL` in the matching
+Worker's `wrangler.toml` vars so deployments do not remove it. Set
+`TRENDS_NEWSLETTER_WORKER_TOKEN` as a Worker secret and the same random shared
+token as a Supabase function secret. The function uses Supabase's
 server credentials and requires `BREVO_API_KEY`, `NEWSLETTER_EMAIL_FROM`,
 `BLOGGENIUS_ENV`, and `NEWSLETTER_EMAIL_MODE`; for non-production, also set
 `NEWSLETTER_EMAIL_ALLOWLIST`. Only `allowlist` mode with a matching address can
