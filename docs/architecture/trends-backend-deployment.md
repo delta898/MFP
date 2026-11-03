@@ -105,8 +105,15 @@ the Edge Function, validates and deploys both Development Workers, builds the
 Development site artifact, and deploys that artifact to the existing
 `bg-www-bloggenius-kr-dev` Worker. The site deploy step requires the GitHub
 `development` environment's Cloudflare API token and account ID and refuses to
-deploy unless that existing Development Worker is present. Production has no
-automated deployment job today. When adding it, extend the same gated sequence
+deploy unless that existing Development Worker is present. The API Worker
+deploy also requires `TRENDS_NEWSLETTER_WORKER_TOKEN` in the GitHub
+`development` Environment secrets and uploads it as a Worker secret in the
+same Wrangler deployment. This avoids relying on dashboard-only plain
+variables, which Wrangler reconciles from the configuration. Production has no
+automated deployment job today. When adding it, create a separate GitHub
+`production` Environment with its own Cloudflare credentials and a
+`TRENDS_NEWSLETTER_WORKER_TOKEN` secret containing the Production token; never
+copy the Development value. Extend the same gated sequence
 with a separate Production GitHub Environment and independently reviewed
 Supabase project, Function, API Worker, site Worker, hostname, URLs, and
 credentials; do not reuse the Development constants. The migration adds only

@@ -277,9 +277,21 @@ jobs:
           npx wrangler deploy
       - name: Deploy Development Trends API Worker
         working-directory: apps/trends/trends-api/workers
+        env:
+          TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
         run: |
+          set -euo pipefail
           npm ci
-          npm run deploy:development
+          if [[ -z "$TRENDS_NEWSLETTER_WORKER_TOKEN" ]]; then
+            echo "::error::Add TRENDS_NEWSLETTER_WORKER_TOKEN to the GitHub development environment secrets."
+            exit 1
+          fi
+
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/trends-api-secrets.XXXXXX.json")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ TRENDS_NEWSLETTER_WORKER_TOKEN: process.env.TRENDS_NEWSLETTER_WORKER_TOKEN }), { mode: 0o600 })' "$secrets_file"
+          npx wrangler deploy --env='' --secrets-file "$secrets_file"
 
   deploy-development-site:
     name: Deploy Development Site

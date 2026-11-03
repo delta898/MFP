@@ -80,7 +80,13 @@ After applying `supabase/migrations/202611020001_trends_mailing_list.sql` and
 deploying that function, keep `TRENDS_NEWSLETTER_FUNCTION_URL` in the matching
 Worker's `wrangler.toml` vars so deployments do not remove it. Set
 `TRENDS_NEWSLETTER_WORKER_TOKEN` as a Worker secret and the same random shared
-token as a Supabase function secret. The function uses Supabase's
+token as a Supabase function secret. For Development CD, also add this token as
+a secret named `TRENDS_NEWSLETTER_WORKER_TOKEN` to the GitHub `development`
+Environment. The deployment workflow supplies it to Wrangler as a secret during
+the API Worker deploy; it is never stored in the repository or printed in the
+job log. Production must use a separately scoped GitHub `production`
+Environment secret with the same key name and a different token value. The
+function uses Supabase's
 server credentials and requires `BREVO_API_KEY`, `NEWSLETTER_EMAIL_FROM`,
 `BLOGGENIUS_ENV`, and `NEWSLETTER_EMAIL_MODE`; for non-production, also set
 `NEWSLETTER_EMAIL_ALLOWLIST`. Only `allowlist` mode with a matching address can
