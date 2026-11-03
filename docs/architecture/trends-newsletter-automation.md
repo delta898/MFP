@@ -3,12 +3,11 @@
 ## Status
 
 Development implementation is in progress. Signup, double opt-in, unsubscribe,
-collection readiness, and shared edition generation have been implemented and
-verified in Development. The recipient-specific campaign renderer, private
-Edge Function batch sender, per-recipient delivery ledger, stable campaign
-unsubscribe token, and Workflow integration are implemented on the feature
-branch and have focused mocked tests. These delivery changes have not been
-deployed or exercised against Brevo yet.
+collection readiness, shared-edition generation, and recipient-specific
+delivery were implemented and verified in Development, including a successful
+allowlisted email. This feature branch adds revision-scoped delivery history,
+signal-scoped resend intent, and deterministic shared copy; these changes are
+not yet deployed.
 
 Implementation begins in Development. Production remains untouched until the
 Development flow has passed its operational checks and the user explicitly
@@ -23,7 +22,7 @@ approves the Production rollout.
 - Prevent duplicate sends and honor active/unsubscribed status at send time.
 - Alert the operator through Telegram when a run completes or needs attention.
 - Keep Development and Production isolated across data, Workers, Workflows,
-  AI configuration, email policy, links, and operator notifications.
+  email policy, links, and operator notifications.
 
 ## Current Verified Components
 
@@ -35,7 +34,8 @@ approves the Production rollout.
 | Subscriber lifecycle | Implemented and end-to-end verified | Not rolled out |
 | Trends collector | Mac Studio process writes through the matching Trends API | Existing operator-run production path |
 | Readiness Workflow and shared edition | Deployed and previously verified | Not rolled out |
-| Recipient campaign delivery | Feature branch only; focused tests pass, deployment and live Dev verification pending | Not implemented |
+| Recipient campaign delivery | Deployed and verified with an allowlisted recipient | Not rolled out |
+| Signal-scoped same-date resend and static shared copy | Current feature branch; migration and Worker deployment pending | Resend is rejected pending an agreed operator path |
 
 Keep using the existing Supabase mailing tables and purpose-specific
 `trends-mailing-list` Edge Function for subscribe, confirmation, and
@@ -54,7 +54,7 @@ Mac Studio collector
 
   -> create/load shared dated edition
   -> keyset-batched active subscribers -> per-recipient briefing -> allowlist check
-  -> unique per-date/subscriber claim -> Brevo -> delivery outcomes
+  -> unique per-date/revision/subscriber claim -> Brevo -> delivery outcomes
   -> Telegram run summary (later stage)
 
 Public site
@@ -63,9 +63,9 @@ Public site
 
 Cloudflare Workflows are the durable orchestration owner. The collector already
 knows which date it collected and only writes after its completeness check; it
-now sends a small authenticated signal after the trend upsert succeeds in
-Development only. Production collector runs skip newsletter signaling until a
-separate Production rollout is approved. The
+  now sends a small authenticated signal after the trend upsert succeeds. The
+  signal contract is shared; Production rejects explicit resend requests until
+  a separate operator path is agreed. The
 Trends API Worker starts the separate Newsletter Workflow through a private
 cross-Worker binding, so the Mac Studio does not need Cloudflare API
 credentials. The Workflow re-reads Supabase and verifies the source rows before
@@ -110,9 +110,9 @@ addresses in Workflow payloads or logs. Production sending is denied.
    Workflow ID, so multiple signals for one date are deduplicated. The SQL RPC
    only updates collection fields, so a range collection cannot initiate a
    send.
-5. Persist the shared edition's
-   source date, content version, AI model/fallback metadata, selected links,
-   approval/publication state, and timestamps.
+5. Persist the shared edition's source date, content version, selected links,
+   approval/publication state, and timestamps. The short greeting and
+   introduction use a deterministic date-based template; no AI call is needed.
 6. In batches of at most five, read active subscribers in UUID keyset order.
    The current signup UI limits selection to three categories; the API and
    database allow up to ten so the product limit can change without tightening
@@ -124,7 +124,7 @@ addresses in Workflow payloads or logs. Production sending is denied.
    link, shared greeting/article, and the fixed BlogGenius download banner/link.
 7. Check the Development allowlist before submission and atomically re-check
    active subscription state while claiming the unique
-   `(trend_date, subscriber_id)` delivery row. `sent`, `failed`, `held`, and
+   `(trend_date, delivery_revision, subscriber_id)` delivery row. `sent`, `failed`, `held`, and
    `sending` claims are never automatically submitted a second time. A
    previously skipped allowlist address can be claimed later if it is added to
    the allowlist before a subsequent run. A timeout or ambiguous Brevo result
@@ -143,44 +143,48 @@ report, status, bounded error code, and edition snapshot. Collection signals
 update only collection evidence. After collection is verified complete, the
 Development Workflow rebuilds the shared edition on each new signal; the
 date-level edition table holds the latest draft while the attempt ledger keeps
-prior snapshots. The same signal UUID remains idempotent. Production's
-date-keyed workflow retains date-level deduplication. The Workflow builds an
-edition by checking ordered RSS sources configured in the
-Development Worker, then uses one configured Cloudflare AI Gateway BYOK model
-for a short greeting/introduction. The initial sources are `blog.gongzza.com`
+prior snapshots. The same signal UUID remains idempotent. Both environments
+use distinct signal-keyed Workflow attempts. The Workflow builds an
+edition by checking ordered RSS sources configured in the Development Worker.
+Its short Korean greeting and introduction are deterministic date-based copy,
+so this path has no AI provider dependency. The initial sources are
+`blog.gongzza.com`
 and `blog.naver.com/amadejjs`. On feed failure or no valid entry, selection
 falls through to the next source. The saved snapshot contains only source,
 title, a bounded summary, link, date, and optional image URL; full article
 content is not saved. Code selects and snapshots article, download page, and
 banner links; AI does not receive or invent URLs. The private
 `mailing.trends_newsletter_editions` table is unique by trend date. Its save
-RPC preserves a ready edition by default; the Development Worker explicitly
-opts into replacing it for a distinct retry signal. A failed attempt is held
-for a later retry. The recipient-delivery feature branch adds a private batch
-path: the Edge Function pages active subscribers, enforces the Development
-allowlist, renders personalized email, claims a unique date/subscriber ledger
-row, and submits through Brevo. The Workflow stores only aggregate results and
-a UUID cursor. Campaign delivery remains Development-only and is not yet
-deployed or live-tested. This stage still does not publish a public archive or
-notify Telegram. Source lives under
+RPC preserves a ready edition by default; Development may replace it for a
+distinct retry signal only before delivery starts. A failed attempt is held
+for a later retry. The Edge Function pages active subscribers, enforces the
+Development allowlist, renders personalized email, claims a unique
+date/revision/subscriber ledger row, and submits through Brevo. The Workflow
+stores only aggregate results and a UUID cursor. Normal signals reuse the
+latest delivery revision; `forceResend: true` on a deliberate Development
+completion signal allocates a new revision while preserving every prior
+outcome. The checked-in Development Worker default disables force resend and
+must be explicitly enabled by an operator. `sending` or `held` outcomes block
+a new revision because the prior result may be ambiguous. Production rejects
+explicit resend until its operator path is agreed. This stage still does not publish a
+public archive or notify Telegram. Source lives under
 `apps/trends/trends-newsletter/`, with readiness and edition policy in `src/`,
-external RSS/AI/Supabase adapters under `src/adapters/`, and Workflow
+external RSS/Supabase adapters under `src/adapters/`, and Workflow
 orchestration under `worker/`. The expected category list remains explicitly
 configured in Wrangler and currently duplicates the Trends API Worker's
 newsletter category set; centralizing that stable contract is a follow-up
 before taxonomy changes.
 
-The `(trend_date, subscriber_id)` unique key is the deduplication boundary.
-Brevo acceptance followed by a lost response remains ambiguous; hold the row
-for reconciliation rather than risking a duplicate message. No automatic
-resend/reconciliation console is included in this stage.
+The `(trend_date, delivery_revision, subscriber_id)` unique key is the normal
+deduplication boundary. Brevo acceptance followed by a lost response remains
+ambiguous; hold the row and refuse a new revision rather than risking an
+unnoticed duplicate message.
 
 ## Content and Public Archive
 
-- AI receives the trend date and short editorial brief. It writes only the
-  common greeting/introduction. The first Development implementation uses one
-  explicitly configured Cloudflare AI REST model; provider fallback is later
-  work and is not required for this draft stage.
+- The common greeting/introduction are deterministic date-based copy. AI is not
+  needed for the current short message and the newsletter Worker no longer
+  calls Cloudflare AI Gateway.
 - Application logic chooses links from curated, verified records (for example
   BlogGenius posts, guides, and downloads), enforces a small configured maximum,
   checks each destination, and applies rotation/recency rules to avoid
@@ -194,27 +198,6 @@ resend/reconciliation console is included in this stage.
   eventual public edition archive. That WordPress menu/post implementation is
   a later stage; this stage only stores the shared edition in Supabase.
 
-## AI Gateway and Fallback
-
-- Call AI server-side from the Newsletter Worker/Workflow. Never put AI
-  provider keys in SSG output or browser requests.
-- Use Cloudflare AI Gateway with provider-specific BYOK endpoints for a
-  configured model. Provider credentials stay in the Gateway's environment
-  configuration; the Worker holds only its Gateway authentication token and
-  the selected provider/model/alias settings. A
-  fallback means try the next provider on a configured failure or timeout, not
-  call every provider serially to improve the same draft.
-- Keep provider/model order, timeout, retry policy, max output size, and prompt
-  version in environment configuration. Log the successful fallback step and
-  model identifier, not secrets.
-- Validate generated copy for length, required date/context, unsafe markup, and
-  absence of fabricated links. A failed generation or validation holds the
-  send; it does not silently fall back to unreviewed or empty prose.
-- Future options such as the user's LM Studio host or NVIDIA NIM can be
-  evaluated as custom HTTPS providers. They are not a dependency for the first
-  Development slice; a home-hosted model must be reachable securely from
-  Cloudflare and must not expose a private LAN endpoint publicly.
-
 ## Development / Production Isolation
 
 Use the same source code with explicit environment-specific Cloudflare
@@ -226,7 +209,7 @@ inside the campaign backend.
 | Worker / Workflow deployment | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state |
 | Supabase | Development project only | Production project only |
 | Subscriber/delivery/edition data | Development project tables | Production project tables |
-| AI Gateway | Development gateway, provider keys/alias, Worker auth token, and model config | Production gateway, provider keys/alias, Worker auth token, and model config |
+| Shared copy | Deterministic date-based greeting and introduction | Same source behavior after explicit rollout |
 | Email | Brevo allowlist mode only; test recipient(s) | Live mode only after explicit rollout approval |
 | Public links | `www-dev.bloggenius.kr` and Development routes | `www.bloggenius.kr` and Production routes |
 | Telegram | Development chat/bot destination | Production operator destination |
@@ -292,22 +275,21 @@ statement.
   Cloudflare. A sleeping Workflow does not consume CPU; state storage and steps
   still count. The exact account plan and usage must be checked before enabling
   a schedule.
-- **Workers AI:** currently includes 10,000 Neurons/day at no charge. Usage
-  above that requires a Paid Workers plan and is currently $0.011 per 1,000
-  Neurons. Actual cost depends on the selected model and token/compute use.
+- **Workers AI:** currently includes 10,000 Neurons/day at no charge. The
+  newsletter currently uses deterministic copy and does not consume AI usage.
 - **AI Gateway:** the core gateway features (analytics, caching, rate limiting)
   are currently free. Gateway routing does not make OpenAI, Anthropic, or other
   provider inference free. Provider calls are billed by the provider, or via
   Cloudflare Unified Billing where enabled; Cloudflare documents a 5% fee on
-  purchased Unified Billing credits. Fallback attempts can make more than one
-  model request, so the budget should account for each attempt.
+  purchased Unified Billing credits. The newsletter currently does not call an
+  inference provider.
 - **Other services:** Brevo, Telegram, Supabase, and any public hosting/API
   costs follow their own plans and limits. Cloudflare logs/retention or Logpush
   may also have separate pricing depending on account age and configuration.
 - Having separate Development and Production resources does not by itself
   guarantee separate quotas or billing. Their usage can accrue to the same
-  Cloudflare account. Set spend limits/alerts where available and monitor AI
-  calls, Workflow steps, and email volume during Development.
+  Cloudflare account. Monitor Workflow steps and email volume during
+  Development.
 
 Recheck provider pricing and the account's plan/usage before Production rollout;
 prices and included quotas can change.
@@ -315,27 +297,22 @@ prices and included quotas can change.
 ## Implementation Stages
 
 1. **Design/config contract:** finalize readiness and manual approval controls,
-   curated link source/limit, archive publishing mechanism, AI fallback order,
-   and delivery ambiguity policy. Keep all environment names and credentials
+   curated link source/limit, archive publishing mechanism, and delivery
+   ambiguity policy. Keep all environment names and credentials
    explicit.
 2. **Development collection signal/state:** apply the run-state migration to
    Dev Supabase, deploy the Dev Newsletter Workflow, then deploy the Dev
    Trends API binding and Collector signal. Verify one date, duplicate signal,
    multi-date collection, incomplete rows, and read/write failure handling.
-   Keep email, AI, and Telegram disabled in this stage.
-3. **Shared edition:** add idempotent daily edition storage and deterministic
-   verified-link selection; then connect AI Gateway for the short common
-   intro, with schema/quality checks and recorded model metadata.
+   Keep email and Telegram disabled in this stage.
+3. **Shared edition:** add idempotent daily edition storage, deterministic
+   date-based copy, and verified-link selection.
 4. **Development delivery:** recipient selection, personalized content,
    per-recipient idempotency, Dev allowlist enforcement, and Brevo batch sending
-   are implemented on `feature/trends-newsletter-recipient-delivery`, with
-   mocked focused tests. Before live Dev verification, apply the new delivery
-   ledger migration; a push to `dev` applies it and deploys the updated
-   `trends-mailing-list` Edge Function and newsletter Worker automatically.
-   Then verify an allowlisted send, out-of-list suppression, unsubscribe,
-   provider failure/ambiguity, and duplicate suppression. Ambiguous outcomes
-   are held for manual reconciliation; there is no automatic resend or
-   reconciliation UI.
+   are deployed and verified with an allowlisted send, unsubscribe, and
+   duplicate suppression. An explicit Development completion signal can
+   request a new delivery revision while retaining prior outcomes. Production
+   resend remains disabled pending a separately agreed operator path.
 5. **Telegram operations:** add completion and actionable failure summaries
    after delivery behavior is stable. Telegram is not part of the current
    delivery implementation.
@@ -357,8 +334,8 @@ prices and included quotas can change.
   static page generation/deploy.
 - Curated links data model, verification cadence, maximum links per edition,
   and anti-repetition rules.
-- Initial AI provider/model order, per-provider timeout, retry behavior,
-  allowable cost per edition, and maximum fallback attempts.
+- Whether future editions should include AI-written editorial content; the
+  current short greeting and introduction use a date-based template.
 - Whether the first Development campaigns require approval for each edition or
   only a global test-mode approval gate before sending to the allowlist.
 - Telegram token/chat secret names and Development vs Production destinations.

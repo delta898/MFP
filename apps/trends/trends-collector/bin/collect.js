@@ -53,6 +53,10 @@ function formatCollectorHelp() {
         '      --dry-run        Collect and summarize without writing to the API',
         '      --confirm-production',
         '                       Write to Production without an interactive prompt',
+        '      --force-newsletter-resend',
+        '                       Development only: send forceResend=true in the completion signal',
+        '                       Requires NEWSLETTER_RESEND_ENABLED=true on the Dev Worker.',
+        '                       Use with one date only; normal runs never resend.',
         '      --headed         Show the browser window (default: headless)',
         '      --headless       Hide the browser window',
         '      --swipe-delay-ms <ms>',
@@ -72,6 +76,9 @@ function formatCollectorHelp() {
         '  Production defaults to interactive confirmation and requires a TTY.',
         '  TRENDS_SWIPE_DELAY_MS, TRENDS_MAX_RETRIES, TRENDS_EXPECTED_CATEGORIES,',
         '  and TRENDS_KEYWORDS_PER_CATEGORY can set the same defaults for cron.',
+        '',
+        'Example (Development only):',
+        '  npm run trends:collector -- --date 2026-11-02 --force-newsletter-resend',
     ].join('\n');
 }
 
@@ -81,6 +88,7 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
         date: '',
         dryRun: false,
         confirmProduction: false,
+        forceNewsletterResend: false,
         headless: null,
         swipeDelayMs: null,
         maxRetries: null,
@@ -140,10 +148,16 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
             continue;
         }
 
+        if (argument === '--force-newsletter-resend') {
+            options.forceNewsletterResend = true;
+            continue;
+        }
+
         if (argument === '--confirm-production') {
             options.confirmProduction = true;
             continue;
         }
+
 
         if (argument === '--headed' || argument === '--headless') {
             const headless = argument === '--headless';
@@ -247,6 +261,7 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
     const authPathValue = String(env.TRENDS_AUTH_FILE_PATH || './config/naver_auth.json').trim() || './config/naver_auth.json';
     return {
         environment: String(env.TRENDS_ENV || '').trim().toLowerCase(),
+        forceNewsletterResend: cliOptions.forceNewsletterResend === true,
         rootDir,
         naverId: String(env.TRENDS_NAVER_ID || env.NAVER_ID || '').trim(),
         authPath: path.isAbsolute(authPathValue) ? authPathValue : path.resolve(rootDir, authPathValue),
@@ -391,10 +406,13 @@ async function pushPayloadToApi(payload, config, logger) {
 
 async function signalCollectionComplete(payload, completeness, config, logger = console) {
     if (config.dryRun) return { skipped: true, reason: 'dry_run' };
-    if (config.environment !== 'development') {
+    if (!['development', 'production'].includes(config.environment)) {
         return { skipped: true, reason: 'newsletter_not_enabled_for_environment' };
     }
     if (!completeness?.complete) throw new Error('불완전한 수집 결과는 뉴스레터 완료 신호를 보낼 수 없습니다.');
+    if (config.forceNewsletterResend === true && config.environment !== 'development') {
+        throw new Error('뉴스레터 재발송 요청은 Development 수집에서만 사용할 수 있습니다.');
+    }
     if (!config.apiBaseUrl || !config.apiToken || !config.environment) {
         throw new Error('수집 완료 신호에는 환경별 Trends API 주소, 내부 토큰, 환경 값이 필요합니다.');
     }
@@ -408,6 +426,7 @@ async function signalCollectionComplete(payload, completeness, config, logger = 
         itemsPerCategory: completeness.keywordsPerCategory,
         itemCount: completeness.actualTotal
     };
+    if (config.forceNewsletterResend === true) signal.forceResend = true;
     try {
         const response = await axios.post(
             `${config.apiBaseUrl.replace(/\/+$/, '')}/internal/newsletter/collection-complete`,

@@ -611,9 +611,14 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     try { trendDate = normalizeYmd(body?.trendDate, 'trendDate'); }
     catch { return jsonResponse(400, { success: false, message: 'trendDate must be YYYY-MM-DD' }); }
     const signalId = String(body?.signalId || '').trim().toLowerCase();
-    if (config.environment === 'development'
-        && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
-        return jsonResponse(400, { success: false, message: 'signalId must be a UUID for Development requests' });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
+        return jsonResponse(400, { success: false, message: 'signalId must be a UUID' });
+    }
+    if (body?.forceResend !== undefined && typeof body.forceResend !== 'boolean') {
+        return jsonResponse(400, { success: false, message: 'forceResend must be a boolean when provided' });
+    }
+    if (config.environment === 'production' && body?.forceResend === true) {
+        return jsonResponse(403, { success: false, message: 'Newsletter resend is not enabled for Production' });
     }
     const expectedTotal = config.newsletterExpectedCategories * config.newsletterItemsPerCategory;
     if (!trendDate || body?.environment !== config.environment || body?.source !== 'naver_creator_advisor'
@@ -628,9 +633,7 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     }
 
     try {
-        const instanceId = config.environment === 'development'
-            ? `collection-${trendDate}-${signalId}`
-            : `collection-${trendDate}`;
+        const instanceId = `collection-${trendDate}-${signalId}`;
         let instance;
         let duplicate = false;
         try {
@@ -641,7 +644,8 @@ async function handleNewsletterCollectionComplete(request, config, env) {
                     trendDate,
                     signalId: signalId || null,
                     source: 'naver_creator_advisor',
-                    signalItemCount: expectedTotal
+                    signalItemCount: expectedTotal,
+                    forceResend: body.forceResend === true
                 }
             });
         } catch {

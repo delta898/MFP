@@ -150,6 +150,7 @@
 
 - `plans/archive/2026-11-02-newsletter-development-readiness-workflow.md` (Dev collector completion signal and event-triggered readiness Workflow; integrated into newsletter parent feature)
 - `plans/archive/2026-11-03-trends-newsletter-recipient-delivery.md` (Development-only personalized subscriber delivery, allowlist enforcement, idempotent delivery ledger, and CI/CD deployment path)
+- `plans/archive/2026-11-03-newsletter-signal-revisions-static-copy.md` (revision-scoped resend history, shared signal policy, and deterministic edition copy)
 
 - `plans/archive/2026-10-14-platform-kernel-application-boundary-development.md` (Platform Kernel/Application/Plugin foundation slice; merged into plugin architecture parent)
 - `plans/archive/2026-10-02-site-creation-development.md` (completed serial sub-feature; Site creation, Astro build/preview, Cloudflare deployment/domain connection, and Site management UI)

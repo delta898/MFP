@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSharedEdition, validateSharedCopy } from './edition.js';
+import { buildSharedCopy, buildSharedEdition, validateSharedCopy } from './edition.js';
 
 const post = (id = 'feed-guid-1', extra = {}) => ({
     id,
@@ -21,30 +21,38 @@ test('validates concise plain text and rejects generated links or markup', () =>
     assert.throws(() => validateSharedCopy({ greeting: '안녕하세요', introduction: 'a'.repeat(361) }), /limits/);
 });
 
+test('builds deterministic shared copy from the edition date', () => {
+    assert.deepEqual(buildSharedCopy('2026-11-02'), {
+        greeting: '좋은 아침이에요!',
+        introduction: '2026년 11월 2일, 오늘의 관심 트렌드를 가볍게 살펴보고 하루를 여는 데 참고해 보세요.'
+    });
+    assert.throws(() => buildSharedCopy('2026-02-30'), /Invalid edition date/);
+});
+
 test('builds a Development edition with bounded RSS summary and fixed first-party links', () => {
     const edition = buildSharedEdition({
         trendDate: '2026-11-02', post: post('feed-guid-1', { excerpt: 'x'.repeat(700) }),
         copy: { greeting: '좋은 아침입니다.', introduction: '오늘의 관심 트렌드를 살펴보세요.' },
-        model: 'gpt-test',
         downloadUrl: 'https://www-dev.bloggenius.kr/download/',
         downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg'
     });
     assert.equal(edition.trendDate, '2026-11-02');
     assert.equal(edition.featuredPost.id, 'feed-guid-1');
     assert.equal(edition.featuredPost.excerpt.length, 500);
-    assert.equal(edition.aiProvider, 'cloudflare-ai-gateway');
-    assert.equal(edition.promptVersion, 'shared-edition-v1');
+    assert.equal(edition.aiProvider, null);
+    assert.equal(edition.aiModel, null);
+    assert.equal(edition.promptVersion, 'shared-edition-v2-static');
 });
 
 test('rejects unsafe article links and invalid dates', () => {
     assert.throws(() => buildSharedEdition({
         trendDate: '2026-11-02', post: post('id', { url: 'http://blog.gongzza.com/post' }),
-        copy: { greeting: '안녕', introduction: '소개' }, model: 'x',
+        copy: { greeting: '안녕', introduction: '소개' },
         downloadUrl: 'https://www-dev.bloggenius.kr/download/',
         downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg'
     }), /valid published article/);
     assert.throws(() => buildSharedEdition({
-        trendDate: '2026-02-30', post: post(), copy: {}, model: 'x',
+        trendDate: '2026-02-30', post: post(), copy: {},
         downloadUrl: 'https://www-dev.bloggenius.kr/download/',
         downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg'
     }), /Invalid edition date/);

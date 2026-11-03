@@ -213,24 +213,16 @@ export function createHandler(options: HandlerOptions = {}) {
       return json(403, { success: false, error: "development_allowlist_required" });
     }
     const trendDate = String(body.trendDate || "").trim();
+    const deliveryRevision = Number(body.deliveryRevision);
     const afterId = body.afterId == null || body.afterId === "" ? null : String(body.afterId).trim().toLowerCase();
     if (!validTrendDate(trendDate)
+      || !Number.isInteger(deliveryRevision) || deliveryRevision < 1
       || (afterId !== null && !validUuid(afterId))) return json(400, { success: false, error: "invalid_delivery_cursor" });
 
     const context = await mailingRpc("get_trends_newsletter_delivery_context", { p_trend_date: trendDate });
     if (!context?.run || context.run.collection_status !== "complete"
       || context.run.edition_status !== "draft_ready" || context.edition?.status !== "ready") {
       return json(409, { success: false, error: "newsletter_not_ready" });
-    }
-    if (context.run.delivery_status === "sent") {
-      const summary = await mailingRpc("finalize_trends_newsletter_delivery", {
-        p_trend_date: trendDate, p_has_more: false,
-      });
-      return json(200, {
-        success: true, trendDate, nextCursor: null, hasMore: false,
-        batch: { sent: 0, failed: 0, held: 0, skipped: 0, alreadyClaimed: 0 },
-        delivery: summary,
-      });
     }
     const batchSize = 5;
     const subscribers = await mailingRpc("list_active_trends_subscribers", { p_after_id: afterId, p_limit: batchSize });
@@ -275,13 +267,13 @@ export function createHandler(options: HandlerOptions = {}) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(listedEmail)) throw new Error("subscriber_email_invalid");
       if (!canSendTo(listedEmail)) {
         await mailingRpc("record_trends_newsletter_delivery_skipped", {
-          p_trend_date: trendDate, p_subscriber_id: subscriberId,
+          p_trend_date: trendDate, p_delivery_revision: deliveryRevision, p_subscriber_id: subscriberId,
         });
         skipped += 1;
         continue;
       }
       const claim = await mailingRpc("claim_trends_newsletter_delivery", {
-        p_trend_date: trendDate, p_subscriber_id: subscriberId,
+        p_trend_date: trendDate, p_delivery_revision: deliveryRevision, p_subscriber_id: subscriberId,
       });
       if (claim?.outcome !== "claimed") {
         alreadyClaimed += 1;
@@ -337,11 +329,12 @@ export function createHandler(options: HandlerOptions = {}) {
     }
 
     const summary = await mailingRpc("finalize_trends_newsletter_delivery", {
-      p_trend_date: trendDate, p_has_more: more,
+      p_trend_date: trendDate, p_delivery_revision: deliveryRevision, p_has_more: more,
     });
     return json(200, {
       success: true,
       trendDate,
+      deliveryRevision,
       nextCursor: more ? nextCursor : null,
       hasMore: more,
       batch: { sent, failed, held, skipped, alreadyClaimed },

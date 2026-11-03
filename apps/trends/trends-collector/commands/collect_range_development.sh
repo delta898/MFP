@@ -144,7 +144,8 @@ day="$START_DATE"
 while :; do
   echo
   echo "===== $day 수집 시작 ====="
-  "$COLLECTOR" --date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS"
+  collector_args=(--date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS")
+  "$COLLECTOR" "${collector_args[@]}"
   echo "===== $day 완료 ====="
 
   [[ "$day" == "$END_DATE" ]] && break

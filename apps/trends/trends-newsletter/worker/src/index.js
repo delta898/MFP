@@ -1,11 +1,10 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { evaluateTrendsReadiness, getReadinessExpectations, readDevelopmentTrendRows, recordDevelopmentCollectionResult, validateDevelopmentTarget } from '../../src/readiness.js';
 import { buildSharedEdition } from '../../src/edition.js';
-import { generateSharedCopy } from '../../src/adapters/cloudflare-ai-gateway.js';
 import { fetchFeaturedBlogPost } from '../../src/adapters/rss.js';
 import { loadDevelopmentEdition, saveDevelopmentEdition, markDevelopmentEditionHeld } from '../../src/adapters/supabase-editions.js';
 import { recordDevelopmentNewsletterAttempt } from '../../src/adapters/supabase-attempts.js';
-import { deliverDevelopmentBatch, loadDevelopmentDeliveryContext } from '../../src/adapters/supabase-delivery.js';
+import { beginDevelopmentDeliveryCampaign, deliverDevelopmentBatch, loadDevelopmentDeliveryContext } from '../../src/adapters/supabase-delivery.js';
 
 export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
     async run(event, step) {
@@ -24,8 +23,12 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
             || !workflowId
             || payload.environment !== 'development'
             || payload.source !== 'naver_creator_advisor'
+            || (payload.forceResend !== undefined && typeof payload.forceResend !== 'boolean')
             || Number(payload.signalItemCount) !== expectations.categories.length * expectations.itemsPerCategory) {
             throw new Error('Collection completion signal has an invalid date, environment, or source.');
+        }
+        if (payload.forceResend === true && String(this.env.NEWSLETTER_RESEND_ENABLED || '').trim().toLowerCase() !== 'true') {
+            throw new Error('Explicit newsletter resend is disabled in this environment.');
         }
         console.log(JSON.stringify({ event: 'collection_signal_received', environment: 'development', projectRef: target.projectRef, trendDate, signalId, workflowId }));
 
@@ -100,15 +103,9 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                     // Each of up to eight configured feeds may take 12 seconds.
                     timeout: '2 minutes'
                 }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
-                const generated = await step.do('generate-shared-copy', {
-                    retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' },
-                    timeout: '35 seconds'
-                }, () => generateSharedCopy(this.env, trendDate));
                 const edition = buildSharedEdition({
                     trendDate,
                     post,
-                    copy: generated.copy,
-                    model: generated.model,
                     downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,
                     downloadBannerUrl: this.env.NEWSLETTER_DOWNLOAD_BANNER_URL
                 });
@@ -119,7 +116,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 console.log(JSON.stringify({
                     event: 'shared_edition_saved', environment: 'development', trendDate,
                     signalId, editionStatus: editionSnapshot?.status || 'ready', articleSource: edition.featuredPost.source,
-                    aiModel: edition.aiModel
+                    copySource: 'static_template'
                 }));
             }
             if (editionSnapshot?.status !== 'ready') throw new Error('shared_edition_not_ready');
@@ -145,6 +142,32 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
         }
 
         try {
+            const campaign = await step.do('allocate-newsletter-delivery-revision', {
+                retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' },
+                timeout: '30 seconds'
+            }, () => beginDevelopmentDeliveryCampaign(this.env, trendDate, signalId, payload.forceResend === true));
+            if (!campaign.shouldDeliver) {
+                await step.do('complete-already-processed-newsletter-attempt', {
+                    retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
+                }, () => recordDevelopmentNewsletterAttempt(this.env, {
+                    signalId, workflowId, trendDate, status: 'completed', collectionStatus,
+                    editionStatus: 'draft_ready', collectionReport: result, editionSnapshot
+                }));
+                console.log(JSON.stringify({
+                    event: 'newsletter_delivery_already_processed', environment: 'development',
+                    trendDate, signalId, deliveryRevision: campaign.deliveryRevision
+                }));
+                return {
+                    ...result, collectionStatus, editionStatus: 'draft_ready', editionReused,
+                    deliveryStatus: 'already_processed', deliveryRevision: campaign.deliveryRevision,
+                    deliverySummary: null
+                };
+            }
+            const deliveryRevision = campaign.deliveryRevision;
+            console.log(JSON.stringify({
+                event: 'newsletter_delivery_revision_allocated', environment: 'development', trendDate,
+                signalId, deliveryRevision, forceResend: campaign.forceResend
+            }));
             let cursor = null;
             let finalDelivery = { status: 'sending', sent: 0, held: 0, failed: 0, skipped: 0, sending: 0 };
             let batchCount = 0;
@@ -152,11 +175,11 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 const batch = await step.do(`deliver-recipient-batch-${batchCount + 1}`, {
                     retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
                     timeout: '2 minutes'
-                }, () => deliverDevelopmentBatch(this.env, trendDate, cursor));
+                }, () => deliverDevelopmentBatch(this.env, trendDate, deliveryRevision, cursor));
                 finalDelivery = batch.delivery;
                 console.log(JSON.stringify({
                     event: 'recipient_delivery_batch_completed', environment: 'development', trendDate,
-                    batch: batchCount + 1, status: batch.delivery.status,
+                    batch: batchCount + 1, deliveryRevision, status: batch.delivery.status,
                     sent: batch.delivery.sent, held: batch.delivery.held,
                     failed: batch.delivery.failed, skipped: batch.delivery.skipped
                 }));
@@ -181,6 +204,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 editionStatus: 'draft_ready',
                 editionReused,
                 deliveryStatus: finalDelivery.status,
+                deliveryRevision,
                 deliverySummary: finalDelivery
             };
         } catch (error) {
@@ -201,7 +225,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
 }
 
 export default {
-    async fetch() {
+    fetch() {
         return Response.json({ error: 'not_found' }, { status: 404, headers: { 'cache-control': 'no-store' } });
     }
 };

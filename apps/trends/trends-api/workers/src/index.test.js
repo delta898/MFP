@@ -93,7 +93,7 @@ test('existing authenticated endpoint remains protected', async () => {
     assert.equal(response.status, 401);
 });
 
-test('collector completion signals are authenticated, environment-bound, and use a retryable Workflow ID per Development signal', async () => {
+test('collector completion signals are authenticated, environment-bound, and carry an optional resend request', async () => {
     const created = [];
     const integrationEnv = {
         ...env,
@@ -136,14 +136,43 @@ test('collector completion signals are authenticated, environment-bound, and use
     assert.equal(intentionalRetry.status, 202);
     assert.deepEqual(created, [{
         id: 'collection-2026-11-02-f53d0eb8-93d5-4d4a-82b6-2392d13c22f9',
-        params: { environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', signalItemCount: 640 }
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', signalItemCount: 640, forceResend: false }
     }, {
         id: 'collection-2026-11-02-0549d3ab-2f5a-4c62-8e98-9e6d1c705a10',
-        params: { environment: 'development', trendDate: '2026-11-02', signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10', source: 'naver_creator_advisor', signalItemCount: 640 }
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10', source: 'naver_creator_advisor', signalItemCount: 640, forceResend: false }
     }]);
+    const forceSignal = { ...signal, signalId: '3c491eed-7e0e-41ca-8abd-dcf7212a4c7f' };
+    const forceResponse = await handleRequest(makeSignal({ ...forceSignal, forceResend: true }), integrationEnv);
+    assert.equal(forceResponse.status, 202);
+    assert.equal(created[2].params.forceResend, true);
+    assert.equal((await handleRequest(makeSignal({ ...signal, forceResend: 'yes' }), integrationEnv)).status, 400);
 });
 
-test('Development requires a UUID signal ID before creating a retryable Workflow', async () => {
+test('Production accepts ordinary completion signals but rejects explicit resend intent', async () => {
+    const created = [];
+    const integrationEnv = {
+        ...env,
+        TRENDS_ENV: 'production',
+        TRENDS_API_TOKEN: 'collector-only-test-token',
+        TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: { create: async (input) => { created.push(input); return { id: input.id }; } }
+    };
+    const headers = { authorization: 'Bearer collector-only-test-token', 'x-trends-environment': 'production', 'content-type': 'application/json' };
+    const payload = {
+        environment: 'production', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9',
+        source: 'naver_creator_advisor', expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
+    };
+    const resend = await handleRequest(new Request('https://trendapi.example.test/internal/newsletter/collection-complete', {
+        method: 'POST', headers, body: JSON.stringify({ ...payload, forceResend: true })
+    }), integrationEnv);
+    assert.equal(resend.status, 403);
+    const normal = await handleRequest(new Request('https://trendapi.example.test/internal/newsletter/collection-complete', {
+        method: 'POST', headers, body: JSON.stringify(payload)
+    }), integrationEnv);
+    assert.equal(normal.status, 202);
+    assert.equal(created[0].params.forceResend, false);
+});
+
+test('every environment requires a UUID signal ID before creating a Workflow', async () => {
     const integrationEnv = {
         ...env,
         TRENDS_ENV: 'development',
@@ -161,7 +190,14 @@ test('Development requires a UUID signal ID before creating a retryable Workflow
     assert.equal(response.status, 400);
 });
 
-test('Production Workflow IDs remain date-keyed and deduplicate distinct signals', async () => {
+test('the retired Development-only resend route is not available', async () => {
+    const response = await handleRequest(new Request('https://trendapi.example.test/internal/newsletter/development/resend', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trendDate: '2026-11-02' })
+    }), { ...env, TRENDS_ENV: 'production' });
+    assert.equal(response.status, 404);
+});
+
+test('Production collection signals create separate Workflow executions for the same date', async () => {
     const created = [];
     const integrationEnv = {
         ...env,
@@ -189,10 +225,11 @@ test('Production Workflow IDs remain date-keyed and deduplicate distinct signals
     const duplicate = await handleRequest(requestFor('0549d3ab-2f5a-4c62-8e98-9e6d1c705a10'), integrationEnv);
     assert.equal(first.status, 202);
     assert.equal((await first.json()).duplicate, false);
-    assert.equal((await duplicate.json()).duplicate, true);
-    assert.equal(created.length, 1);
-    assert.equal(created[0].id, 'collection-2026-11-02');
+    assert.equal((await duplicate.json()).duplicate, false);
+    assert.equal(created.length, 2);
+    assert.equal(created[0].id, 'collection-2026-11-02-f53d0eb8-93d5-4d4a-82b6-2392d13c22f9');
     assert.equal(created[0].params.signalId, 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9');
+    assert.equal(created[1].params.forceResend, false);
 });
 
 test('newsletter signup forwards only validated consented values through the private function token', async () => {

@@ -38,7 +38,7 @@ test('saves a date-keyed shared edition and records only a bounded failure code'
             trendDate: '2026-11-02', greeting: '좋은 아침입니다.', introduction: '오늘 트렌드를 확인해 보세요.',
             featuredPost: { id: 7, title: '글', url: 'https://blog.gongzza.com/post/', excerpt: '', imageUrl: null, publishedAt: '2026-11-02T00:00:00.000Z' },
             downloadUrl: 'https://www-dev.bloggenius.kr/download/', downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg',
-            aiProvider: 'cloudflare-ai-gateway', aiModel: '@cf/test/model', promptVersion: 'shared-edition-v1'
+            aiProvider: null, aiModel: null, promptVersion: 'shared-edition-v2-static'
         };
         await saveDevelopmentEdition(env, edition);
         await markDevelopmentEditionHeld(env, '2026-11-02', 'generation_failed');
@@ -62,7 +62,7 @@ test('only Development can opt into replacing a ready edition for a deliberate r
             trendDate: '2026-11-02', greeting: '안녕하세요.', introduction: '오늘의 안내입니다.',
             featuredPost: { title: '글' }, downloadUrl: 'https://www-dev.bloggenius.kr/download/',
             downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg',
-            aiProvider: 'cloudflare-ai-gateway', aiModel: 'gpt-6-luna', promptVersion: 'shared-edition-v1'
+            aiProvider: null, aiModel: null, promptVersion: 'shared-edition-v2-static'
         });
         assert.equal(body.p_replace_ready, true);
     } finally { globalThis.fetch = originalFetch; }

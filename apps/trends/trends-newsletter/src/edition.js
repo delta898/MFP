@@ -22,19 +22,32 @@ function safeArticleUrl(value) {
     }
 }
 
+export function buildSharedCopy(trendDate) {
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(trendDate || ''));
+    const parsedDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])));
+    if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trendDate) {
+        throw new Error('Invalid edition date.');
+    }
+    const [year, month, day] = trendDate.split('-').map(Number);
+    return {
+        greeting: '좋은 아침이에요!',
+        introduction: `${year}년 ${month}월 ${day}일, 오늘의 관심 트렌드를 가볍게 살펴보고 하루를 여는 데 참고해 보세요.`
+    };
+}
+
 export function validateSharedCopy(copy) {
-    if (!copy || typeof copy !== 'object' || Array.isArray(copy)) throw new Error('AI draft must be an object.');
+    if (!copy || typeof copy !== 'object' || Array.isArray(copy)) throw new Error('Shared edition copy must be an object.');
     const greeting = cleanText(copy.greeting);
     const introduction = cleanText(copy.introduction);
     if (!greeting || greeting.length > SAFE_TEXT_LIMITS.greeting
         || !introduction || introduction.length > SAFE_TEXT_LIMITS.introduction
         || /https?:\/\/|www\.|<\/?[a-z][^>]*>/i.test(`${greeting} ${introduction}`)) {
-        throw new Error('AI draft did not meet the shared-edition copy limits.');
+        throw new Error('Shared edition copy did not meet its limits.');
     }
     return { greeting, introduction };
 }
 
-export function buildSharedEdition({ trendDate, post, copy, downloadUrl, downloadBannerUrl, model }) {
+export function buildSharedEdition({ trendDate, post, copy = buildSharedCopy(trendDate), downloadUrl, downloadBannerUrl }) {
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(trendDate || ''));
     const parsedDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])));
     if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trendDate) {
@@ -73,8 +86,8 @@ export function buildSharedEdition({ trendDate, post, copy, downloadUrl, downloa
         featuredPost: selectedPost,
         downloadUrl: safeDownloadUrl,
         downloadBannerUrl: safeBannerUrl,
-        aiProvider: 'cloudflare-ai-gateway',
-        aiModel: String(model || '').trim(),
-        promptVersion: 'shared-edition-v1'
+        aiProvider: null,
+        aiModel: null,
+        promptVersion: 'shared-edition-v2-static'
     };
 }

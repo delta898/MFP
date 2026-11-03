@@ -202,20 +202,25 @@ Deno.test("sends the confirmation payload through the mocked Brevo boundary for 
 Deno.test("sends a personalized Development campaign to an allowlisted subscriber and returns aggregate-only data", async () => {
   let emailPayload: Record<string, unknown> | undefined;
   const { handler, calls } = deliveryHandler({ onBrevo: (payload) => { emailPayload = payload; } });
-  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 2, afterId: null }));
   const result = await response.json();
 
   assertEquals(response.status, 200);
   assertEquals(result.delivery.status, "sent");
+  assertEquals(result.deliveryRevision, 2);
   assertEquals(result.batch.sent, 1);
   assertEquals(result.hasMore, false);
-  assertEquals(Object.keys(result).sort(), ["batch", "delivery", "hasMore", "nextCursor", "success", "trendDate"].sort());
+  assertEquals(Object.keys(result).sort(), ["batch", "delivery", "deliveryRevision", "hasMore", "nextCursor", "success", "trendDate"].sort());
   assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 1);
   assertStringIncludes(String(emailPayload?.htmlContent), "테스트 키워드 1");
   assertStringIncludes(String(emailPayload?.htmlContent), "https://blog.gongzza.com/guide/");
   assertStringIncludes(String(emailPayload?.htmlContent), "https://www-dev.bloggenius.kr/download/");
   assertStringIncludes(String(emailPayload?.htmlContent), "https://www-dev.bloggenius.kr/trends/unsubscribe/?token=u_");
   assertEquals(calls.some(({ url }) => url.includes("/rpc/finish_trends_newsletter_delivery")), true);
+  const claimCall = calls.find(({ url }) => url.includes("/rpc/claim_trends_newsletter_delivery"));
+  assertEquals(JSON.parse(String(claimCall?.init.body)), {
+    p_trend_date: "2026-11-02", p_delivery_revision: 2, p_subscriber_id: activeSubscriber.id,
+  });
 });
 
 Deno.test("keeps campaign delivery Development allowlist-only", async () => {
@@ -224,14 +229,14 @@ Deno.test("keeps campaign delivery Development allowlist-only", async () => {
     env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "live" },
     fetcher: async () => { calls++; return new Response(); },
   });
-  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02" }));
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1 }));
   assertEquals(response.status, 403);
   assertEquals(calls, 0);
 });
 
 Deno.test("does not call Brevo again for a recipient with an existing delivery claim", async () => {
   const { handler, calls } = deliveryHandler({ claimOutcome: "already_claimed" });
-  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1, afterId: null }));
   const result = await response.json();
   assertEquals(response.status, 200);
   assertEquals(result.batch.alreadyClaimed, 1);
@@ -245,7 +250,7 @@ Deno.test("records a rejected Brevo response without exposing provider details t
     brevoBody: { code: "unauthorized", message: "IP address is not authorized for reader@example.com" },
     onFinish: (payload) => { finishPayload = payload; },
   });
-  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02" }));
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1 }));
   const result = await response.json();
   assertEquals(response.status, 200);
   assertEquals(result.batch.failed, 1);
@@ -255,12 +260,20 @@ Deno.test("records a rejected Brevo response without exposing provider details t
   assertEquals(JSON.stringify(result).includes("reader@example.com"), false);
 });
 
-Deno.test("does not enumerate or send subscribers again after a date is fully sent", async () => {
+Deno.test("can process an explicit new delivery revision even when the date-level status was sent", async () => {
   const { handler, calls } = deliveryHandler({ runDeliveryStatus: "sent" });
-  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 2, afterId: null }));
   const result = await response.json();
   assertEquals(response.status, 200);
-  assertEquals(result.delivery.status, "sent");
-  assertEquals(calls.some(({ url }) => url.includes("/rpc/list_active_trends_subscribers")), false);
-  assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 0);
+  assertEquals(result.deliveryRevision, 2);
+  assertEquals(calls.some(({ url }) => url.includes("/rpc/list_active_trends_subscribers")), true);
+  assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 1);
+});
+
+Deno.test("requires a positive delivery revision before touching dependencies", async () => {
+  let calls = 0;
+  const handler = createHandler({ env: baseEnv, fetcher: async () => { calls++; return new Response(); } });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 0 }));
+  assertEquals(response.status, 400);
+  assertEquals(calls, 0);
 });

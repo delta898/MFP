@@ -17,6 +17,7 @@ const {
 
 const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
 const defaultCliOptions = {
+    forceNewsletterResend: false,
     headless: null,
     swipeDelayMs: null,
     maxRetries: null,
@@ -67,6 +68,14 @@ test('parseCollectorCliArgs supports help and explicit date options', () => {
         confirmProduction: true,
         ...defaultCliOptions
     });
+    assert.deepEqual(parseCollectorCliArgs(['--force-newsletter-resend']), {
+        help: false,
+        date: '',
+        dryRun: false,
+        confirmProduction: false,
+        ...defaultCliOptions,
+        forceNewsletterResend: true
+    });
     assert.deepEqual(parseCollectorCliArgs([
         '--headed', '--swipe-delay-ms=900', '--max-retries', '2',
         '--expected-categories', '2', '--keywords-per-category=3'
@@ -75,6 +84,7 @@ test('parseCollectorCliArgs supports help and explicit date options', () => {
         date: '',
         dryRun: false,
         confirmProduction: false,
+        forceNewsletterResend: false,
         headless: false,
         swipeDelayMs: 900,
         maxRetries: 2,
@@ -100,6 +110,9 @@ test('formatCollectorHelp mentions help and date flags', () => {
     assert.match(output, /yesterday/);
     assert.match(output, /--dry-run/);
     assert.match(output, /--confirm-production/);
+    assert.match(output, /--force-newsletter-resend/);
+    assert.match(output, /Development only/);
+    assert.match(output, /NEWSLETTER_RESEND_ENABLED=true/);
     assert.match(output, /--headed/);
     assert.match(output, /--swipe-delay-ms/);
     assert.match(output, /--max-retries/);
@@ -340,15 +353,54 @@ test('signalCollectionComplete sends only a validated completion marker to the e
     }), /불완전한 수집 결과/);
 });
 
-test('signalCollectionComplete does not call an unconfigured Production newsletter Workflow', async (t) => {
+test('signalCollectionComplete supports Production and leaves resend disabled by default', async (t) => {
     const originalPost = axios.post;
     t.after(() => { axios.post = originalPost; });
-    axios.post = async () => { throw new Error('Production must not signal in this stage'); };
+    let request;
+    axios.post = async (url, body, options) => {
+        request = { url, body, options };
+        return { data: { success: true } };
+    };
     const result = await signalCollectionComplete({ trendDate: '2026-08-29' }, { complete: true }, {
         environment: 'production', source: 'naver_creator_advisor',
         apiBaseUrl: 'https://trendapi.example.com', apiToken: 'prod-token', dryRun: false
     });
-    assert.deepEqual(result, { skipped: true, reason: 'newsletter_not_enabled_for_environment' });
+    assert.equal(result.success, true);
+    assert.equal(request.body.environment, 'production');
+    assert.equal(Object.hasOwn(request.body, 'forceResend'), false);
+});
+
+test('signalCollectionComplete does not promote collector options into resend intent', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => { axios.post = originalPost; });
+    let request;
+    axios.post = async (_url, body) => {
+        request = body;
+        return { data: { success: true } };
+    };
+    await signalCollectionComplete({ trendDate: '2026-08-29' }, { complete: true }, {
+        environment: 'development', source: 'naver_creator_advisor',
+        apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token', dryRun: false
+    });
+    assert.equal(Object.hasOwn(request, 'forceResend'), false);
+});
+
+test('signalCollectionComplete sends resend intent only for an explicit Development collection flag', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => { axios.post = originalPost; });
+    let request;
+    axios.post = async (_url, body) => { request = body; return { data: { success: true } }; };
+    await signalCollectionComplete({ trendDate: '2026-08-29' }, { complete: true }, {
+        environment: 'development', source: 'naver_creator_advisor',
+        apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token',
+        dryRun: false, forceNewsletterResend: true
+    });
+    assert.equal(request.forceResend, true);
+    await assert.rejects(() => signalCollectionComplete({ trendDate: '2026-08-29' }, { complete: true }, {
+        environment: 'production', source: 'naver_creator_advisor',
+        apiBaseUrl: 'https://trendapi.example.com', apiToken: 'prod-token',
+        dryRun: false, forceNewsletterResend: true
+    }), /Development 수집에서만/);
 });
 
 test('interactive Production collection confirms and writes the same payload without recollecting', async (t) => {
@@ -361,8 +413,10 @@ test('interactive Production collection confirms and writes the same payload wit
     axios.get = async () => ({ data: { success: true, environment: 'production' } });
 
     let postedPayload;
+    let newsletterPayload;
     axios.post = async (url, payload) => {
         if (url.endsWith('/internal/ingest/naver-trends')) postedPayload = payload;
+        if (url.endsWith('/internal/newsletter/collection-complete')) newsletterPayload = payload;
         return { data: { success: true, accepted: payload.itemCount, workflowId: 'collection-2026-08-29' } };
     };
     let collectionCount = 0;
@@ -398,7 +452,8 @@ test('interactive Production collection confirms and writes the same payload wit
     assert.equal(collectionCount, 1);
     assert.strictEqual(confirmedPayload, result.payload);
     assert.strictEqual(postedPayload, result.payload);
-    assert.deepEqual(result.newsletterSignal, { skipped: true, reason: 'newsletter_not_enabled_for_environment' });
+    assert.equal(newsletterPayload.environment, 'production');
+    assert.equal(Object.hasOwn(newsletterPayload, 'forceResend'), false);
     assert.equal(result.executionMode, 'interactive');
     assert.equal(result.apiResult.accepted, 1);
 });
