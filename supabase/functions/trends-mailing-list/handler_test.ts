@@ -57,11 +57,17 @@ function deliveryHandler({
   runDeliveryStatus = "not_started",
   extraEnv = {},
   onBrevo,
+  onFinish,
+  brevoStatus = 201,
+  brevoBody = { messageId: "<dev-message-id>" },
 }: {
   claimOutcome?: string;
   runDeliveryStatus?: string;
   extraEnv?: Record<string, string>;
   onBrevo?: (payload: Record<string, unknown>) => void;
+  onFinish?: (payload: Record<string, unknown>) => void;
+  brevoStatus?: number;
+  brevoBody?: Record<string, unknown>;
 } = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const handler = createHandler({
@@ -86,13 +92,16 @@ function deliveryHandler({
           categories: activeSubscriber.categories,
         } : { outcome: "already_claimed", status: "sent" });
       }
-      if (url.includes("/rpc/finish_trends_newsletter_delivery")) return Response.json(true);
+      if (url.includes("/rpc/finish_trends_newsletter_delivery")) {
+        onFinish?.(JSON.parse(String(init.body)));
+        return Response.json(true);
+      }
       if (url.includes("/rpc/finalize_trends_newsletter_delivery")) {
         return Response.json({ status: "sent", sent: claimOutcome === "claimed" ? 1 : 1, held: 0, failed: 0, skipped: 0, sending: 0 });
       }
       if (url === "https://api.brevo.com/v3/smtp/email") {
         onBrevo?.(JSON.parse(String(init.body)));
-        return Response.json({ messageId: "<dev-message-id>" }, { status: 201 });
+        return Response.json(brevoBody, { status: brevoStatus });
       }
       throw new Error(`unexpected_url:${url}`);
     },
@@ -201,6 +210,23 @@ Deno.test("does not call Brevo again for a recipient with an existing delivery c
   assertEquals(response.status, 200);
   assertEquals(result.batch.alreadyClaimed, 1);
   assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 0);
+});
+
+Deno.test("records a rejected Brevo response without exposing provider details to the caller", async () => {
+  let finishPayload: Record<string, unknown> | undefined;
+  const { handler } = deliveryHandler({
+    brevoStatus: 401,
+    brevoBody: { code: "unauthorized", message: "IP address is not authorized for reader@example.com" },
+    onFinish: (payload) => { finishPayload = payload; },
+  });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02" }));
+  const result = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(result.batch.failed, 1);
+  assertEquals(finishPayload?.p_status, "failed");
+  assertEquals(finishPayload?.p_outcome_code, "provider_rejected");
+  assertEquals(JSON.stringify(result).includes("unauthorized"), false);
+  assertEquals(JSON.stringify(result).includes("reader@example.com"), false);
 });
 
 Deno.test("does not enumerate or send subscribers again after a date is fully sent", async () => {

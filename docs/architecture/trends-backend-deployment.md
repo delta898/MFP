@@ -80,6 +80,14 @@ in order:
   inspect Brevo API-key validity, sender configuration, and IP access controls.
   In the validated incident, allowing the new egress IP fixed delivery; the
   API key itself was valid.
+- A campaign recipient row has `outcome_code = provider_rejected` and no
+  provider message ID: inspect that invocation's Edge Function logs for
+  `TRENDS_NEWSLETTER_PROVIDER_RESPONSE`. It records the Brevo HTTP status,
+  provider error code, a sanitized/truncated message, and trend date. It omits
+  recipient addresses and never returns provider diagnostics to the caller.
+  A rejected request may not appear in Brevo's transactional event log because
+  Brevo did not accept it. The database outcome remains the stable generic
+  `provider_rejected` value; detailed diagnosis belongs in the Function log.
 - Function invocation returns `401 unauthorized`: the private Worker token
   did not pass the Edge Function's shared-token check. Use the raw matching
   token in `Authorization: Bearer …`; hashing it locally can compare two

@@ -50,6 +50,35 @@ function validTrendDate(value: string) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+async function readBrevoError(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  let body = "";
+  try { body = (await response.text()).slice(0, 4096); } catch { /* Response details are optional diagnostics. */ }
+
+  let code: string | null = null;
+  let message: string | null = null;
+  if (contentType.includes("json")) {
+    try {
+      const payload = JSON.parse(body);
+      if (typeof payload?.code === "string") code = payload.code.slice(0, 120);
+      if (typeof payload?.message === "string") message = payload.message;
+    } catch { /* Keep only the sanitized plain-text fallback below. */ }
+  }
+  if (!message && body) message = body;
+
+  // Provider errors can echo submitted addresses or request details. Keep logs
+  // useful while ensuring email addresses, URLs, and credential-like strings
+  // are not persisted in Supabase or exposed through the function response.
+  const sanitize = (value: string | null) => value
+    ?.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/(api-key|authorization|token|secret|password)\s*[:=]\s*[^\s,;"'}]+/gi, "$1=[redacted]")
+    .replace(/[\r\n\t]+/g, " ")
+    .slice(0, 500) || null;
+
+  return { providerCode: sanitize(code), providerMessage: sanitize(message) };
+}
+
 async function unsubscribeSignature(subscriberId: string, secret: string) {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -133,7 +162,7 @@ export function createHandler(options: HandlerOptions = {}) {
     if (!response.ok) throw new Error(`brevo_http_${response.status}`);
   }
 
-  async function sendCampaign(email: string, campaign: { subject: string; html: string; text: string }) {
+  async function sendCampaign(email: string, campaign: { subject: string; html: string; text: string }, trendDate: string) {
     const key = getEnv("BREVO_API_KEY")?.trim() || "";
     const from = sender();
     if (!key || !from) throw new Error("email_sender_not_configured");
@@ -156,6 +185,13 @@ export function createHandler(options: HandlerOptions = {}) {
     }
     if (!response.ok) {
       const rejected = response.status >= 400 && response.status < 500 && response.status !== 429;
+      const providerError = await readBrevoError(response);
+      console.error("TRENDS_NEWSLETTER_PROVIDER_RESPONSE", {
+        trendDate,
+        status: response.status,
+        outcomeCode: rejected ? "provider_rejected" : "provider_ambiguous",
+        ...providerError,
+      });
       return {
         status: rejected ? "failed" as const : "held" as const,
         outcomeCode: rejected ? "provider_rejected" as const : "provider_ambiguous" as const,
@@ -280,7 +316,7 @@ export function createHandler(options: HandlerOptions = {}) {
           trendsUrl: trendsUrlForRecipient.toString(),
           unsubscribeUrl: unsubscribeUrl.toString(),
         });
-        deliveryOutcome = await sendCampaign(recipientEmail, emailContent);
+        deliveryOutcome = await sendCampaign(recipientEmail, emailContent, trendDate);
       } catch (error) {
         console.error("TRENDS_NEWSLETTER_RECIPIENT_CONTENT_FAILED", {
           trendDate,
