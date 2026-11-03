@@ -28,8 +28,10 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev'/);
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev' &&[\s\S]*inputs\.mode == 'development-drift'/);
     assert.match(workflow, /SUPABASE_ENV: development/);
+    assert.match(workflow, /denoland\/setup-deno@v2[\s\S]*deno check supabase\/functions\/trends-mailing-list\/index\.ts[\s\S]*deno test supabase\/functions\/trends-mailing-list\/handler_test\.ts/);
     assert.match(workflow, /supabase db push[\s\S]*--dry-run[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
     assert.match(workflow, /supabase db push[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
+    assert.match(workflow, /Deploy Development newsletter Edge Function[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*supabase functions deploy trends-mailing-list[\s\S]*--project-ref "\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
     assert.doesNotMatch(workflow, /supabase link/);
     assert.match(workflow, /supabase migration list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
     assert.match(workflow, /supabase functions list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
@@ -39,9 +41,11 @@ test('Development migrations are previewed and applied before drift and smoke ch
 
     const dryRun = workflow.indexOf('Preview pending Development migrations');
     const apply = workflow.indexOf('Apply pending Development migrations');
+    const edgeDeploy = workflow.indexOf('Deploy Development newsletter Edge Function');
+    const readFunctions = workflow.indexOf('Read remote Function state');
     const drift = workflow.indexOf('Fail on migration or Function drift');
     const smoke = workflow.indexOf('Safe public HTTP smoke');
-    assert.ok(dryRun >= 0 && dryRun < apply && apply < drift && drift < smoke);
+    assert.ok(dryRun >= 0 && dryRun < apply && apply < edgeDeploy && edgeDeploy < readFunctions && readFunctions < drift && drift < smoke);
 });
 
 test('production remains a manual non-deploying checklist', () => {
@@ -55,6 +59,7 @@ test('production remains a manual non-deploying checklist', () => {
     assert.doesNotMatch(productionChecklist, /supabase secrets set/);
     assert.match(workflow, /development-drift:[\s\S]*supabase db push/);
     assert.match(workflow, /deploy-development-workers:[\s\S]*npm run deploy:development/);
+    assert.equal((workflow.match(/supabase functions deploy trends-mailing-list/g) || []).length, 1);
 });
 
 test('environment validation uses Node 24 based artifact and Supabase actions', () => {

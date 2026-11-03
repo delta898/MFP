@@ -22,6 +22,84 @@ function assertStringIncludes(actual: string, expected: string) {
   if (!actual.includes(expected)) throw new Error(`Expected string to include ${expected}`);
 }
 
+function trendRows(category = "IT·컴퓨터") {
+  return Array.from({ length: 20 }, (_, index) => ({
+    trend_date: "2026-11-02",
+    category,
+    keyword: `테스트 키워드 ${index + 1}`,
+    change_raw: index === 0 ? "▲ 3" : index === 1 ? "신규" : "변동 없음",
+    change_type: index === 0 ? "up" : index === 1 ? "new" : "steady",
+    change_amount: index === 0 ? 3 : null,
+    display_order: index + 1,
+  }));
+}
+
+const sharedEdition = {
+  run: { collection_status: "complete", edition_status: "draft_ready" },
+  edition: {
+    status: "ready",
+    greeting: "좋은 아침입니다.",
+    introduction: "오늘의 흐름을 살펴보세요.",
+    featured_post: { title: "BlogGenius 소식", url: "https://blog.gongzza.com/guide/", excerpt: "참고 글 요약" },
+    download_url: "https://www-dev.bloggenius.kr/download/",
+    download_banner_url: "https://www-dev.bloggenius.kr/assets/share-card.svg",
+  },
+};
+
+const activeSubscriber = {
+  id: "3f9a8b80-4993-4fdd-a600-077e32ad7c19",
+  email: "reader@example.com",
+  categories: ["IT·컴퓨터"],
+};
+
+function deliveryHandler({
+  claimOutcome = "claimed",
+  runDeliveryStatus = "not_started",
+  extraEnv = {},
+  onBrevo,
+}: {
+  claimOutcome?: string;
+  runDeliveryStatus?: string;
+  extraEnv?: Record<string, string>;
+  onBrevo?: (payload: Record<string, unknown>) => void;
+} = {}) {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const handler = createHandler({
+    env: {
+      ...baseEnv,
+      NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48),
+      ...extraEnv,
+    },
+    fetcher: async (input, init = {}) => {
+      const url = String(input);
+      calls.push({ url, init });
+      if (url.includes("/rpc/get_trends_newsletter_delivery_context")) {
+        return Response.json({ ...sharedEdition, run: { ...sharedEdition.run, delivery_status: runDeliveryStatus } });
+      }
+      if (url.includes("/rpc/list_active_trends_subscribers")) return Response.json([activeSubscriber]);
+      if (url.includes("/rest/v1/items")) return Response.json(trendRows());
+      if (url.includes("/rpc/claim_trends_newsletter_delivery")) {
+        return Response.json(claimOutcome === "claimed" ? {
+          outcome: "claimed",
+          delivery_id: "982c4203-9b01-4dc6-85cc-f3463a399b1a",
+          email: activeSubscriber.email,
+          categories: activeSubscriber.categories,
+        } : { outcome: "already_claimed", status: "sent" });
+      }
+      if (url.includes("/rpc/finish_trends_newsletter_delivery")) return Response.json(true);
+      if (url.includes("/rpc/finalize_trends_newsletter_delivery")) {
+        return Response.json({ status: "sent", sent: claimOutcome === "claimed" ? 1 : 1, held: 0, failed: 0, skipped: 0, sending: 0 });
+      }
+      if (url === "https://api.brevo.com/v3/smtp/email") {
+        onBrevo?.(JSON.parse(String(init.body)));
+        return Response.json({ messageId: "<dev-message-id>" }, { status: 201 });
+      }
+      throw new Error(`unexpected_url:${url}`);
+    },
+  });
+  return { handler, calls };
+}
+
 function request(body: unknown, token = "test-worker-token") {
   return new Request("https://function.test/trends-mailing-list", {
     method: "POST",
@@ -84,4 +162,53 @@ Deno.test("sends the confirmation payload through the mocked Brevo boundary for 
   assertEquals(emailPayload.to, [{ email: "reader@example.com" }]);
   assertStringIncludes(emailPayload.textContent, "https://www-dev.bloggenius.kr/trends/confirm/?token=");
   assertStringIncludes(emailPayload.textContent, "https://www-dev.bloggenius.kr/trends/unsubscribe/?token=");
+});
+
+Deno.test("sends a personalized Development campaign to an allowlisted subscriber and returns aggregate-only data", async () => {
+  let emailPayload: Record<string, unknown> | undefined;
+  const { handler, calls } = deliveryHandler({ onBrevo: (payload) => { emailPayload = payload; } });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const result = await response.json();
+
+  assertEquals(response.status, 200);
+  assertEquals(result.delivery.status, "sent");
+  assertEquals(result.batch.sent, 1);
+  assertEquals(result.hasMore, false);
+  assertEquals(Object.keys(result).sort(), ["batch", "delivery", "hasMore", "nextCursor", "success", "trendDate"].sort());
+  assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 1);
+  assertStringIncludes(String(emailPayload?.htmlContent), "테스트 키워드 1");
+  assertStringIncludes(String(emailPayload?.htmlContent), "https://blog.gongzza.com/guide/");
+  assertStringIncludes(String(emailPayload?.htmlContent), "https://www-dev.bloggenius.kr/download/");
+  assertStringIncludes(String(emailPayload?.htmlContent), "https://www-dev.bloggenius.kr/trends/unsubscribe/?token=u_");
+  assertEquals(calls.some(({ url }) => url.includes("/rpc/finish_trends_newsletter_delivery")), true);
+});
+
+Deno.test("keeps campaign delivery Development allowlist-only", async () => {
+  let calls = 0;
+  const handler = createHandler({
+    env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "live" },
+    fetcher: async () => { calls++; return new Response(); },
+  });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02" }));
+  assertEquals(response.status, 403);
+  assertEquals(calls, 0);
+});
+
+Deno.test("does not call Brevo again for a recipient with an existing delivery claim", async () => {
+  const { handler, calls } = deliveryHandler({ claimOutcome: "already_claimed" });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const result = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(result.batch.alreadyClaimed, 1);
+  assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 0);
+});
+
+Deno.test("does not enumerate or send subscribers again after a date is fully sent", async () => {
+  const { handler, calls } = deliveryHandler({ runDeliveryStatus: "sent" });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", afterId: null }));
+  const result = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(result.delivery.status, "sent");
+  assertEquals(calls.some(({ url }) => url.includes("/rpc/list_active_trends_subscribers")), false);
+  assertEquals(calls.filter(({ url }) => url === "https://api.brevo.com/v3/smtp/email").length, 0);
 });

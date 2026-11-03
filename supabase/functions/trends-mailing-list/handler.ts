@@ -1,4 +1,6 @@
-type Action = "subscribe" | "confirm" | "unsubscribe";
+import { buildRecipientBriefing } from "../../../apps/trends/trends-newsletter/src/delivery.js";
+
+type Action = "subscribe" | "confirm" | "unsubscribe" | "deliver_batch";
 type HandlerOptions = {
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
@@ -36,6 +38,23 @@ function randomToken() {
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function validUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function validTrendDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+async function unsubscribeSignature(subscriberId: string, secret: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`trends-newsletter-unsubscribe:${subscriberId}`));
+  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function createHandler(options: HandlerOptions = {}) {
@@ -114,6 +133,186 @@ export function createHandler(options: HandlerOptions = {}) {
     if (!response.ok) throw new Error(`brevo_http_${response.status}`);
   }
 
+  async function sendCampaign(email: string, campaign: { subject: string; html: string; text: string }) {
+    const key = getEnv("BREVO_API_KEY")?.trim() || "";
+    const from = sender();
+    if (!key || !from) throw new Error("email_sender_not_configured");
+    let response: Response;
+    try {
+      response = await fetcher("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": key, accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({
+          sender: from,
+          to: [{ email }],
+          subject: campaign.subject,
+          htmlContent: campaign.html,
+          textContent: campaign.text,
+        }),
+        signal: AbortSignal.timeout(12000),
+      });
+    } catch {
+      return { status: "held" as const, outcomeCode: "provider_ambiguous" as const, messageId: null };
+    }
+    if (!response.ok) {
+      const rejected = response.status >= 400 && response.status < 500 && response.status !== 429;
+      return {
+        status: rejected ? "failed" as const : "held" as const,
+        outcomeCode: rejected ? "provider_rejected" as const : "provider_ambiguous" as const,
+        messageId: null,
+      };
+    }
+    let messageId: string | null = null;
+    try {
+      const payload = await response.json();
+      if (typeof payload?.messageId === "string") messageId = payload.messageId.slice(0, 200);
+    } catch { /* Brevo may return an empty successful response. */ }
+    return { status: "sent" as const, outcomeCode: null, messageId };
+  }
+
+  async function deliverBatch(body: Record<string, unknown>) {
+    const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
+    const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "";
+    if (environment !== "development" || mode !== "allowlist") {
+      return json(403, { success: false, error: "development_allowlist_required" });
+    }
+    const trendDate = String(body.trendDate || "").trim();
+    const afterId = body.afterId == null || body.afterId === "" ? null : String(body.afterId).trim().toLowerCase();
+    if (!validTrendDate(trendDate)
+      || (afterId !== null && !validUuid(afterId))) return json(400, { success: false, error: "invalid_delivery_cursor" });
+
+    const context = await mailingRpc("get_trends_newsletter_delivery_context", { p_trend_date: trendDate });
+    if (!context?.run || context.run.collection_status !== "complete"
+      || context.run.edition_status !== "draft_ready" || context.edition?.status !== "ready") {
+      return json(409, { success: false, error: "newsletter_not_ready" });
+    }
+    if (context.run.delivery_status === "sent") {
+      const summary = await mailingRpc("finalize_trends_newsletter_delivery", {
+        p_trend_date: trendDate, p_has_more: false,
+      });
+      return json(200, {
+        success: true, trendDate, nextCursor: null, hasMore: false,
+        batch: { sent: 0, failed: 0, held: 0, skipped: 0, alreadyClaimed: 0 },
+        delivery: summary,
+      });
+    }
+    const batchSize = 5;
+    const subscribers = await mailingRpc("list_active_trends_subscribers", { p_after_id: afterId, p_limit: batchSize });
+    if (!Array.isArray(subscribers)) throw new Error("subscriber_list_invalid");
+    const more = subscribers.length === batchSize;
+    const nextCursor = subscribers.length ? String(subscribers[subscribers.length - 1].id) : afterId;
+    let sent = 0;
+    let failed = 0;
+    let held = 0;
+    let skipped = 0;
+    let alreadyClaimed = 0;
+    const signingSecret = getEnv("NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET")?.trim() || "";
+    if (subscribers.length && signingSecret.length < 32) throw new Error("unsubscribe_signing_secret_not_configured");
+    const trendsUrl = "https://www-dev.bloggenius.kr/trends/";
+    const unsubscribeBase = "https://www-dev.bloggenius.kr/trends/unsubscribe/";
+    let trends: unknown[] = [];
+    if (subscribers.length) {
+      const supabaseUrl = getEnv("SUPABASE_URL")?.trim() || "";
+      const endpoint = new URL("/rest/v1/items", supabaseUrl);
+      endpoint.search = new URLSearchParams({
+        select: "trend_date,category,keyword,change_raw,change_type,change_amount,display_order",
+        source: "eq.naver_creator_advisor",
+        trend_date: `eq.${trendDate}`,
+        order: "category.asc,display_order.asc",
+        limit: "1000",
+      }).toString();
+      const key = getEnv("SUPABASE_SERVICE_ROLE_KEY")?.trim() || getEnv("SUPABASE_SECRET_KEY")?.trim() || "";
+      if (!key) throw new Error("database_not_configured");
+      const trendsResponse = await fetcher(endpoint, {
+        headers: { apikey: key, authorization: `Bearer ${key}`, "accept-profile": "trends" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!trendsResponse.ok) throw new Error(`trends_http_${trendsResponse.status}`);
+      trends = await trendsResponse.json();
+      if (!Array.isArray(trends)) throw new Error("trends_payload_invalid");
+    }
+
+    for (const subscriber of subscribers) {
+      const subscriberId = String(subscriber?.id || "").toLowerCase();
+      if (!validUuid(subscriberId)) throw new Error("subscriber_id_invalid");
+      const listedEmail = String(subscriber?.email || "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(listedEmail)) throw new Error("subscriber_email_invalid");
+      if (!canSendTo(listedEmail)) {
+        await mailingRpc("record_trends_newsletter_delivery_skipped", {
+          p_trend_date: trendDate, p_subscriber_id: subscriberId,
+        });
+        skipped += 1;
+        continue;
+      }
+      const claim = await mailingRpc("claim_trends_newsletter_delivery", {
+        p_trend_date: trendDate, p_subscriber_id: subscriberId,
+      });
+      if (claim?.outcome !== "claimed") {
+        alreadyClaimed += 1;
+        continue;
+      }
+
+      const recipientEmail = String(claim.email || "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) throw new Error("claimed_subscriber_email_invalid");
+      if (!canSendTo(recipientEmail)) {
+        await mailingRpc("finish_trends_newsletter_delivery", {
+          p_delivery_id: claim.delivery_id,
+          p_status: "skipped",
+          p_outcome_code: "email_policy_denied",
+          p_provider_message_id: null,
+        });
+        skipped += 1;
+        continue;
+      }
+
+      let deliveryOutcome: { status: "sent" | "held" | "failed"; outcomeCode: string | null; messageId: string | null };
+      try {
+        const trendsUrlForRecipient = new URL(trendsUrl);
+        trendsUrlForRecipient.searchParams.set("date", trendDate);
+        const unsubscribeToken = `u_${subscriberId}_${await unsubscribeSignature(subscriberId, signingSecret)}`;
+        const unsubscribeUrl = new URL(unsubscribeBase);
+        unsubscribeUrl.searchParams.set("token", unsubscribeToken);
+        const emailContent = buildRecipientBriefing({
+          trendDate,
+          categories: claim.categories,
+          trends,
+          edition: context.edition,
+          trendsUrl: trendsUrlForRecipient.toString(),
+          unsubscribeUrl: unsubscribeUrl.toString(),
+        });
+        deliveryOutcome = await sendCampaign(recipientEmail, emailContent);
+      } catch (error) {
+        console.error("TRENDS_NEWSLETTER_RECIPIENT_CONTENT_FAILED", {
+          trendDate,
+          reason: error instanceof Error ? error.message : "unknown_error",
+        });
+        deliveryOutcome = { status: "held", outcomeCode: "content_invalid", messageId: null };
+      }
+
+      await mailingRpc("finish_trends_newsletter_delivery", {
+        p_delivery_id: claim.delivery_id,
+        p_status: deliveryOutcome.status,
+        p_outcome_code: deliveryOutcome.outcomeCode,
+        p_provider_message_id: deliveryOutcome.messageId,
+      });
+      if (deliveryOutcome.status === "sent") sent += 1;
+      else if (deliveryOutcome.status === "failed") failed += 1;
+      else held += 1;
+    }
+
+    const summary = await mailingRpc("finalize_trends_newsletter_delivery", {
+      p_trend_date: trendDate, p_has_more: more,
+    });
+    return json(200, {
+      success: true,
+      trendDate,
+      nextCursor: more ? nextCursor : null,
+      hasMore: more,
+      batch: { sent, failed, held, skipped, alreadyClaimed },
+      delivery: summary,
+    });
+  }
+
   return async (req: Request) => {
     if (req.method !== "POST") return json(405, { success: false, error: "method_not_allowed" });
     const expected = getEnv("TRENDS_NEWSLETTER_WORKER_TOKEN")?.trim() || "";
@@ -149,8 +348,20 @@ export function createHandler(options: HandlerOptions = {}) {
         if (String(outcome) === "pending") await sendConfirmation(email, confirmation, unsubscribe);
         return json(200, { success: true, message: "pending" });
       }
+      if (action === "deliver_batch") return await deliverBatch(body);
       if (action === "confirm" || action === "unsubscribe") {
         const token = String(body.token || "").trim();
+        if (action === "unsubscribe" && /^u_[0-9a-f-]{36}_[a-f0-9]{64}$/i.test(token)) {
+          const [, rawId, signature] = token.match(/^u_([0-9a-f-]{36})_([a-f0-9]{64})$/i) || [];
+          const secret = getEnv("NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET")?.trim() || "";
+          if (!rawId || !validUuid(rawId) || secret.length < 32
+            || !constantTimeEquals(signature, await unsubscribeSignature(rawId.toLowerCase(), secret))) {
+            return json(400, { success: false, error: "invalid_or_expired_token" });
+          }
+          const outcome = await mailingRpc("unsubscribe_trends_subscription_by_id", { p_subscriber_id: rawId.toLowerCase() });
+          if (String(outcome) !== "unsubscribed") return json(400, { success: false, error: "invalid_or_expired_token" });
+          return json(200, { success: true, message: "unsubscribed" });
+        }
         if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) return json(400, { success: false, error: "invalid_token" });
         const outcome = await mailingRpc(action === "confirm" ? "confirm_trends_subscription" : "unsubscribe_trends_subscription", { p_token_hash: await sha256(token) });
         if (String(outcome) !== (action === "confirm" ? "confirmed" : "unsubscribed")) return json(400, { success: false, error: "invalid_or_expired_token" });

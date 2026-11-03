@@ -5,6 +5,7 @@ import { generateSharedCopy } from '../../src/adapters/cloudflare-ai-gateway.js'
 import { fetchFeaturedBlogPost } from '../../src/adapters/rss.js';
 import { loadDevelopmentEdition, saveDevelopmentEdition, markDevelopmentEditionHeld } from '../../src/adapters/supabase-editions.js';
 import { recordDevelopmentNewsletterAttempt } from '../../src/adapters/supabase-attempts.js';
+import { deliverDevelopmentBatch, loadDevelopmentDeliveryContext } from '../../src/adapters/supabase-delivery.js';
 
 export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
     async run(event, step) {
@@ -75,62 +76,57 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
             editionStatus: 'drafting', collectionReport: result
         }));
 
+        let editionSnapshot = null;
+        let editionReused = false;
         try {
-            const existing = await step.do('load-shared-edition', {
+            const deliveryContext = await step.do('load-delivery-context', {
+                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+                timeout: '30 seconds'
+            }, () => loadDevelopmentDeliveryContext(this.env, trendDate));
+            const existing = deliveryContext?.edition || await step.do('load-shared-edition', {
                 retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
                 timeout: '30 seconds'
             }, () => loadDevelopmentEdition(this.env, trendDate));
             const regenerate = String(this.env.NEWSLETTER_REGENERATE_ON_SIGNAL).trim().toLowerCase() === 'true';
-            if (existing?.status === 'ready' && !regenerate) {
-                await step.do('complete-newsletter-attempt-reused', {
-                    retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
-                }, () => recordDevelopmentNewsletterAttempt(this.env, {
-                    signalId, workflowId, trendDate, status: 'completed', collectionStatus,
-                    editionStatus: 'draft_ready', collectionReport: result, editionSnapshot: existing
-                }));
+            const deliveryAlreadyStarted = deliveryContext?.run?.delivery_status !== undefined
+                && deliveryContext.run.delivery_status !== 'not_started';
+            if (existing?.status === 'ready' && (!regenerate || deliveryAlreadyStarted)) {
+                editionSnapshot = existing;
+                editionReused = true;
                 console.log(JSON.stringify({ event: 'shared_edition_reused', environment: 'development', trendDate, signalId }));
-                return { ...result, collectionStatus, editionStatus: 'draft_ready', editionReused: true };
+            } else {
+                const post = await step.do('fetch-featured-blog-post', {
+                    retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+                    // Each of up to eight configured feeds may take 12 seconds.
+                    timeout: '2 minutes'
+                }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
+                const generated = await step.do('generate-shared-copy', {
+                    retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' },
+                    timeout: '35 seconds'
+                }, () => generateSharedCopy(this.env, trendDate));
+                const edition = buildSharedEdition({
+                    trendDate,
+                    post,
+                    copy: generated.copy,
+                    model: generated.model,
+                    downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,
+                    downloadBannerUrl: this.env.NEWSLETTER_DOWNLOAD_BANNER_URL
+                });
+                editionSnapshot = await step.do('persist-shared-edition', {
+                    retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+                    timeout: '30 seconds'
+                }, () => saveDevelopmentEdition(this.env, edition));
+                console.log(JSON.stringify({
+                    event: 'shared_edition_saved', environment: 'development', trendDate,
+                    signalId, editionStatus: editionSnapshot?.status || 'ready', articleSource: edition.featuredPost.source,
+                    aiModel: edition.aiModel
+                }));
             }
-
-            const post = await step.do('fetch-featured-blog-post', {
-                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
-                // Each of up to eight configured feeds may take 12 seconds.
-                timeout: '2 minutes'
-            }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
-            const generated = await step.do('generate-shared-copy', {
-                retries: { limit: 1, delay: '10 seconds', backoff: 'exponential' },
-                timeout: '35 seconds'
-            }, () => generateSharedCopy(this.env, trendDate));
-            const edition = buildSharedEdition({
-                trendDate,
-                post,
-                copy: generated.copy,
-                model: generated.model,
-                downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,
-                downloadBannerUrl: this.env.NEWSLETTER_DOWNLOAD_BANNER_URL
-            });
-            const saved = await step.do('persist-shared-edition', {
-                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
-                timeout: '30 seconds'
-            }, () => saveDevelopmentEdition(this.env, edition));
-            console.log(JSON.stringify({
-                event: 'shared_edition_saved', environment: 'development', trendDate,
-                signalId, editionStatus: saved?.status || 'ready', articleSource: edition.featuredPost.source,
-                aiModel: edition.aiModel
-            }));
-            await step.do('complete-newsletter-attempt', {
-                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
-            }, () => recordDevelopmentNewsletterAttempt(this.env, {
-                signalId, workflowId, trendDate, status: 'completed', collectionStatus,
-                editionStatus: saved?.status === 'held' ? 'held' : 'draft_ready',
-                collectionReport: result, editionSnapshot: saved,
-                errorCode: saved?.status === 'held' ? 'generation_failed' : null
-            }));
-            return { ...result, collectionStatus, editionStatus: saved?.status === 'held' ? 'held' : 'draft_ready', editionReused: false };
+            if (editionSnapshot?.status !== 'ready') throw new Error('shared_edition_not_ready');
         } catch (error) {
-            let editionSnapshot = null;
+            let heldSnapshot = null;
             try {
-                editionSnapshot = await step.do('record-shared-edition-failure', {
+                heldSnapshot = await step.do('record-shared-edition-failure', {
                     retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
                     timeout: '30 seconds'
                 }, () => markDevelopmentEditionHeld(this.env, trendDate, 'generation_failed'));
@@ -142,10 +138,64 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
             }, () => recordDevelopmentNewsletterAttempt(this.env, {
                 signalId, workflowId, trendDate, status: 'held', collectionStatus,
                 editionStatus: 'held', collectionReport: result,
-                editionSnapshot, errorCode: 'generation_failed'
+                editionSnapshot: heldSnapshot, errorCode: 'generation_failed'
             }));
             console.error(JSON.stringify({ event: 'shared_edition_generation_failed', environment: 'development', trendDate, signalId, reason: error instanceof Error ? error.message : 'unknown_error' }));
             return { ...result, collectionStatus, editionStatus: 'held', editionError: 'generation_failed' };
+        }
+
+        try {
+            let cursor = null;
+            let finalDelivery = { status: 'sending', sent: 0, held: 0, failed: 0, skipped: 0, sending: 0 };
+            let batchCount = 0;
+            while (batchCount < 200) {
+                const batch = await step.do(`deliver-recipient-batch-${batchCount + 1}`, {
+                    retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
+                    timeout: '2 minutes'
+                }, () => deliverDevelopmentBatch(this.env, trendDate, cursor));
+                finalDelivery = batch.delivery;
+                console.log(JSON.stringify({
+                    event: 'recipient_delivery_batch_completed', environment: 'development', trendDate,
+                    batch: batchCount + 1, status: batch.delivery.status,
+                    sent: batch.delivery.sent, held: batch.delivery.held,
+                    failed: batch.delivery.failed, skipped: batch.delivery.skipped
+                }));
+                batchCount += 1;
+                if (!batch.hasMore) break;
+                cursor = batch.nextCursor;
+            }
+            if (batchCount >= 200 && finalDelivery.status === 'sending') throw new Error('recipient_delivery_batch_limit_reached');
+
+            const attemptStatus = finalDelivery.status === 'failed' ? 'failed'
+                : ['held', 'sending'].includes(finalDelivery.status) ? 'held' : 'completed';
+            await step.do('complete-newsletter-attempt-after-delivery', {
+                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
+            }, () => recordDevelopmentNewsletterAttempt(this.env, {
+                signalId, workflowId, trendDate, status: attemptStatus, collectionStatus,
+                editionStatus: 'draft_ready', collectionReport: result, editionSnapshot,
+                errorCode: attemptStatus === 'completed' ? null : 'attempt_failed'
+            }));
+            return {
+                ...result,
+                collectionStatus,
+                editionStatus: 'draft_ready',
+                editionReused,
+                deliveryStatus: finalDelivery.status,
+                deliverySummary: finalDelivery
+            };
+        } catch (error) {
+            await step.do('record-recipient-delivery-failure', {
+                retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
+            }, () => recordDevelopmentNewsletterAttempt(this.env, {
+                signalId, workflowId, trendDate, status: 'failed', collectionStatus,
+                editionStatus: 'draft_ready', collectionReport: result, editionSnapshot,
+                errorCode: 'attempt_failed'
+            }));
+            console.error(JSON.stringify({
+                event: 'recipient_delivery_failed', environment: 'development', trendDate, signalId,
+                reason: error instanceof Error ? error.message : 'unknown_error'
+            }));
+            throw error;
         }
     }
 }

@@ -2,13 +2,13 @@
 
 ## Status
 
-Development baseline for the next implementation stages. Signup, double
-opt-in, unsubscribe, and the Development browser-to-email flow are implemented
-and verified. The first Development signal-to-state slice is implemented
-locally: after a complete date is ingested, the collector signals the matching
-Trends API Worker, which starts the Newsletter Workflow. The Workflow verifies
-persisted rows and records collection state in Supabase. Edition drafting and
-bulk delivery are not implemented.
+Development implementation is in progress. Signup, double opt-in, unsubscribe,
+collection readiness, and shared edition generation have been implemented and
+verified in Development. The recipient-specific campaign renderer, private
+Edge Function batch sender, per-recipient delivery ledger, stable campaign
+unsubscribe token, and Workflow integration are implemented on the feature
+branch and have focused mocked tests. These delivery changes have not been
+deployed or exercised against Brevo yet.
 
 Implementation begins in Development. Production remains untouched until the
 Development flow has passed its operational checks and the user explicitly
@@ -34,8 +34,8 @@ approves the Production rollout.
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` |
 | Subscriber lifecycle | Implemented and end-to-end verified | Not rolled out |
 | Trends collector | Mac Studio process writes through the matching Trends API | Existing operator-run production path |
-| Readiness Workflow | Implemented locally; deployment still pending | Not implemented |
-| Campaign drafting / delivery | Not implemented | Not implemented |
+| Readiness Workflow and shared edition | Deployed and previously verified | Not rolled out |
+| Recipient campaign delivery | Feature branch only; focused tests pass, deployment and live Dev verification pending | Not implemented |
 
 Keep using the existing Supabase mailing tables and purpose-specific
 `trends-mailing-list` Edge Function for subscribe, confirmation, and
@@ -52,10 +52,10 @@ Mac Studio collector
   -> verify persisted date/category/keyword completeness
   -> upsert collection state, leaving edition and delivery state untouched
 
-Future, separately gated stages:
-  -> create/load shared dated edition -> draft -> operator approval
-  -> unique per-subscriber delivery claims -> Brevo -> delivery outcomes
-  -> Telegram run summary
+  -> create/load shared dated edition
+  -> keyset-batched active subscribers -> per-recipient briefing -> allowlist check
+  -> unique per-date/subscriber claim -> Brevo -> delivery outcomes
+  -> Telegram run summary (later stage)
 
 Public site
   -> display the approved dated shared-edition archive
@@ -73,11 +73,11 @@ recording readiness. No schedule is used: this account rejected scheduled
 Workflow triggers during deployment, while event triggering handles daily and
 range collection without an always-on process.
 
-The existing mailing Edge Function is currently a signup lifecycle service.
-Bulk campaign delivery is a separate capability and must be designed with
-bounded batches, provider error classification, suppression checks, and
-idempotent per-recipient outcomes; do not overload signup actions with campaign
-semantics.
+The existing `trends-mailing-list` Edge Function owns both subscription
+lifecycle actions and the private `deliver_batch` action. The batch action is
+called only by the authenticated Newsletter Worker, is Development/allowlist-
+only, returns aggregate counts and a keyset cursor, and never places email
+addresses in Workflow payloads or logs. Production sending is denied.
 
 ## Daily Run and Readiness Rules
 
@@ -110,16 +110,20 @@ semantics.
    Workflow ID, so multiple signals for one date are deduplicated. The SQL RPC
    only updates collection fields, so a range collection cannot initiate a
    send.
-5. For a future approved edition, persist its
+5. Persist the shared edition's
    source date, content version, AI model/fallback metadata, selected links,
    approval/publication state, and timestamps.
-6. Build recipient content from the common edition plus the recipient's
-   currently active category preferences and that date's matching trends.
-7. Re-check subscription/suppression state immediately before sending. Record
-   one unique delivery row per `(edition_date, subscriber_id)` and claim it
-   atomically before provider submission. Retries must resume or reconcile the
-   row rather than blindly submitting a second email when provider outcome is
-   ambiguous.
+6. In batches of at most five, read active subscribers in UUID keyset order.
+   Build each email from selected categories, the top 10 keywords and movement
+   details, the full-trends link, shared greeting/article, and the fixed
+   BlogGenius download banner/link.
+7. Check the Development allowlist before submission and atomically re-check
+   active subscription state while claiming the unique
+   `(trend_date, subscriber_id)` delivery row. `sent`, `failed`, `held`, and
+   `sending` claims are never automatically submitted a second time. A
+   previously skipped allowlist address can be claimed later if it is added to
+   the allowlist before a subsequent run. A timeout or ambiguous Brevo result
+   is marked `held` for reconciliation, not resent.
 8. When the run settles, send a Telegram summary with the date, completion
    status, recipient success/failure counts, and edition URL when available.
    Send separate actionable alerts for incomplete collection, content
@@ -147,8 +151,13 @@ banner links; AI does not receive or invent URLs. The private
 `mailing.trends_newsletter_editions` table is unique by trend date. Its save
 RPC preserves a ready edition by default; the Development Worker explicitly
 opts into replacing it for a distinct retry signal. A failed attempt is held
-for a later retry. This stage does not read subscribers, send email,
-publish a public archive, or notify Telegram. Source lives under
+for a later retry. The recipient-delivery feature branch adds a private batch
+path: the Edge Function pages active subscribers, enforces the Development
+allowlist, renders personalized email, claims a unique date/subscriber ledger
+row, and submits through Brevo. The Workflow stores only aggregate results and
+a UUID cursor. Campaign delivery remains Development-only and is not yet
+deployed or live-tested. This stage still does not publish a public archive or
+notify Telegram. Source lives under
 `apps/trends/trends-newsletter/`, with readiness and edition policy in `src/`,
 external RSS/AI/Supabase adapters under `src/adapters/`, and Workflow
 orchestration under `worker/`. The expected category list remains explicitly
@@ -156,11 +165,10 @@ configured in Wrangler and currently duplicates the Trends API Worker's
 newsletter category set; centralizing that stable contract is a follow-up
 before taxonomy changes.
 
-The `(edition_date, subscriber_id)` key is the proposed deduplication boundary.
-The implementation must define how to reconcile a timeout after Brevo accepted
-an email but before the workflow received the response; provider idempotency or
-message lookup should be used where available, otherwise an ambiguous state
-must be held for reconciliation rather than automatically resent.
+The `(trend_date, subscriber_id)` unique key is the deduplication boundary.
+Brevo acceptance followed by a lost response remains ambiguous; hold the row
+for reconciliation rather than risking a duplicate message. No automatic
+resend/reconciliation console is included in this stage.
 
 ## Content and Public Archive
 
@@ -236,10 +244,11 @@ Development test campaign sent outside the configured allowlist.
 
 `.github/workflows/environment-validation.yml` owns the Development release
 sequence on pushes to `dev`: build the immutable Supabase artifact, preview and
-apply pending migrations to the explicit Development project, read the remote
-migration and Edge Function state, verify drift and safe HTTP behavior, then
-run focused Worker tests and Wrangler dry-runs before deployment. The newsletter
-Workflow Worker deploys first; the Development Trends API Worker deploys second.
+apply pending migrations to the explicit Development project, deploy the
+`trends-mailing-list` Edge Function, read remote migration and Function state,
+verify drift and safe HTTP behavior, then run focused Worker tests and Wrangler
+dry-runs before Worker deployment. The newsletter Workflow Worker deploys
+first; the Development Trends API Worker deploys second.
 Same-branch workflow runs are serialized so two pushes cannot apply migrations
 or deploy Workers concurrently. The latest queued commit includes earlier
 commits and applies every migration still missing remotely.
@@ -255,12 +264,14 @@ Also configure the Development Supabase access token, database password,
 project ref, URL, and publishable key expected by the environment validation
 job. The Supabase CLI uses an explicit remote project ref and does not link or
 mutate any Production project. Runtime Worker secrets remain in Cloudflare and
-are not copied into GitHub Actions. Edge Functions and secrets are not deployed
-automatically; the drift gate confirms the expected remote Function state.
-Production has no automatic migration or Worker deployment path. Protect the
-GitHub `dev` branch with required pull requests and validation checks if changes
-must pass before landing; the Dev release workflow runs after a push and will
-stop before Worker deployment if migration, drift, or Worker validation fails.
+are not copied into GitHub Actions. On a push to `dev`, the workflow deploys the
+`trends-mailing-list` Edge Function after applying migrations; its runtime
+secrets remain managed in Supabase and are not set by the workflow. Production
+has no automatic migration, Edge Function, or Worker deployment path. Protect
+the GitHub `dev` branch with required pull requests and validation checks if
+changes must pass before landing. A migration failure stops before Edge Function
+deployment; a later drift, smoke, or Worker validation failure stops before
+Worker deployment.
 
 ## Cost and Free-Tier Notes (checked 2026-11-02)
 
@@ -310,14 +321,22 @@ prices and included quotas can change.
 3. **Shared edition:** add idempotent daily edition storage and deterministic
    verified-link selection; then connect AI Gateway for the short common
    intro, with schema/quality checks and recorded model metadata.
-4. **Development delivery:** implement recipient selection, per-recipient
-   idempotency and recovery, batch sending via the dedicated email backend,
-   Dev allowlist enforcement, and Telegram summaries. Verify incomplete data,
-   provider failures, unsubscribes during a run, retry behavior, and duplicate
-   suppression.
-5. **Public archive:** implement the chosen website/API publishing path and
+4. **Development delivery:** recipient selection, personalized content,
+   per-recipient idempotency, Dev allowlist enforcement, and Brevo batch sending
+   are implemented on `feature/trends-newsletter-recipient-delivery`, with
+   mocked focused tests. Before live Dev verification, apply the new delivery
+   ledger migration; a push to `dev` applies it and deploys the updated
+   `trends-mailing-list` Edge Function and newsletter Worker automatically.
+   Then verify an allowlisted send, out-of-list suppression, unsubscribe,
+   provider failure/ambiguity, and duplicate suppression. Ambiguous outcomes
+   are held for manual reconciliation; there is no automatic resend or
+   reconciliation UI.
+5. **Telegram operations:** add completion and actionable failure summaries
+   after delivery behavior is stable. Telegram is not part of the current
+   delivery implementation.
+6. **Public archive:** implement the chosen website/API publishing path and
    ensure it exposes only approved shared edition fields.
-6. **Production promotion:** after Development is stable and the user approves,
+7. **Production promotion:** after Development is stable and the user approves,
    provision separate Production settings/secrets and deploy the same reviewed
    code against Production services. Start with explicit readiness and send
    controls, then enable unattended delivery after observed clean runs.

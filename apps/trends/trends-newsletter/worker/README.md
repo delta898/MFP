@@ -1,8 +1,10 @@
 # Trends Newsletter Collection Workflow (Development)
 
-This Development Worker verifies collection readiness and creates one shared
-edition for each complete trend date. It does not read subscribers, send email,
-publish an archive post, or notify Telegram.
+This Development Worker verifies collection readiness, creates or reuses the
+shared edition, and sends per-subscriber Development briefings through the
+private mailing Edge Function. Recipient-specific delivery is implemented on
+the current feature branch, but has not yet been deployed or live-tested. It
+does not publish an archive post or notify Telegram.
 
 ## Event flow
 
@@ -37,8 +39,22 @@ publish an archive post, or notify Telegram.
 7. The date-level edition row stores the latest generated draft; each attempt
    stores its own collection report, terminal status, and edition snapshot.
    Dev deliberately replaces a ready date-level draft on a new signal. A
-   repeated signal UUID never regenerates it. Generation failures mark that
-   attempt held and do not send email; a new signal can retry it.
+   repeated signal UUID never regenerates it. Once delivery has started, later
+   signals reuse the frozen edition and do not spend another AI call. Generation
+   failures mark that attempt held and do not send email; a new signal can retry it.
+8. Once an edition is ready, the Workflow calls the private
+   `trends-mailing-list` Edge Function in keyset batches of at most five active
+   subscribers. The Edge Function selects each subscriber's categories, reads
+   that date's trends, renders the top 10 items per selected category with
+   movement details, and adds the shared article and BlogGenius download CTA.
+   It checks `NEWSLETTER_EMAIL_MODE=allowlist` and the recipient list before
+   calling Brevo. The Workflow receives aggregate counts and cursors only.
+9. Supabase records one unique outcome per `(trend_date, subscriber_id)`.
+   Atomic claims prevent concurrent signals or retries from sending the same
+   recipient twice. A failed or ambiguous Brevo outcome is not automatically
+   retried; ambiguous outcomes are held. Campaign unsubscribe uses a stable
+   signed subscriber token and the existing unsubscribe page. Repeated signals
+   after a date is fully sent do not enumerate or resend recipients.
 
 The source and environment are pinned to Development project
 `bvtlwjbmjnfphxlrkzhm`. The Workflow validates both the environment marker and
@@ -64,6 +80,10 @@ linked/ref target is Development:
   private per-signal attempt ledger and makes ready-edition replacement an
   explicit RPC option. Development enables that option; the default preserves
   the existing ready edition.
+- `202611030004_trends_newsletter_recipient_delivery.sql` adds the private
+  per-date/per-subscriber delivery ledger and service-only claim, outcome,
+  summary, and stable-token unsubscribe RPCs. It also prevents a ready shared
+  edition from changing after delivery claims begin.
 
 These RPCs are separate from the mailing-list signup Edge Function.
 
@@ -76,6 +96,7 @@ key interactively. Do not paste their values into source control or chat:
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SECRET_KEY
 npx wrangler secret put CLOUDFLARE_AI_GATEWAY_TOKEN
+npx wrangler secret put TRENDS_NEWSLETTER_WORKER_TOKEN
 ```
 
 The key must be the Development project's server-side secret key with read
@@ -133,22 +154,34 @@ node --test apps/trends/trends-collector/bin/collect.test.js
 ## Development deployment order
 
 The standard path is a push to `dev`; `.github/workflows/environment-validation.yml`
-applies pending migrations, checks the remote state, tests both Workers, then
-deploys the newsletter Workflow Worker followed by the Development Trends API
-Worker. `.github/workflows/validate-trends-newsletter-workers.yml` runs tests
-and dry-runs on feature branches and pull requests without deployment.
+applies pending migrations, deploys the `trends-mailing-list` Edge Function,
+checks the remote state, tests both Workers, then deploys the newsletter
+Workflow Worker followed by the Development Trends API Worker.
+`.github/workflows/validate-trends-newsletter-workers.yml` runs tests and
+dry-runs on feature branches and pull requests without deployment.
 
-For manual recovery or local deployment only, after confirming you are targeting
-Development:
+For manual recovery only, after a failed or intentionally skipped Dev release,
+confirm you are targeting Development before running the relevant command:
 
-1. Apply all three SQL migrations to the Development Supabase project.
-2. From this directory, deploy the Workflow Worker:
+1. Apply all four SQL migrations to the Development Supabase project.
+2. A push to `dev` deploys the `trends-mailing-list` Edge Function after
+   migrations. If that step failed, deploy it manually from the repository root:
+
+   ```sh
+   supabase functions deploy trends-mailing-list --project-ref bvtlwjbmjnfphxlrkzhm
+   ```
+
+3. Confirm both Edge Function and Worker have the same
+   `TRENDS_NEWSLETTER_WORKER_TOKEN`; the Edge Function also needs
+   `NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET`, Brevo API key/sender, and Dev
+   allowlist settings. Keep values in their respective secret stores.
+4. From this directory, deploy the Workflow Worker:
 
    ```sh
    npm run deploy:development
    ```
 
-3. Deploy the Development Trends API Worker so its cross-Worker Workflow
+5. Deploy the Development Trends API Worker so its cross-Worker Workflow
    binding and authenticated completion endpoint are active:
 
    ```sh
@@ -156,7 +189,7 @@ Development:
    npm run deploy:development
    ```
 
-4. Run one Development collection date and inspect the matching Workflow,
+6. Run one Development collection date and inspect the matching Workflow,
    `mailing.trends_newsletter_runs`, `mailing.trends_newsletter_attempts`, and
    `mailing.trends_newsletter_editions` rows. Re-run the same date and confirm a
    new attempt and edition snapshot are created; retrying an identical signal
@@ -164,6 +197,7 @@ Development:
    date-level run/edition plus one attempt per signal.
 
 There is no Cron schedule and no public `workers.dev` endpoint. The Workflow
-calls the configured AI model only after collection completeness passes. This
-stage does not send email or Telegram. Production configuration and rollout
-are intentionally out of scope.
+calls the configured AI model only after collection completeness passes and
+sends only to the Development allowlist. Telegram notifications and Production
+configuration/rollout are out of scope. A real allowlisted delivery remains a
+manual Dev verification step; automated tests mock Brevo and do not send mail.
