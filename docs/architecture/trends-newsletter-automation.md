@@ -121,22 +121,29 @@ semantics.
    Send separate actionable alerts for incomplete collection, content
    validation failure, provider failure, and a held run.
 
-The first implemented slice reads only `trends.items` for the signaled date and
-upserts a durable Development record in `mailing.trends_newsletter_runs`. The
+The Development readiness slice reads only `trends.items` for the signaled
+date and upserts a durable record in `mailing.trends_newsletter_runs`. The
 record has independent `collection_status`, `edition_status`, and
-`delivery_status` fields. Repeated signals update collection evidence but
-preserve edition and delivery values. Workflow IDs suppress duplicate active
-or retained executions for a date; after Cloudflare expires an instance from
-its retention window, a later signal may run readiness again. That remains
-safe because this stage only updates collection fields and cannot send mail.
-Future delivery must additionally use atomic per-recipient delivery claims,
-which are independent of Workflow instance identity. It does not access
-subscribers, call AI, send mail, or notify Telegram. Source lives under
-`apps/trends/trends-newsletter/`, with readiness/persistence rules in `src/`
-and the Workflow runtime under `worker/`. The expected category list is
-configured explicitly in Wrangler and currently duplicates the existing
-Trends API Worker's newsletter category set; centralizing that stable contract
-is a follow-up before taxonomy changes.
+`delivery_status` fields. Collection signals update only collection evidence.
+After collection is verified complete, the Workflow loads an existing ready
+edition or builds one by checking ordered RSS sources configured in the
+Development Worker, then uses one configured Cloudflare AI Gateway BYOK model
+for a short greeting/introduction. The initial sources are `blog.gongzza.com`
+and `blog.naver.com/amadejjs`. On feed failure or no valid entry, selection
+falls through to the next source. The saved snapshot contains only source,
+title, a bounded summary, link, date, and optional image URL; full article
+content is not saved. Code selects and snapshots article, download page, and
+banner links; AI does not receive or invent URLs. The private
+`mailing.trends_newsletter_editions` table is unique by trend date, and its
+save RPC preserves a ready edition on repeated signals. A failed draft is
+held for a later retry. This stage does not read subscribers, send email,
+publish a public archive, or notify Telegram. Source lives under
+`apps/trends/trends-newsletter/`, with readiness and edition policy in `src/`,
+external RSS/AI/Supabase adapters under `src/adapters/`, and Workflow
+orchestration under `worker/`. The expected category list remains explicitly
+configured in Wrangler and currently duplicates the Trends API Worker's
+newsletter category set; centralizing that stable contract is a follow-up
+before taxonomy changes.
 
 The `(edition_date, subscriber_id)` key is the proposed deduplication boundary.
 The implementation must define how to reconcile a timeout after Brevo accepted
@@ -146,36 +153,31 @@ must be held for reconciliation rather than automatically resent.
 
 ## Content and Public Archive
 
-- AI receives the date, selected trend summaries, and a short editorial brief.
-  It writes only the common greeting/introduction and optionally a short
-  category-aware transition. It does not invent or validate URLs.
+- AI receives the trend date and short editorial brief. It writes only the
+  common greeting/introduction. The first Development implementation uses one
+  explicitly configured Cloudflare AI REST model; provider fallback is later
+  work and is not required for this draft stage.
 - Application logic chooses links from curated, verified records (for example
   BlogGenius posts, guides, and downloads), enforces a small configured maximum,
   checks each destination, and applies rotation/recency rules to avoid
   repetitive or excessive links.
-- Store the common edition in Supabase as the canonical editorial record.
+- Store the common edition in `mailing.trends_newsletter_editions` as the
+  canonical editorial record. Development uses private service-role-only RPCs;
+  this stage adds no public archive API.
   Recipient-specific trend sections and email addresses stay private and are
   never written to the public edition.
-- Public archive proposal: add a dated Newsletter/Trend Letter page to the
-  existing site. Since the site is SSG, choose one of these delivery mechanisms
-  before implementation:
-  1. keep a statically built archive shell and fetch approved public editions
-     from a read-only endpoint; or
-  2. generate static dated pages and trigger the hosting build/deploy after an
-     edition is approved.
-
-The read-only archive approach avoids coupling each daily edition to a full
-site rebuild, but it introduces a public API and runtime loading. The static
-page approach has no runtime API dependency but requires a trusted automated
-publish/build trigger. The user has proposed a dated public post; the publishing
-mechanism remains an open implementation decision.
+- The user chose a dedicated dated archive menu on `blog.gongzza.com` for the
+  eventual public edition archive. That WordPress menu/post implementation is
+  a later stage; this stage only stores the shared edition in Supabase.
 
 ## AI Gateway and Fallback
 
 - Call AI server-side from the Newsletter Worker/Workflow. Never put AI
   provider keys in SSG output or browser requests.
-- Use Cloudflare AI Gateway as the routing/observability layer for a configured
-  fallback sequence, for example Workers AI then a paid hosted provider. A
+- Use Cloudflare AI Gateway with provider-specific BYOK endpoints for a
+  configured model. Provider credentials stay in the Gateway's environment
+  configuration; the Worker holds only its Gateway authentication token and
+  the selected provider/model/alias settings. A
   fallback means try the next provider on a configured failure or timeout, not
   call every provider serially to improve the same draft.
 - Keep provider/model order, timeout, retry policy, max output size, and prompt
@@ -200,7 +202,7 @@ inside the campaign backend.
 | Worker / Workflow deployment | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state |
 | Supabase | Development project only | Production project only |
 | Subscriber/delivery/edition data | Development project tables | Production project tables |
-| AI Gateway | Development gateway/config and dev provider credentials or Workers AI binding | Production gateway/config and prod provider credentials or Workers AI binding |
+| AI Gateway | Development gateway, provider keys/alias, Worker auth token, and model config | Production gateway, provider keys/alias, Worker auth token, and model config |
 | Email | Brevo allowlist mode only; test recipient(s) | Live mode only after explicit rollout approval |
 | Public links | `www-dev.bloggenius.kr` and Development routes | `www.bloggenius.kr` and Production routes |
 | Telegram | Development chat/bot destination | Production operator destination |

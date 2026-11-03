@@ -24,12 +24,12 @@ test('environment CI relies on hosted development rather than rebuilding local S
     assert.doesNotMatch(workflow, /supabase stop --no-backup/);
 });
 
-test('development drift reads hosted state and emits sanitized promotion evidence', () => {
+test('development drift links the hosted project, reads state, and emits sanitized promotion evidence', () => {
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev'/);
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev' &&[\s\S]*inputs\.mode == 'development-drift'/);
     assert.match(workflow, /supabase migration list[\s\S]*--project-ref[\s\S]*--output-format json/);
     assert.match(workflow, /supabase functions list[\s\S]*--project-ref[\s\S]*--output-format json/);
-    assert.doesNotMatch(workflow, /supabase link/);
+    assert.match(workflow, /supabase link[\s\S]*--project-ref/);
     assert.match(workflow, /npm run env:development:drift/);
     assert.match(workflow, /development-promotion-/);
 });

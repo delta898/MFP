@@ -1,7 +1,8 @@
 # Trends Newsletter Collection Workflow (Development)
 
-This stage records when each date's trend collection is complete. It does not
-read subscribers, create editions, call AI, send email, or notify Telegram.
+This Development Worker verifies collection readiness and creates one shared
+edition for each complete trend date. It does not read subscribers, send email,
+publish an archive post, or notify Telegram.
 
 ## Event flow
 
@@ -22,9 +23,18 @@ read subscribers, create editions, call AI, send email, or notify Telegram.
    start duplicate recent instances.
 4. The Workflow reads the signaled date from Development Supabase, independently
    verifies 32 categories × 20 distinct keywords, and calls the state RPC.
-5. The RPC upserts one row per date in `mailing.trends_newsletter_runs`. It
-   changes only collection fields; `edition_status` and `delivery_status` are
-   preserved. No collection event triggers a send.
+5. The collection RPC upserts one row per date in
+   `mailing.trends_newsletter_runs`, changing only collection fields.
+6. After a complete collection, the Workflow reuses an existing ready edition
+   or checks the configured RSS sources in priority order, selects the newest
+   valid item from the first usable feed, asks the configured Cloudflare AI
+   model for a short greeting and introduction, validates the copy, and saves
+   one dated snapshot. Only the title, short summary, link, date, source name,
+   and optional image URL are retained; full post content is not stored. AI
+   never creates URLs.
+7. The unique date and save RPC preserve the first ready edition for a date.
+   Repeated signals load and reuse it. Generation failures mark the date held
+   and do not send email. A later signal may retry a held edition.
 
 The source and environment are pinned to Development project
 `bvtlwjbmjnfphxlrkzhm`. The Workflow validates both the environment marker and
@@ -34,10 +44,16 @@ Cloudflare management credentials.
 
 ## Development-only Supabase migration
 
-Apply `supabase/migrations/202611030001_trends_newsletter_run_state.sql` to the
-Development project before deploying the new Workflow. It creates the private
-run-state table and a `service_role`-only RPC exposed through the `public` schema.
-The RPC is separate from the mailing-list signup Edge Function.
+Apply these migrations to the Development project before deploying the updated
+Workflow:
+
+- `202611030001_trends_newsletter_run_state.sql` creates private per-date run
+  state.
+- `202611030002_trends_newsletter_shared_editions.sql` creates the private
+  edition snapshot and service-role-only read/save/hold RPCs exposed through
+  `public`.
+
+These RPCs are separate from the mailing-list signup Edge Function.
 
 ## Worker secrets
 
@@ -47,11 +63,39 @@ key interactively. Do not paste their values into source control or chat:
 ```sh
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SECRET_KEY
+npx wrangler secret put CLOUDFLARE_AI_GATEWAY_TOKEN
 ```
 
 The key must be the Development project's server-side secret key with read
 access to `trends.items` and execute access to the `public` RPC. Do not use a
 Production key.
+
+Configure these non-secret Development Worker variables in `wrangler.toml`:
+
+- `CLOUDFLARE_AI_GATEWAY_ID`: the ID of the Development AI Gateway.
+- `CLOUDFLARE_AI_BYOK_ALIAS`: `development`, matching the alias configured for
+  the Development provider key in that gateway.
+- `NEWSLETTER_AI_PROVIDER`: provider slug, such as `openai`.
+- `NEWSLETTER_AI_MODEL`: model name accepted by that provider, without a
+  provider prefix.
+- `NEWSLETTER_BLOG_FEEDS`: ordered JSON list of `{name, feedUrl, siteUrl}`.
+  Feed failure or no valid published item advances to the next configured
+  source. The initial Development list contains BlogGenius and the Naver Blog
+  `amadejjs`; do not add source credentials to this setting.
+
+Add the chosen provider API key to the Development AI Gateway as a BYOK key
+with the `development` alias. `CLOUDFLARE_AI_GATEWAY_TOKEN` is a separate
+Cloudflare AI Gateway authentication token; the Worker sends it in the
+`cf-aig-authorization` header and sends the alias in
+`cf-aig-byok-alias`. It is not the provider API key, a Cloudflare account API
+token, or the GitHub deployment token. The Worker uses the provider-specific
+Gateway endpoint, so generation uses the configured Gateway BYOK key rather
+than Cloudflare Unified Billing. Do not copy Production gateway IDs, aliases,
+provider keys, or URLs into Development. Wrangler config sets the Development
+download page and banner URLs.
+
+Cloudflare references: [Bring your own keys](https://developers.cloudflare.com/ai-gateway/configuration/bring-your-own-keys/)
+and [AI Gateway REST API](https://developers.cloudflare.com/ai-gateway/usage/rest-api/).
 
 ## Focused checks
 
@@ -76,7 +120,7 @@ node --test apps/trends/trends-collector/bin/collect.test.js
 
 ## Development deployment order
 
-1. Apply the new SQL migration to the Development Supabase project.
+1. Apply both SQL migrations to the Development Supabase project.
 2. From this directory, deploy the Workflow Worker:
 
    ```sh
@@ -91,11 +135,12 @@ node --test apps/trends/trends-collector/bin/collect.test.js
    npm run deploy:development
    ```
 
-4. Run one Development collection date and inspect the matching Workflow and
-   `mailing.trends_newsletter_runs` row. Re-run the same date to confirm the
-   collection evaluation is idempotent and edition/delivery statuses remain
-   unchanged. Run a date range and confirm one state row per date.
+4. Run one Development collection date and inspect the matching Workflow,
+   `mailing.trends_newsletter_runs`, and `mailing.trends_newsletter_editions`
+   rows. Re-run the same date to confirm its ready edition is reused. Run a date
+   range and confirm one run/edition per date.
 
-There is no Cron schedule and no public `workers.dev` endpoint. Deploying these
-resources does not enable AI, email, or Telegram. Production configuration and
-rollout are intentionally out of scope for this stage.
+There is no Cron schedule and no public `workers.dev` endpoint. The Workflow
+calls the configured AI model only after collection completeness passes. This
+stage does not send email or Telegram. Production configuration and rollout
+are intentionally out of scope.
