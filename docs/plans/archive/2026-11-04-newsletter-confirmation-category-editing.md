@@ -132,7 +132,17 @@ Use one confirmation flow for first subscriptions and preference changes.
   listener tests were excluded because this sandbox returns `EPERM` when they
   bind `127.0.0.1`. The standard `npm run test:unit` pretest security audit
   reports existing dependency advisories, so the unit runner was invoked
-  directly. No Cloudflare deployment or remote migration was run yet.
+  directly. No Cloudflare deployment or successful remote migration has run
+  yet.
+
+- Deployment correction: the first Development migration attempt exposed that
+  the live database uses `mailing.trends_newsletter_subscribers`, renamed from
+  `mailing.trends_subscribers` by migration `202611030006`. The new migration
+  initially referenced the pre-rename name and failed before applying. Updated
+  its foreign key and RPC definitions to use the current table name. A
+  read-only catalog query confirmed the live relation; `supabase db push
+  --dry-run` still lists only this migration as pending. The corrected
+  migration has not yet been applied remotely.
 
 ## Remaining Risks / Follow-up
 

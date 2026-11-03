@@ -1,6 +1,6 @@
 create table if not exists mailing.trends_subscription_change_requests (
     id uuid primary key default gen_random_uuid(),
-    subscriber_id uuid not null references mailing.trends_subscribers(id) on delete cascade,
+    subscriber_id uuid not null references mailing.trends_newsletter_subscribers(id) on delete cascade,
     requested_categories text[] not null,
     confirmation_token_hash text not null unique,
     confirmation_expires_at timestamptz not null,
@@ -23,12 +23,12 @@ create or replace function mailing.request_trends_subscription(
     p_unsubscribe_hash text, p_consent_version text
 ) returns text
 language plpgsql security definer set search_path = '' as $$
-declare subscriber mailing.trends_subscribers%rowtype;
+declare subscriber mailing.trends_newsletter_subscribers%rowtype;
 begin
     perform pg_advisory_xact_lock(hashtextextended(lower(trim(p_email)), 0));
-    select * into subscriber from mailing.trends_subscribers where email = lower(trim(p_email)) for update;
+    select * into subscriber from mailing.trends_newsletter_subscribers where email = lower(trim(p_email)) for update;
     if not found then
-        insert into mailing.trends_subscribers(email, categories, status, consent_at, consent_version, confirmation_token_hash, confirmation_expires_at, unsubscribe_token_hash)
+        insert into mailing.trends_newsletter_subscribers(email, categories, status, consent_at, consent_version, confirmation_token_hash, confirmation_expires_at, unsubscribe_token_hash)
         values (lower(trim(p_email)), p_categories, 'pending', p_consent_at, p_consent_version, p_confirmation_hash, p_confirmation_expires_at, p_unsubscribe_hash);
         return 'pending';
     end if;
@@ -47,7 +47,7 @@ begin
     end if;
     update mailing.trends_subscription_change_requests set status = 'cancelled', updated_at = now()
     where subscriber_id = subscriber.id and status = 'pending';
-    update mailing.trends_subscribers set categories = p_categories, status = 'pending', consent_at = p_consent_at, consent_version = p_consent_version,
+    update mailing.trends_newsletter_subscribers set categories = p_categories, status = 'pending', consent_at = p_consent_at, consent_version = p_consent_version,
         confirmation_token_hash = p_confirmation_hash, confirmation_expires_at = p_confirmation_expires_at,
         unsubscribe_token_hash = p_unsubscribe_hash, unsubscribed_at = null, updated_at = now()
     where id = subscriber.id;
@@ -62,7 +62,7 @@ begin
     select requested_categories into requested from mailing.trends_subscription_change_requests
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now();
     if found then return jsonb_build_object('valid', true, 'categories', requested); end if;
-    select categories into requested from mailing.trends_subscribers
+    select categories into requested from mailing.trends_newsletter_subscribers
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now();
     if found then return jsonb_build_object('valid', true, 'categories', requested); end if;
     return jsonb_build_object('valid', false, 'categories', '[]'::jsonb);
@@ -76,18 +76,18 @@ begin
     select subscriber_id into change_subscriber_id from mailing.trends_subscription_change_requests
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now();
     if found then
-        perform 1 from mailing.trends_subscribers where id = change_subscriber_id for update;
+        perform 1 from mailing.trends_newsletter_subscribers where id = change_subscriber_id for update;
     end if;
     select * into change_request from mailing.trends_subscription_change_requests
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now() for update;
     if found then
-        update mailing.trends_subscribers set categories = p_categories, consent_at = now(), consent_version = p_consent_version, updated_at = now()
+        update mailing.trends_newsletter_subscribers set categories = p_categories, consent_at = now(), consent_version = p_consent_version, updated_at = now()
         where id = change_request.subscriber_id and status = 'active' returning id into matched_id;
         if matched_id is null then return 'invalid'; end if;
         update mailing.trends_subscription_change_requests set status = 'confirmed', requested_categories = p_categories, updated_at = now() where id = change_request.id;
         return 'confirmed';
     end if;
-    update mailing.trends_subscribers set categories = p_categories, status = 'active', verified_at = now(), consent_at = now(), consent_version = p_consent_version,
+    update mailing.trends_newsletter_subscribers set categories = p_categories, status = 'active', verified_at = now(), consent_at = now(), consent_version = p_consent_version,
         confirmation_token_hash = null, confirmation_expires_at = null, updated_at = now()
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now() returning id into matched_id;
     return case when matched_id is null then 'invalid' else 'confirmed' end;
@@ -103,7 +103,7 @@ begin
     if found then
         return mailing.confirm_trends_subscription_with_categories(p_token_hash, requested, '2026-11-02');
     end if;
-    update mailing.trends_subscribers set status = 'active', verified_at = now(), confirmation_token_hash = null,
+    update mailing.trends_newsletter_subscribers set status = 'active', verified_at = now(), confirmation_token_hash = null,
         confirmation_expires_at = null, updated_at = now()
     where confirmation_token_hash = p_token_hash and status = 'pending' and confirmation_expires_at > now();
     return case when found then 'confirmed' else 'invalid' end;
@@ -114,7 +114,7 @@ create or replace function mailing.unsubscribe_trends_subscription(p_token_hash 
 returns text language plpgsql security definer set search_path = '' as $$
 declare matched_id uuid;
 begin
-    update mailing.trends_subscribers set status = 'unsubscribed', unsubscribed_at = now(), updated_at = now()
+    update mailing.trends_newsletter_subscribers set status = 'unsubscribed', unsubscribed_at = now(), updated_at = now()
     where unsubscribe_token_hash = p_token_hash and status in ('pending', 'active') returning id into matched_id;
     if matched_id is not null then
         update mailing.trends_subscription_change_requests set status = 'cancelled', updated_at = now()
@@ -129,7 +129,7 @@ returns text language plpgsql security definer set search_path = '' as $$
 declare matched_id uuid;
 begin
     if p_subscriber_id is null then return 'invalid'; end if;
-    update mailing.trends_subscribers set status = 'unsubscribed', unsubscribed_at = now(), updated_at = now()
+    update mailing.trends_newsletter_subscribers set status = 'unsubscribed', unsubscribed_at = now(), updated_at = now()
     where id = p_subscriber_id and status in ('pending', 'active') returning id into matched_id;
     if matched_id is not null then
         update mailing.trends_subscription_change_requests set status = 'cancelled', updated_at = now()
