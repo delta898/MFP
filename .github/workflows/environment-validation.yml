@@ -97,7 +97,7 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v3
         with:
-          version: 4.0.0
+          version: 3.0.0-beta.17
       - run: npm ci
       - uses: actions/download-artifact@v7
         with:

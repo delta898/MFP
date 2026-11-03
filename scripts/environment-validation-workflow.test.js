@@ -64,5 +64,5 @@ test('environment validation uses Node 24 based artifact and Supabase actions', 
     assert.match(workflow, /actions\/upload-artifact@v6/);
     assert.match(workflow, /actions\/download-artifact@v7/);
     assert.equal((workflow.match(/supabase\/setup-cli@v3/g) || []).length, 1);
-    assert.equal((workflow.match(/version:\s*4\.0\.0/g) || []).length, 1);
+    assert.equal((workflow.match(/version:\s*3\.0\.0-beta\.17/g) || []).length, 1);
 });

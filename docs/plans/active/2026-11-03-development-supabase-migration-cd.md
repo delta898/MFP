@@ -60,9 +60,9 @@ automatic path.
   and the safe smoke succeed.
 - Worker validation and deployment are downstream jobs in the same workflow as
   the migration/drift gate, avoiding an independent push-trigger race.
-- Use Supabase CLI v4 and its explicit remote-project target
-  syntax. Do not link the hosted database as a side effect when an explicit
-  target is available.
+- Use a fixed Supabase CLI release that supports the explicit remote-project
+  target syntax. Do not link the hosted database as a side effect when an
+  explicit target is available.
 - Edge Functions and Production remain separately reviewed operations.
 
 ## Progress
@@ -78,8 +78,10 @@ automatic path.
   deployment-free.
 - Added same-ref workflow concurrency to serialize Development releases.
 - Updated the existing workflow contract test and canonical newsletter docs.
-- Pinned the hosted Supabase CLI to v4 to match the `--remote` CLI syntax used
-  by the Development migration job.
+- The first CI attempt showed `4.0.0` is not a published Supabase CLI version.
+  `supabase/setup-cli@v3` is the GitHub Action major, not the Supabase CLI
+  version. Pin the CLI to `3.0.0-beta.17`, which includes the `--remote`
+  syntax required by this workflow.
 - Focused workflow contract test passed (5/5).
 - Both changed workflow files parse as YAML and `git diff --check` passes.
 - Full unit suite passed: 2,483 passed, 0 failed, 1 skipped. The suite was run
