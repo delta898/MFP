@@ -135,6 +135,11 @@ Development 적용 후 공식 Supabase CLI의 migration/Function 읽기 결과�
 - 모든 Function의 ACTIVE 상태
 - development가 검증한 artifact fingerprint
 
+GitHub Actions는 원격 migration 조회와 Function 조회를 별도 step으로 실행한다. 각 명령의 stdout과
+stderr를 분리해 보관하고, 실패한 경우 해당 명령의 출력과 exit code를 그 step 로그에 남긴다.
+따라서 `Verify Hosted Development Drift`가 실패하면 `Read remote migration state` 또는
+`Read remote Function state` 중 실패한 step에서 Supabase CLI 오류를 확인할 수 있다.
+
 Production checklist는 `release/*` 또는 `main`에서만 생성할 수 있으며, 현재 revision과 같은 artifact를
 검증한 development workflow run을 명시해야 한다. 결과의 `ready_for_user_approval`은 자동 배포 허가가
 아니다. 이후 사용자 승인과 production preflight가 모두 별도로 필요하다.

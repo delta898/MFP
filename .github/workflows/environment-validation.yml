@@ -96,15 +96,52 @@ jobs:
           name: supabase-release-${{ github.sha }}
       - name: Validate public development connection
         run: npm run env:development:ready
-      - name: Read remote migration and Function state
+      - name: Read remote migration state
+        shell: bash
         run: |
+          set +e
           supabase migration list \
             --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD" \
-            --output-format json > remote-migrations.json
+            --output-format json > remote-migrations.json 2> remote-migrations.stderr
+          status=$?
+          set -e
+
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::supabase migration list failed with exit code $status"
+            echo "--- stdout ---"
+            cat remote-migrations.json
+            echo "--- stderr ---"
+            cat remote-migrations.stderr >&2
+            exit "$status"
+          fi
+
+          if [[ -s remote-migrations.stderr ]]; then
+            cat remote-migrations.stderr >&2
+          fi
+
+      - name: Read remote Function state
+        shell: bash
+        run: |
+          set +e
           supabase functions list \
             --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
-            --output-format json > remote-functions.json
+            --output-format json > remote-functions.json 2> remote-functions.stderr
+          status=$?
+          set -e
+
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::supabase functions list failed with exit code $status"
+            echo "--- stdout ---"
+            cat remote-functions.json
+            echo "--- stderr ---"
+            cat remote-functions.stderr >&2
+            exit "$status"
+          fi
+
+          if [[ -s remote-functions.stderr ]]; then
+            cat remote-functions.stderr >&2
+          fi
       - name: Create sanitized development evidence
         run: |
           npm run --silent env:development:evidence -- \
