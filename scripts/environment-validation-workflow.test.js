@@ -24,23 +24,37 @@ test('environment CI relies on hosted development rather than rebuilding local S
     assert.doesNotMatch(workflow, /supabase stop --no-backup/);
 });
 
-test('development drift links the hosted project, reads state, and emits sanitized promotion evidence', () => {
+test('Development migrations are previewed and applied before drift and smoke checks', () => {
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev'/);
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev' &&[\s\S]*inputs\.mode == 'development-drift'/);
-    assert.match(workflow, /supabase migration list[\s\S]*--project-ref[\s\S]*--output-format json/);
-    assert.match(workflow, /supabase functions list[\s\S]*--project-ref[\s\S]*--output-format json/);
-    assert.match(workflow, /supabase link[\s\S]*--project-ref/);
+    assert.match(workflow, /SUPABASE_ENV: development/);
+    assert.match(workflow, /supabase db push[\s\S]*--dry-run[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
+    assert.match(workflow, /supabase db push[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
+    assert.doesNotMatch(workflow, /supabase link/);
+    assert.match(workflow, /supabase migration list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
+    assert.match(workflow, /supabase functions list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
     assert.match(workflow, /npm run env:development:drift/);
+    assert.match(workflow, /npm run env:development:smoke/);
     assert.match(workflow, /development-promotion-/);
+
+    const dryRun = workflow.indexOf('Preview pending Development migrations');
+    const apply = workflow.indexOf('Apply pending Development migrations');
+    const drift = workflow.indexOf('Fail on migration or Function drift');
+    const smoke = workflow.indexOf('Safe public HTTP smoke');
+    assert.ok(dryRun >= 0 && dryRun < apply && apply < drift && drift < smoke);
 });
 
 test('production remains a manual non-deploying checklist', () => {
     assert.match(workflow, /inputs\.mode == 'production-checklist'/);
     assert.match(workflow, /development_run_id is required/);
     assert.match(workflow, /npm run (?:--silent )?env:production:checklist/);
-    assert.doesNotMatch(workflow, /supabase db push/);
-    assert.doesNotMatch(workflow, /supabase functions deploy/);
-    assert.doesNotMatch(workflow, /supabase secrets set/);
+    const productionChecklist = workflow.split('  production-checklist:')[1];
+    assert.ok(productionChecklist, 'production checklist job exists');
+    assert.doesNotMatch(productionChecklist, /supabase db push/);
+    assert.doesNotMatch(productionChecklist, /supabase functions deploy/);
+    assert.doesNotMatch(productionChecklist, /supabase secrets set/);
+    assert.match(workflow, /development-drift:[\s\S]*supabase db push/);
+    assert.match(workflow, /deploy-development-workers:[\s\S]*npm run deploy:development/);
 });
 
 test('environment validation uses Node 24 based artifact and Supabase actions', () => {
@@ -50,5 +64,5 @@ test('environment validation uses Node 24 based artifact and Supabase actions', 
     assert.match(workflow, /actions\/upload-artifact@v6/);
     assert.match(workflow, /actions\/download-artifact@v7/);
     assert.equal((workflow.match(/supabase\/setup-cli@v3/g) || []).length, 1);
-    assert.equal((workflow.match(/version:\s*2\.114\.0/g) || []).length, 1);
+    assert.equal((workflow.match(/version:\s*4\.0\.0/g) || []).length, 1);
 });

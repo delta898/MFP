@@ -38,6 +38,13 @@ permissions:
   contents: read
   actions: read
 
+# Keep Development database migration and Worker releases in order. If multiple
+# commits arrive while a run is active, the newest pending run contains all
+# earlier commits and applies every migration still missing remotely.
+concurrency:
+  group: environment-validation-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-artifact:
     name: Build Immutable Supabase Artifact
@@ -74,6 +81,7 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_ENV: development
       BLOGGENIUS_ENV: development
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME }}
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF }}
@@ -89,25 +97,29 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v3
         with:
-          version: 2.114.0
+          version: 4.0.0
       - run: npm ci
       - uses: actions/download-artifact@v7
         with:
           name: supabase-release-${{ github.sha }}
       - name: Validate public development connection
         run: npm run env:development:ready
-      - name: Configure ephemeral Development database connection
+      - name: Preview pending Development migrations
         run: |
-          supabase link \
-            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
+          supabase db push \
+            --dry-run \
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
+      - name: Apply pending Development migrations
+        run: |
+          supabase db push \
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --yes
       - name: Read remote migration state
         shell: bash
         run: |
           set +e
           supabase migration list \
-            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD" \
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
             --output-format json > remote-migrations.json 2> remote-migrations.stderr
           status=$?
           set -e
@@ -130,7 +142,7 @@ jobs:
         run: |
           set +e
           supabase functions list \
-            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
             --output-format json > remote-functions.json 2> remote-functions.stderr
           status=$?
           set -e
@@ -168,6 +180,62 @@ jobs:
             development-evidence.json
           if-no-files-found: error
           retention-days: 30
+
+  validate-development-workers:
+    name: Validate Development Workers
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: development-drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/trends/trends-api/workers/package-lock.json
+            apps/trends/trends-newsletter/worker/package-lock.json
+      - name: Validate newsletter Workflow Worker
+        working-directory: apps/trends/trends-newsletter/worker
+        run: |
+          npm ci
+          npm test
+          npx wrangler deploy --dry-run
+      - name: Validate Development Trends API Worker
+        working-directory: apps/trends/trends-api/workers
+        run: |
+          npm ci
+          npm test
+          npx wrangler deploy --env='' --dry-run
+
+  deploy-development-workers:
+    name: Deploy Development Workers
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: validate-development-workers
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/trends/trends-api/workers/package-lock.json
+            apps/trends/trends-newsletter/worker/package-lock.json
+      - name: Deploy newsletter Workflow Worker
+        working-directory: apps/trends/trends-newsletter/worker
+        run: |
+          npm ci
+          npx wrangler deploy
+      - name: Deploy Development Trends API Worker
+        working-directory: apps/trends/trends-api/workers
+        run: |
+          npm ci
+          npm run deploy:development
 
   production-checklist:
     name: Generate Production Approval Checklist

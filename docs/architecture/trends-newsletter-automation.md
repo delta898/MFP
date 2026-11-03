@@ -234,27 +234,33 @@ Development test campaign sent outside the configured allowlist.
 
 ## Development Worker Delivery
 
-`.github/workflows/deploy-trends-newsletter-development.yml` is the Development
-Cloudflare Worker CI/CD path. Pushes to `codex/**` and pull requests targeting
-`feature/naver-trends-mailing-list` or `dev` run focused tests and Wrangler
-dry-runs only. This lets the current feature branch be validated before its
-changes reach `dev`. A push to `dev` validates both Workers, then deploys the
-newsletter Workflow Worker first and the Development Trends API Worker second.
-Manual dispatch is restricted to the `dev` branch for deployment. A concurrency
-group prevents overlapping Development releases.
+`.github/workflows/environment-validation.yml` owns the Development release
+sequence on pushes to `dev`: build the immutable Supabase artifact, preview and
+apply pending migrations to the explicit Development project, read the remote
+migration and Edge Function state, verify drift and safe HTTP behavior, then
+run focused Worker tests and Wrangler dry-runs before deployment. The newsletter
+Workflow Worker deploys first; the Development Trends API Worker deploys second.
+Same-branch workflow runs are serialized so two pushes cannot apply migrations
+or deploy Workers concurrently. The latest queued commit includes earlier
+commits and applies every migration still missing remotely.
+
+`.github/workflows/validate-trends-newsletter-workers.yml` validates pull
+requests targeting `dev` or the newsletter parent feature branch and pushes to
+`codex/**` or `feature/**`. It runs focused tests and Wrangler dry-runs only; it
+does not access hosted Development credentials or deploy resources.
 
 Configure the GitHub `development` environment with `CLOUDFLARE_API_TOKEN` as
 an environment secret and `CLOUDFLARE_ACCOUNT_ID` as an environment variable.
-The token should have only the Workers deployment permissions required for
-these two scripts. Runtime Worker secrets remain in Cloudflare and are not
-copied into GitHub Actions. The workflow does not deploy Supabase migrations or
-Edge Functions: database/function rollout remains a separate, explicitly
-reviewed step, consistent with the existing environment-validation workflow.
-Production has no automatic deployment path in this workflow.
-To guarantee that Development is changed only after pre-merge validation, protect
-the GitHub `dev` branch by requiring pull requests and the `Validate Newsletter
-Workers` check. A direct push to `dev` cannot be validated before it lands; the
-push workflow validates it afterward and deploys only if validation succeeds.
+Also configure the Development Supabase access token, database password,
+project ref, URL, and publishable key expected by the environment validation
+job. The Supabase CLI uses an explicit remote project ref and does not link or
+mutate any Production project. Runtime Worker secrets remain in Cloudflare and
+are not copied into GitHub Actions. Edge Functions and secrets are not deployed
+automatically; the drift gate confirms the expected remote Function state.
+Production has no automatic migration or Worker deployment path. Protect the
+GitHub `dev` branch with required pull requests and validation checks if changes
+must pass before landing; the Dev release workflow runs after a push and will
+stop before Worker deployment if migration, drift, or Worker validation fails.
 
 ## Cost and Free-Tier Notes (checked 2026-11-02)
 

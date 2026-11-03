@@ -46,10 +46,14 @@ Supabase hostname. Never configure Production credentials in this deployment.
 The collector uses its existing Development Trends API token; it does not need
 Cloudflare management credentials.
 
-## Development-only Supabase migration
+## Development Supabase migration
 
-Apply these migrations to the Development project before deploying the updated
-Workflow:
+On a push to `dev`, GitHub Actions previews and applies any pending migrations
+to the explicit Development Supabase project before it checks drift and deploys
+either Development Worker. A failed migration stops the run before Worker
+deployment. This automatic path does not target Production. For local or
+recovery use, the migrations can also be applied manually after verifying the
+linked/ref target is Development:
 
 - `202611030001_trends_newsletter_run_state.sql` creates private per-date run
   state.
@@ -127,6 +131,15 @@ node --test apps/trends/trends-collector/bin/collect.test.js
 ```
 
 ## Development deployment order
+
+The standard path is a push to `dev`; `.github/workflows/environment-validation.yml`
+applies pending migrations, checks the remote state, tests both Workers, then
+deploys the newsletter Workflow Worker followed by the Development Trends API
+Worker. `.github/workflows/validate-trends-newsletter-workers.yml` runs tests
+and dry-runs on feature branches and pull requests without deployment.
+
+For manual recovery or local deployment only, after confirming you are targeting
+Development:
 
 1. Apply all three SQL migrations to the Development Supabase project.
 2. From this directory, deploy the Workflow Worker:
