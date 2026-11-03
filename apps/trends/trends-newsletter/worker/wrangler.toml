@@ -13,6 +13,7 @@ CLOUDFLARE_AI_GATEWAY_ID = "bloggenius-trends-newsletter-dev"
 CLOUDFLARE_AI_BYOK_ALIAS = "development"
 NEWSLETTER_AI_PROVIDER = "openai"
 NEWSLETTER_AI_MODEL = "gpt-6-luna"
+NEWSLETTER_REGENERATE_ON_SIGNAL = "true"
 NEWSLETTER_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
 NEWSLETTER_DOWNLOAD_URL = "https://www-dev.bloggenius.kr/download/"
 NEWSLETTER_DOWNLOAD_BANNER_URL = "https://www-dev.bloggenius.kr/assets/share-card.svg"

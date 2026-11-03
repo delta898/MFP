@@ -103,9 +103,13 @@ semantics.
    orchestration logic.
 4. Persist collection state separately from edition and delivery state in
    `mailing.trends_newsletter_runs`, keyed by trend date in each isolated
-   environment database. Repeated signals upsert the same date; the dated
-   Workflow instance ID prevents duplicate recent executions. The SQL RPC only
-   updates collection fields, so a range collection cannot initiate a send.
+   environment database. Development assigns a UUID to each completion signal
+   and starts one Workflow attempt per distinct UUID; replaying the same UUID
+   reuses the same Workflow. This lets Development rerun generation without
+   deleting date-level state. Production uses a deterministic date-keyed
+   Workflow ID, so multiple signals for one date are deduplicated. The SQL RPC
+   only updates collection fields, so a range collection cannot initiate a
+   send.
 5. For a future approved edition, persist its
    source date, content version, AI model/fallback metadata, selected links,
    approval/publication state, and timestamps.
@@ -124,9 +128,15 @@ semantics.
 The Development readiness slice reads only `trends.items` for the signaled
 date and upserts a durable record in `mailing.trends_newsletter_runs`. The
 record has independent `collection_status`, `edition_status`, and
-`delivery_status` fields. Collection signals update only collection evidence.
-After collection is verified complete, the Workflow loads an existing ready
-edition or builds one by checking ordered RSS sources configured in the
+`delivery_status` fields. Each signal also has a row in
+`mailing.trends_newsletter_attempts`, keyed by its UUID, with its own collection
+report, status, bounded error code, and edition snapshot. Collection signals
+update only collection evidence. After collection is verified complete, the
+Development Workflow rebuilds the shared edition on each new signal; the
+date-level edition table holds the latest draft while the attempt ledger keeps
+prior snapshots. The same signal UUID remains idempotent. Production's
+date-keyed workflow retains date-level deduplication. The Workflow builds an
+edition by checking ordered RSS sources configured in the
 Development Worker, then uses one configured Cloudflare AI Gateway BYOK model
 for a short greeting/introduction. The initial sources are `blog.gongzza.com`
 and `blog.naver.com/amadejjs`. On feed failure or no valid entry, selection
@@ -134,9 +144,10 @@ falls through to the next source. The saved snapshot contains only source,
 title, a bounded summary, link, date, and optional image URL; full article
 content is not saved. Code selects and snapshots article, download page, and
 banner links; AI does not receive or invent URLs. The private
-`mailing.trends_newsletter_editions` table is unique by trend date, and its
-save RPC preserves a ready edition on repeated signals. A failed draft is
-held for a later retry. This stage does not read subscribers, send email,
+`mailing.trends_newsletter_editions` table is unique by trend date. Its save
+RPC preserves a ready edition by default; the Development Worker explicitly
+opts into replacing it for a distinct retry signal. A failed attempt is held
+for a later retry. This stage does not read subscribers, send email,
 publish a public archive, or notify Telegram. Source lives under
 `apps/trends/trends-newsletter/`, with readiness and edition policy in `src/`,
 external RSS/AI/Supabase adapters under `src/adapters/`, and Workflow

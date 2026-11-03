@@ -18,23 +18,27 @@ publish an archive post, or notify Telegram.
    and exits successfully so a range run proceeds to the next date. Re-run the
    affected date later to retry its signal.
 3. The Trends API validates the internal token, environment, source, date, and
-   expected count contract, then starts the private Workflow binding. The
-   Workflow instance ID is deterministic per date, so repeated signals do not
-   start duplicate recent instances.
+   expected count contract, then starts the private Workflow binding. Each Dev
+   signal carries a UUID and gets its own Workflow instance, so an intentional
+   rerun can rebuild the edition. Replaying the same signal UUID is idempotent
+   and returns the existing instance. Production remains date-keyed and
+   deduplicates runs by trend date.
 4. The Workflow reads the signaled date from Development Supabase, independently
    verifies 32 categories × 20 distinct keywords, and calls the state RPC.
 5. The collection RPC upserts one row per date in
    `mailing.trends_newsletter_runs`, changing only collection fields.
-6. After a complete collection, the Workflow reuses an existing ready edition
-   or checks the configured RSS sources in priority order, selects the newest
+6. After a complete collection, the Workflow records a separate attempt by
+   signal UUID, then checks the configured RSS sources in priority order, selects the newest
    valid item from the first usable feed, asks the configured Cloudflare AI
    model for a short greeting and introduction, validates the copy, and saves
    one dated snapshot. Only the title, short summary, link, date, source name,
    and optional image URL are retained; full post content is not stored. AI
    never creates URLs.
-7. The unique date and save RPC preserve the first ready edition for a date.
-   Repeated signals load and reuse it. Generation failures mark the date held
-   and do not send email. A later signal may retry a held edition.
+7. The date-level edition row stores the latest generated draft; each attempt
+   stores its own collection report, terminal status, and edition snapshot.
+   Dev deliberately replaces a ready date-level draft on a new signal. A
+   repeated signal UUID never regenerates it. Generation failures mark that
+   attempt held and do not send email; a new signal can retry it.
 
 The source and environment are pinned to Development project
 `bvtlwjbmjnfphxlrkzhm`. The Workflow validates both the environment marker and
@@ -52,6 +56,10 @@ Workflow:
 - `202611030002_trends_newsletter_shared_editions.sql` creates the private
   edition snapshot and service-role-only read/save/hold RPCs exposed through
   `public`.
+- `202611030003_trends_newsletter_attempts_and_dev_retries.sql` adds the
+  private per-signal attempt ledger and makes ready-edition replacement an
+  explicit RPC option. Development enables that option; the default preserves
+  the existing ready edition.
 
 These RPCs are separate from the mailing-list signup Edge Function.
 
@@ -120,7 +128,7 @@ node --test apps/trends/trends-collector/bin/collect.test.js
 
 ## Development deployment order
 
-1. Apply both SQL migrations to the Development Supabase project.
+1. Apply all three SQL migrations to the Development Supabase project.
 2. From this directory, deploy the Workflow Worker:
 
    ```sh
@@ -136,9 +144,11 @@ node --test apps/trends/trends-collector/bin/collect.test.js
    ```
 
 4. Run one Development collection date and inspect the matching Workflow,
-   `mailing.trends_newsletter_runs`, and `mailing.trends_newsletter_editions`
-   rows. Re-run the same date to confirm its ready edition is reused. Run a date
-   range and confirm one run/edition per date.
+   `mailing.trends_newsletter_runs`, `mailing.trends_newsletter_attempts`, and
+   `mailing.trends_newsletter_editions` rows. Re-run the same date and confirm a
+   new attempt and edition snapshot are created; retrying an identical signal
+   UUID must reuse its existing Workflow. Run a date range and confirm one
+   date-level run/edition plus one attempt per signal.
 
 There is no Cron schedule and no public `workers.dev` endpoint. The Workflow
 calls the configured AI model only after collection completeness passes. This

@@ -37,7 +37,9 @@ export async function saveDevelopmentEdition(env, edition) {
         p_download_banner_url: edition.downloadBannerUrl,
         p_ai_provider: edition.aiProvider,
         p_ai_model: edition.aiModel,
-        p_prompt_version: edition.promptVersion
+        p_prompt_version: edition.promptVersion,
+        p_replace_ready: env.BLOGGENIUS_ENV === 'development'
+            && String(env.NEWSLETTER_REGENERATE_ON_SIGNAL).trim().toLowerCase() === 'true'
     });
 }
 

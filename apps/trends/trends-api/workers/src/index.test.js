@@ -93,15 +93,19 @@ test('existing authenticated endpoint remains protected', async () => {
     assert.equal(response.status, 401);
 });
 
-test('collector completion signals are authenticated, environment-bound, shape-validated, and create one dated Workflow', async () => {
+test('collector completion signals are authenticated, environment-bound, and use a retryable Workflow ID per Development signal', async () => {
     const created = [];
     const integrationEnv = {
         ...env,
         TRENDS_ENV: 'development',
         TRENDS_API_TOKEN: 'collector-only-test-token',
         TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: {
-            create: async (input) => { created.push(input); return { id: input.id }; },
-            get: async (id) => ({ id, status: async () => ({ status: 'running' }) })
+            create: async (input) => {
+                if (created.some((item) => item.id === input.id)) throw new Error('instance already exists');
+                created.push(input);
+                return { id: input.id };
+            },
+            get: async (id) => ({ id, status: async () => ({ status: 'complete' }) })
         }
     };
     const makeSignal = (body, { token = 'collector-only-test-token', target = 'development' } = {}) => new Request(
@@ -109,7 +113,7 @@ test('collector completion signals are authenticated, environment-bound, shape-v
         { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-trends-environment': target, 'content-type': 'application/json' }, body: JSON.stringify(body) }
     );
     const signal = {
-        environment: 'development', trendDate: '2026-11-02', source: 'naver_creator_advisor',
+        environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor',
         expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
     };
 
@@ -124,10 +128,71 @@ test('collector completion signals are authenticated, environment-bound, shape-v
 
     const response = await handleRequest(makeSignal(signal), integrationEnv);
     assert.equal(response.status, 202);
+    assert.equal((await response.json()).duplicate, false);
+    const repeated = await handleRequest(makeSignal(signal), integrationEnv);
+    assert.equal(repeated.status, 202);
+    assert.equal((await repeated.json()).duplicate, true);
+    const intentionalRetry = await handleRequest(makeSignal({ ...signal, signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10' }), integrationEnv);
+    assert.equal(intentionalRetry.status, 202);
     assert.deepEqual(created, [{
-        id: 'collection-2026-11-02',
-        params: { environment: 'development', trendDate: '2026-11-02', source: 'naver_creator_advisor', signalItemCount: 640 }
+        id: 'collection-2026-11-02-f53d0eb8-93d5-4d4a-82b6-2392d13c22f9',
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', signalItemCount: 640 }
+    }, {
+        id: 'collection-2026-11-02-0549d3ab-2f5a-4c62-8e98-9e6d1c705a10',
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10', source: 'naver_creator_advisor', signalItemCount: 640 }
     }]);
+});
+
+test('Development requires a UUID signal ID before creating a retryable Workflow', async () => {
+    const integrationEnv = {
+        ...env,
+        TRENDS_ENV: 'development',
+        TRENDS_API_TOKEN: 'collector-only-test-token',
+        TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: { create: async () => { throw new Error('must not create'); } }
+    };
+    const response = await handleRequest(new Request('https://trendapi.example.test/internal/newsletter/collection-complete', {
+        method: 'POST',
+        headers: { authorization: 'Bearer collector-only-test-token', 'x-trends-environment': 'development', 'content-type': 'application/json' },
+        body: JSON.stringify({
+            environment: 'development', trendDate: '2026-11-02', source: 'naver_creator_advisor',
+            expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
+        })
+    }), integrationEnv);
+    assert.equal(response.status, 400);
+});
+
+test('Production Workflow IDs remain date-keyed and deduplicate distinct signals', async () => {
+    const created = [];
+    const integrationEnv = {
+        ...env,
+        TRENDS_ENV: 'production',
+        TRENDS_API_TOKEN: 'collector-only-test-token',
+        TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: {
+            create: async (input) => {
+                if (created.some((item) => item.id === input.id)) throw new Error('instance already exists');
+                created.push(input);
+                return { id: input.id };
+            },
+            get: async (id) => ({ id, status: async () => ({ status: 'complete' }) })
+        }
+    };
+    const requestFor = (signalId) => new Request('https://trendapi.example.test/internal/newsletter/collection-complete', {
+        method: 'POST',
+        headers: { authorization: 'Bearer collector-only-test-token', 'x-trends-environment': 'production', 'content-type': 'application/json' },
+        body: JSON.stringify({
+            environment: 'production', trendDate: '2026-11-02', signalId,
+            source: 'naver_creator_advisor', expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
+        })
+    });
+
+    const first = await handleRequest(requestFor('f53d0eb8-93d5-4d4a-82b6-2392d13c22f9'), integrationEnv);
+    const duplicate = await handleRequest(requestFor('0549d3ab-2f5a-4c62-8e98-9e6d1c705a10'), integrationEnv);
+    assert.equal(first.status, 202);
+    assert.equal((await first.json()).duplicate, false);
+    assert.equal((await duplicate.json()).duplicate, true);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].id, 'collection-2026-11-02');
+    assert.equal(created[0].params.signalId, 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9');
 });
 
 test('newsletter signup forwards only validated consented values through the private function token', async () => {

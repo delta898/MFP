@@ -199,6 +199,10 @@
       "classification": "canonical_migration"
     },
     {
+      "path": "supabase/migrations/202611030003_trends_newsletter_attempts_and_dev_retries.sql",
+      "classification": "canonical_migration"
+    },
+    {
       "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-1_draft.sql",
       "classification": "ai_catalog_operator_action"
     },

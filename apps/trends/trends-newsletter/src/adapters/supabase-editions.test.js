@@ -46,6 +46,25 @@ test('saves a date-keyed shared edition and records only a bounded failure code'
         assert.equal(JSON.parse(captured[0].options.body).p_featured_post.id, 7);
         assert.equal(captured[1].url.pathname, '/rest/v1/rpc/mark_trends_newsletter_edition_held');
         assert.deepEqual(JSON.parse(captured[1].options.body), { p_trend_date: '2026-11-02', p_reason_code: 'generation_failed' });
+        assert.equal(JSON.parse(captured[0].options.body).p_replace_ready, false);
+    } finally { globalThis.fetch = originalFetch; }
+});
+
+test('only Development can opt into replacing a ready edition for a deliberate rerun', async () => {
+    const originalFetch = globalThis.fetch;
+    let body;
+    globalThis.fetch = async (_url, options) => {
+        body = JSON.parse(options.body);
+        return Response.json({ status: 'ready' });
+    };
+    try {
+        await saveDevelopmentEdition({ ...env, NEWSLETTER_REGENERATE_ON_SIGNAL: 'true' }, {
+            trendDate: '2026-11-02', greeting: '안녕하세요.', introduction: '오늘의 안내입니다.',
+            featuredPost: { title: '글' }, downloadUrl: 'https://www-dev.bloggenius.kr/download/',
+            downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg',
+            aiProvider: 'cloudflare-ai-gateway', aiModel: 'gpt-6-luna', promptVersion: 'shared-edition-v1'
+        });
+        assert.equal(body.p_replace_ready, true);
     } finally { globalThis.fetch = originalFetch; }
 });
 

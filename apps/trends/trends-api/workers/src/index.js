@@ -610,6 +610,11 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     let trendDate;
     try { trendDate = normalizeYmd(body?.trendDate, 'trendDate'); }
     catch { return jsonResponse(400, { success: false, message: 'trendDate must be YYYY-MM-DD' }); }
+    const signalId = String(body?.signalId || '').trim().toLowerCase();
+    if (config.environment === 'development'
+        && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
+        return jsonResponse(400, { success: false, message: 'signalId must be a UUID for Development requests' });
+    }
     const expectedTotal = config.newsletterExpectedCategories * config.newsletterItemsPerCategory;
     if (!trendDate || body?.environment !== config.environment || body?.source !== 'naver_creator_advisor'
         || Number(body?.expectedCategories) !== config.newsletterExpectedCategories
@@ -623,7 +628,9 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     }
 
     try {
-        const instanceId = `collection-${trendDate}`;
+        const instanceId = config.environment === 'development'
+            ? `collection-${trendDate}-${signalId}`
+            : `collection-${trendDate}`;
         let instance;
         let duplicate = false;
         try {
@@ -632,6 +639,7 @@ async function handleNewsletterCollectionComplete(request, config, env) {
                 params: {
                     environment: config.environment,
                     trendDate,
+                    signalId: signalId || null,
                     source: 'naver_creator_advisor',
                     signalItemCount: expectedTotal
                 }

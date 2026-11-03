@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
 const axios = require('axios');
+const { randomUUID } = require('crypto');
 const { chromium } = require('playwright');
 const {
     formatTrendsEnvironmentDiagnostic,
@@ -401,6 +402,7 @@ async function signalCollectionComplete(payload, completeness, config, logger = 
     const signal = {
         environment: config.environment,
         trendDate: payload.trendDate,
+        signalId: randomUUID(),
         source: config.source,
         expectedCategories: completeness.expectedCategories,
         itemsPerCategory: completeness.keywordsPerCategory,
@@ -419,7 +421,7 @@ async function signalCollectionComplete(payload, completeness, config, logger = 
                 timeout: 15000
             }
         );
-        logger.info(`✅ newsletter 수집 완료 신호 전달: trendDate=${payload.trendDate || '-'}, workflow=${response?.data?.workflowId || 'accepted'}`);
+        logger.info(`✅ newsletter 수집 완료 신호 전달: trendDate=${payload.trendDate || '-'}, workflow=${response?.data?.workflowId || 'accepted'}, duplicate=${Boolean(response?.data?.duplicate)}`);
         return response.data;
     } catch (error) {
         const apiStatus = error?.response?.status;

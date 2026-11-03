@@ -317,7 +317,7 @@ test('signalCollectionComplete sends only a validated completion marker to the e
     let request;
     axios.post = async (url, body, options) => {
         request = { url, body, options };
-        return { data: { success: true, workflowId: 'collection-2026-08-29' } };
+        return { data: { success: true, workflowId: 'collection-2026-08-29-test-signal', duplicate: false } };
     };
     const payload = { trendDate: '2026-08-29', itemCount: 4 };
     const completeness = { complete: true, expectedCategories: 2, keywordsPerCategory: 2, actualTotal: 4 };
@@ -327,12 +327,14 @@ test('signalCollectionComplete sends only a validated completion marker to the e
     }, { info: () => {} });
 
     assert.equal(request.url, 'https://trendapi-dev.example.com/internal/newsletter/collection-complete');
-    assert.deepEqual(request.body, {
+    const { signalId, ...signalBody } = request.body;
+    assert.deepEqual(signalBody, {
         environment: 'development', trendDate: '2026-08-29', source: 'naver_creator_advisor',
         expectedCategories: 2, itemsPerCategory: 2, itemCount: 4
     });
     assert.equal(request.options.headers.Authorization, 'Bearer dev-token');
-    assert.equal(result.workflowId, 'collection-2026-08-29');
+    assert.match(request.body.signalId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.equal(result.workflowId, 'collection-2026-08-29-test-signal');
     await assert.rejects(() => signalCollectionComplete(payload, { ...completeness, complete: false }, {
         environment: 'development', source: 'naver_creator_advisor', apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token'
     }), /불완전한 수집 결과/);
