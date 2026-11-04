@@ -55,7 +55,7 @@ jobs:
               apps/trends/trends-api/workers/*) api_changed=true ;;
             esac
             case "$file" in
-              supabase/migrations/*|supabase/functions/trends-mailing-list/*|apps/trends/trends-newsletter/*|apps/trends/trends-api/workers/*|.github/workflows/production-newsletter-control.yml)
+              supabase/migrations/*|supabase/functions/trends-mailing-list/*|apps/trends/trends-newsletter/*|apps/trends/trends-api/workers/wrangler.toml|.github/workflows/production-newsletter-control.yml)
                 newsletter_changed=true
                 ;;
             esac

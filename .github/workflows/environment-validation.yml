@@ -1,4 +1,4 @@
-name: Development + Production | Validate Environment Promotion
+name: Development | Deploy Trends Release
 
 on:
   pull_request:
@@ -75,7 +75,7 @@ jobs:
       github.ref == 'refs/heads/dev' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift'))
-    needs: [release-artifact, validate-development-site]
+    needs: [release-artifact, validate-development-site, validate-development-workers]
     runs-on: ubuntu-latest
     environment: development
     env:
@@ -145,6 +145,7 @@ jobs:
             --dry-run \
             --remote="$SUPABASE_DB_POOLER_URL"
       - name: Apply pending Development migrations
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         run: |
           supabase db push \
             --remote="$SUPABASE_DB_POOLER_URL" \
@@ -252,8 +253,9 @@ jobs:
 
   validate-development-workers:
     name: Validate Development Workers
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: development-drift
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev' && inputs.mode == 'development-drift')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -302,6 +304,11 @@ jobs:
           npm run build
           test -s dist/index.html
           grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.bloggenius.kr' dist
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://www-dev.bloggenius.kr' dist
+          if grep -R -n -E --include='*.html' --include='*.js' --include='*.css' 'www\.bloggenius\.kr|trendapi\.bloggenius\.kr' dist; then
+            echo '::error::Production hostnames were found in the Development site artifact.'
+            exit 1
+          fi
       - uses: actions/upload-artifact@v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         with:
@@ -313,7 +320,7 @@ jobs:
   deploy-development-workers:
     name: Deploy Development Workers
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: validate-development-workers
+    needs: [development-drift, validate-development-workers]
     runs-on: ubuntu-latest
     environment: development
     steps:

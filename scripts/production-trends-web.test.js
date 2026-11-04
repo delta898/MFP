@@ -8,6 +8,7 @@ const { validateProductionTrendsWebTargets } = require('./production-trends-web-
 const { assertWorkflowContext } = require('./deploy-production-trends-site');
 const { checkUrl, runSmoke } = require('./production-trends-web-smoke');
 const productionWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-production.yml'), 'utf8');
+const developmentWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/environment-validation.yml'), 'utf8');
 
 const expectedWorkers = [
     { id: 'bloggenius-trends-api-production' },
@@ -26,6 +27,32 @@ function makeAdapter({ apiAliasOwner = '', siteOwner = 'bg-fca282ece0e348c4baf36
         }
     };
 }
+
+test('Development and Production release workflows deploy the same three Worker roles', () => {
+    assert.match(developmentWorkflow, /^name: Development \| Deploy Trends Release/m);
+    assert.match(productionWorkflow, /^name: Production \| Deploy Trends Release/m);
+    for (const role of [
+        /newsletter Workflow Worker[\s\S]*wrangler deploy/,
+        /Trends API Worker[\s\S]*wrangler deploy/,
+        /site Worker[\s\S]*deploy-development-site\.js/
+    ]) {
+        assert.match(developmentWorkflow, role);
+    }
+    for (const role of [
+        /newsletter Workflow Worker[\s\S]*wrangler deploy/,
+        /Trends API Worker[\s\S]*wrangler deploy/,
+        /site Worker[\s\S]*deploy-production-trends-site\.js/
+    ]) {
+        assert.match(productionWorkflow, role);
+    }
+    assert.match(developmentWorkflow, /SUPABASE_DB_POOLER_URL/);
+    assert.match(productionWorkflow, /SUPABASE_DB_POOLER_URL/);
+    const scopeBlocks = [...productionWorkflow.matchAll(/case "\$file" in([\s\S]*?)\n            esac/g)].map((match) => match[1]);
+    assert.equal(scopeBlocks.length, 2);
+    assert.match(scopeBlocks[0], /apps\/trends\/trends-api\/workers\/\*/) ;
+    assert.doesNotMatch(scopeBlocks[1], /apps\/trends\/trends-api\/workers\/\*/);
+    assert.match(scopeBlocks[1], /apps\/trends\/trends-api\/workers\/wrangler\.toml/);
+});
 
 test('Production targets require the API Worker and known site domain owner, while allowing a new site Worker', async () => {
     const result = await validateProductionTrendsWebTargets(makeAdapter(), 'a'.repeat(32));

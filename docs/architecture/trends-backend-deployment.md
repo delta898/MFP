@@ -13,6 +13,43 @@ This document does not replace the structural contracts in [trends-backend.md](/
 
 ## Newsletter Deployment and Environment Promotion
 
+### Development-first deployment pairing
+
+Development is the reference deployment path. A push to dev runs the
+validated sequence in .github/workflows/environment-validation.yml: build the
+shared release inputs, preview and apply database migrations through the
+Development Session Pooler, deploy the mailing Edge Function when applicable,
+validate the newsletter Function, both Workers, and the site artifact before
+the first Development mutation, then apply migrations and deploy the Function,
+Newsletter Worker, API Worker, and site Worker from the same revision. Manual
+Development drift checks preview migrations and remain read-only. A separate
+manual Development workflow manages the site Worker and its domain; it does
+not replace that full release path.
+
+Production follows the same component order and targets the corresponding
+Production resources in .github/workflows/deploy-trends-web-production.yml.
+Its operator entry point is a manual dispatch from release/*, and it keeps
+the Production Environment approval. Deployment behavior that is intentionally
+environment-specific stays explicit: Production newsletter delivery is set to
+disabled during a newsletter release, the Production canary/live controls
+remain separate, and site-domain cutover is a separate operation. Those
+controls do not change the three Worker component pairing:
+
+| Component | Development | Production |
+| --- | --- | --- |
+| Trends API Worker | bloggenius-trends-api-dev | bloggenius-trends-api-production |
+| Newsletter Workflow Worker | bloggenius-trends-newsletter-dev | bloggenius-trends-newsletter-production |
+| Static site Worker | www-bloggenius-kr-dev | www-bloggenius-kr-production |
+
+The mailing Edge Function and Supabase database are supporting release
+resources for the newsletter component, not additional Workers. Do not use a
+Development run as proof that Production credentials, DNS, or target ownership
+are correct; it verifies the same code and sequence against Development's
+separate configuration.
+Production API-only changes deploy the API Worker without resetting the
+newsletter delivery mode; changes to the API Worker's Wrangler binding
+configuration still enter the newsletter-safe deployment path.
+
 Development is the verified environment for the newsletter lifecycle. Keep the
 following roles distinct when operating it or preparing a Production rollout:
 
@@ -66,8 +103,10 @@ separate explicit operation and is never triggered by secret sync.
 
 Development database migrations use `SUPABASE_DB_POOLER_URL` from the
 Development project's Session Pooler (port 5432), matching Production's
-connection method. The development secret sync validates that the URL belongs
-to the Development project. The `development` GitHub Environment is created
+connection method for migration preview, apply, and migration-state reads.
+Supabase Function API calls continue to use the explicit Development project
+ref. The development secret sync validates that the pooler URL belongs to the
+Development project. The `development` GitHub Environment is created
 or reconciled to allow only the `dev` branch. Development site deploy,
 hostname cutover, and rollback are separate operations in
 `.github/workflows/deploy-trends-web-development.yml`; a branch-check job runs

@@ -29,14 +29,22 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /github\.ref == 'refs\/heads\/dev' &&[\s\S]*inputs\.mode == 'development-drift'/);
     assert.match(workflow, /SUPABASE_ENV: development/);
     assert.match(workflow, /denoland\/setup-deno@v2[\s\S]*deno check supabase\/functions\/trends-mailing-list\/index\.ts[\s\S]*deno test supabase\/functions\/trends-mailing-list\/handler_test\.ts/);
-    assert.match(workflow, /supabase db push[\s\S]*--dry-run[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
-    assert.match(workflow, /supabase db push[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
+    assert.match(workflow, /supabase db push[\s\S]*--dry-run[\s\S]*--remote="\$SUPABASE_DB_POOLER_URL"/);
+    assert.match(workflow, /supabase db push[\s\S]*--remote="\$SUPABASE_DB_POOLER_URL"[\s\S]*--yes/);
+    assert.match(workflow, /Apply pending Development migrations[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'/);
+    const validation = workflow.match(/  validate-development-workers:[\s\S]*?(?=\n  validate-development-site:)/)?.[0] || '';
+    assert.match(validation, /inputs\.mode == 'development-drift'/);
+    assert.doesNotMatch(validation, /needs: development-drift/);
+    const workerDeploy = workflow.match(/  deploy-development-workers:[\s\S]*?(?=\n  deploy-development-site:)/)?.[0] || '';
+    assert.match(workerDeploy, /needs: \[development-drift, validate-development-workers\]/);
     assert.match(workflow, /Deploy Development newsletter Edge Function[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*supabase functions deploy trends-mailing-list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
     assert.doesNotMatch(workflow, /supabase link/);
-    assert.match(workflow, /supabase migration list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
+    assert.match(workflow, /supabase migration list[\s\S]*--remote="\$SUPABASE_DB_POOLER_URL"[\s\S]*--output-format json/);
     assert.match(workflow, /supabase functions list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--output-format json/);
     assert.match(workflow, /npm run env:development:drift/);
     assert.match(workflow, /npm run env:development:smoke/);
+    assert.match(workflow, /https:\/\/www-dev\.bloggenius\.kr/);
+    assert.match(workflow, /Production hostnames were found in the Development site artifact/);
     assert.match(workflow, /development-promotion-/);
 
     const dryRun = workflow.indexOf('Preview pending Development migrations');
