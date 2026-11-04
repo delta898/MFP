@@ -19,7 +19,7 @@ following roles distinct when operating it or preparing a Production rollout:
 | Role | Development | Production | Responsibility |
 | --- | --- | --- | --- |
 | Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` | Static signup, confirmation, and unsubscribe pages |
-| Trends API Worker | `bloggenius-trends-api` at `trendapi-dev.hangadac.com` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Public signup/confirmation/unsubscribe HTTP paths, plus authenticated Trends API paths |
+| Trends API Worker | `bloggenius-trends-api-dev` at `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Public signup/confirmation/unsubscribe HTTP paths, plus authenticated Trends API paths |
 | Newsletter Workflow Worker | `bloggenius-trends-newsletter-dev` | Not configured for Production | Receives collection workflows and sends newsletter batches; it is not the browser signup endpoint |
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` | Mailing data, RPCs, and `trends-mailing-list` Edge Function |
 
@@ -65,8 +65,12 @@ appear in `wrangler secret list`.
    allowlist policy. Include the intended test recipient in
    `NEWSLETTER_EMAIL_ALLOWLIST`.
 3. In `apps/trends/trends-api/workers/wrangler.toml`, keep the Development
-   Function URL in base `[vars]`. Set the Development shared token as a secret
-   on `bloggenius-trends-api` (base environment).
+   Function URL in base `[vars]`. The Development GitHub Environment must
+   provide `TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`,
+   `TRENDS_READ_TOKEN_SECRET`, and
+   `TRENDS_NEWSLETTER_WORKER_TOKEN`. CD installs these Worker-scoped secrets
+   when deploying `bloggenius-trends-api-dev`; a renamed Worker does not inherit
+   encrypted secrets from the previous script.
 4. Set the same Development token on `bloggenius-trends-newsletter-dev`, along
    with its Development Supabase server key. Its checked-in `wrangler.toml`
    contains the Development workflow and email-policy variables.
@@ -75,7 +79,7 @@ appear in `wrangler secret list`.
    Development Function URL, and the `TRENDS_NEWSLETTER_COLLECTION_WORKFLOW`
    binding to the Development Workflow script.
 6. Build/deploy the site with the Development runtime profile; verify the
-   generated signup page embeds `https://trendapi-dev.hangadac.com` as its API
+   generated signup page embeds `https://trendapi-dev.bloggenius.kr` as its API
    base. Do not infer the target Worker from the URL alone; verify the
    Cloudflare Custom Domain is attached to the Development API Worker.
 7. Submit only an allowlisted test address. Confirm the email arrives, use the
@@ -246,23 +250,27 @@ The existing Node/Docker runtime is preserved under
 `apps/trends/trends-api/docker/` as an Oracle rollback option. The active API
 runtime is the Cloudflare Workers implementation under
 `apps/trends/trends-api/workers/`. Development uses
-`trendapi-dev.hangadac.com`; Production uses `trendapi.hangadac.com`. Both are
+`trendapi-dev.bloggenius.kr`; Production uses `trendapi.hangadac.com`. Both are
 Cloudflare Custom Domains with Cloudflare-managed DNS and TLS. See the Workers
 [deployment guide](../../apps/trends/trends-api/workers/README.md).
 
-The Development Worker uses the Cloudflare Custom Domain
-`trendapi-dev.hangadac.com`. Cloudflare manages its DNS record and TLS
-certificate, with all paths on that hostname routed to the Worker. The previous
-Oracle DNS record and redundant `trendapi-dev.hangadac.com/*` Worker Route were
-removed during migration.
+The renamed Development Worker `bloggenius-trends-api-dev` uses the Cloudflare
+Custom Domain `trendapi-dev.bloggenius.kr`. Cloudflare manages its DNS record
+and TLS certificate, with all paths on that hostname routed to the Worker. The
+previous `bloggenius-trends-api` Worker and its
+`trendapi-dev.hangadac.com` Custom Domain remain available during cutover as a
+rollback target; remove them only after the new endpoint has been accepted.
 
 Development와 Production은 운영 단위를 공유하지 않는다.
 
 ### Development
 
-- Active API: `bloggenius-trends-api` Worker at `trendapi-dev.hangadac.com`
+- Active API: `bloggenius-trends-api-dev` Worker at `trendapi-dev.bloggenius.kr`
 - Legacy Development Docker fallback: `apps/trends/trends-api/docker/deployment/development/`
   - API config: ignored `.env.trends-api.development` in that directory
+  - Its old `trendapi-dev.hangadac.com` value belongs to the retained legacy
+    rollback configuration; current Development clients use
+    `trendapi-dev.bloggenius.kr`.
   - Start with `docker compose up -d --build`
   - Host port `4582` is restricted to the external Caddy container; VCN and host
     firewall rules block public ingress
@@ -305,7 +313,7 @@ Preferred shape:
 
 ```text
 Cloudflare Workers
-  trendapi-dev.hangadac.com -> Development Worker
+  trendapi-dev.bloggenius.kr -> Development Worker
   trendapi.hangadac.com     -> Production Worker
 
 Mac Studio

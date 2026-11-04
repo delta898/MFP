@@ -29,7 +29,7 @@ approves the Production rollout.
 | Component | Development | Production |
 | --- | --- | --- |
 | Public site | `www-dev.bloggenius.kr` | `www.bloggenius.kr` |
-| Trends Worker | `trendapi-dev.hangadac.com` | `trendapi.hangadac.com` |
+| Trends Worker | `trendapi-dev.bloggenius.kr` | `trendapi.hangadac.com` |
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` |
 | Subscriber lifecycle | Implemented and end-to-end verified | Not rolled out |
 | Trends collector | Mac Studio process writes through the matching Trends API | Existing operator-run production path |

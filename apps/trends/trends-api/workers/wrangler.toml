@@ -1,10 +1,10 @@
-name = "bloggenius-trends-api"
+name = "bloggenius-trends-api-dev"
 main = "src/index.js"
 compatibility_date = "2026-09-30"
 workers_dev = true
 
 [[routes]]
-pattern = "trendapi-dev.hangadac.com"
+pattern = "trendapi-dev.bloggenius.kr"
 custom_domain = true
 
 [vars]
@@ -22,6 +22,7 @@ TRENDS_PUBLIC_ALLOWED_ORIGINS = "https://www-dev.bloggenius.kr,https://www.blogg
 TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE = "60"
 TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
 TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "true"
+SUPABASE_URL = "https://bvtlwjbmjnfphxlrkzhm.supabase.co"
 TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
 TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
 TRENDS_NEWSLETTER_FUNCTION_URL = "https://bvtlwjbmjnfphxlrkzhm.supabase.co/functions/v1/trends-mailing-list"

@@ -23,7 +23,7 @@ function validEnvironment() {
         TRENDS_READ_TOKEN_SECRET: 'r'.repeat(32),
         TRENDS_API_BASE_URL: 'https://trendapi.hangadac.com',
         TRENDS_DEVELOPMENT_SUPABASE_URL: 'https://development-project.supabase.co',
-        TRENDS_DEVELOPMENT_API_BASE_URL: 'https://trendapi-dev.hangadac.com',
+        TRENDS_DEVELOPMENT_API_BASE_URL: 'https://trendapi-dev.bloggenius.kr',
         TRENDS_READ_TOKEN_ISSUER: 'bloggenius-license',
         TRENDS_READ_TOKEN_AUDIENCE: 'trends-api'
     };

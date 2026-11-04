@@ -2,12 +2,13 @@
 
 This is a separate implementation of the existing Trends API contract. The
 Docker implementation remains under `../docker/` as an Oracle rollback path.
-The Cloudflare Workers are now the active API endpoints; the public hostnames
-used by WordPress, the collector, and desktop clients remain unchanged.
+The Cloudflare Workers are now the active API endpoints. Development consumers
+use the renamed Worker and hostname below; Production keeps its existing
+hostname until a separately approved migration.
 
 | Environment | Worker | API hostname | `workers.dev` fallback |
 | --- | --- | --- | --- |
-| Development | `bloggenius-trends-api` | `trendapi-dev.hangadac.com` | `bloggenius-trends-api.delta898.workers.dev` |
+| Development | `bloggenius-trends-api-dev` | `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-dev.delta898.workers.dev` |
 | Production | `bloggenius-trends-api-production` | `trendapi.hangadac.com` | `bloggenius-trends-api-production.delta898.workers.dev` |
 
 Cloudflare Custom Domains own DNS and TLS for the API hostnames. Each hostname
@@ -80,12 +81,16 @@ After applying `supabase/migrations/202611020001_trends_mailing_list.sql` and
 deploying that function, keep `TRENDS_NEWSLETTER_FUNCTION_URL` in the matching
 Worker's `wrangler.toml` vars so deployments do not remove it. Set
 `TRENDS_NEWSLETTER_WORKER_TOKEN` as a Worker secret and the same random shared
-token as a Supabase function secret. For Development CD, also add this token as
-a secret named `TRENDS_NEWSLETTER_WORKER_TOKEN` to the GitHub `development`
-Environment. The deployment workflow supplies it to Wrangler as a secret during
-the API Worker deploy; it is never stored in the repository or printed in the
-job log. Production must use a separately scoped GitHub `production`
-Environment secret with the same key name and a different token value. The
+token as a Supabase function secret. For Development CD, add these secrets to
+the GitHub `development` Environment: `TRENDS_SUPABASE_SECRET_KEY`,
+`TRENDS_API_TOKEN`,
+`TRENDS_READ_TOKEN_SECRET`, and `TRENDS_NEWSLETTER_WORKER_TOKEN`. The workflow
+maps them to the API Worker's runtime names and supplies them to Wrangler during
+deployment. This is required because a newly named Worker does not inherit
+encrypted secrets from the old Worker. Values are never stored in the
+repository or printed in the job log. Production must use separately scoped
+GitHub `production` Environment secrets if/when Production CD is approved;
+never reuse Development values. The
 function uses Supabase's
 server credentials and requires `BREVO_API_KEY`, `NEWSLETTER_EMAIL_FROM`,
 `BLOGGENIUS_ENV`, and `NEWSLETTER_EMAIL_MODE`; for non-production, also set
@@ -108,27 +113,17 @@ Authenticate Wrangler once with the Cloudflare account that owns the Worker:
 npx wrangler login
 ```
 
-First deploy the Development Worker. This creates its `workers.dev` endpoint;
-until secrets are configured, only `/health` is useful and protected routes
-fail closed:
+Development is normally deployed by
+`.github/workflows/environment-validation.yml` on a push to `dev`. The workflow
+requires all four Development GitHub Environment secrets listed above and
+installs them on the renamed Worker during deployment. Do not run the bare
+`npm run deploy:development` command for the initial renamed Worker because it
+would not transfer the old Worker's secrets. For an already provisioned Worker,
+`npm run secret:development -- KEY` can update one Development secret and
+immediately deploys a Worker version.
 
-```bash
-npm run deploy:development
-```
-
-Then set each Development secret:
-
-```bash
-npm run secret:development -- SUPABASE_URL
-npm run secret:development -- SUPABASE_SECRET_KEY
-npm run secret:development -- TRENDS_API_TOKEN
-npm run secret:development -- TRENDS_READ_TOKEN_SECRET
-```
-
-Wrangler prompts for each value. `secret put` immediately creates and deploys a
-Worker version, so each command publishes a version; enter only Development
-values here. Production uses the matching `--env production` configuration and
-independent secrets:
+Production uses the matching `--env production` configuration and independent
+secrets:
 
 ```bash
 npm run secret:production -- SUPABASE_URL
@@ -150,17 +145,20 @@ DNS record for `trendapi.hangadac.com`; keep the Oracle API available until the
 Worker-backed Production API has passed read and ingest validation.
 
 The Development Worker should show exactly two domains in Workers & Pages:
-its `workers.dev` address and the `trendapi-dev.hangadac.com` Custom Domain.
-Delete a stale `trendapi-dev.hangadac.com/*` entry under **Routes**, if present;
-do not delete the Custom Domain. Production should similarly show its own
-`workers.dev` address and `trendapi.hangadac.com` Custom Domain.
+its `workers.dev` address and the `trendapi-dev.bloggenius.kr` Custom Domain.
+The previous `bloggenius-trends-api` Worker and its
+`trendapi-dev.hangadac.com` Custom Domain are retained as the rollback target
+through the Development cutover. Do not attach the old hostname to the new
+Worker or delete the old Worker as part of the first deployment. Production
+continues to use its `workers.dev` address and `trendapi.hangadac.com` Custom
+Domain.
 
 ## Validation and rollback
 
 Check each environment without exposing a token:
 
 ```bash
-curl -i https://trendapi-dev.hangadac.com/health
+curl -i https://trendapi-dev.bloggenius.kr/health
 curl -i https://trendapi.hangadac.com/health
 curl -i https://trendapi.hangadac.com/api/v1/trends/meta
 ```

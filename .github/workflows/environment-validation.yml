@@ -238,12 +238,12 @@ jobs:
         env:
           BLOGGENIUS_ENV: development
           BLOGGENIUS_SITE_URL: https://www-dev.bloggenius.kr
-          PUBLIC_TRENDS_API_BASE_URL: https://trendapi-dev.hangadac.com
+          PUBLIC_TRENDS_API_BASE_URL: https://trendapi-dev.bloggenius.kr
         run: |
           npm ci
           npm run build
           test -s dist/index.html
-          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.hangadac.com' dist
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.bloggenius.kr' dist
       - uses: actions/upload-artifact@v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         with:
@@ -278,19 +278,25 @@ jobs:
       - name: Deploy Development Trends API Worker
         working-directory: apps/trends/trends-api/workers
         env:
+          SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+          TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
+          TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
         run: |
           set -euo pipefail
           npm ci
-          if [[ -z "$TRENDS_NEWSLETTER_WORKER_TOKEN" ]]; then
-            echo "::error::Add TRENDS_NEWSLETTER_WORKER_TOKEN to the GitHub development environment secrets."
-            exit 1
-          fi
+          required_secrets=(SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN)
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Add ${secret_name} to the GitHub development environment secrets."
+              exit 1
+            fi
+          done
 
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/trends-api-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ TRENDS_NEWSLETTER_WORKER_TOKEN: process.env.TRENDS_NEWSLETTER_WORKER_TOKEN }), { mode: 0o600 })' "$secrets_file"
+          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_API_TOKEN", "TRENDS_READ_TOKEN_SECRET", "TRENDS_NEWSLETTER_WORKER_TOKEN"]; const secrets = Object.fromEntries(names.map((name) => [name, process.env[name]])); fs.writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });' "$secrets_file"
           npx wrangler deploy --env='' --secrets-file "$secrets_file"
 
   deploy-development-site:

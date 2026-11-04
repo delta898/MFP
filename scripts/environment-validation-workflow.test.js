@@ -58,7 +58,7 @@ test('production remains a manual non-deploying checklist', () => {
     assert.doesNotMatch(productionChecklist, /supabase functions deploy/);
     assert.doesNotMatch(productionChecklist, /supabase secrets set/);
     assert.match(workflow, /development-drift:[\s\S]*supabase db push/);
-    assert.match(workflow, /deploy-development-workers:[\s\S]*npm run deploy:development/);
+    assert.match(workflow, /deploy-development-workers:[\s\S]*SUPABASE_SECRET_KEY: \$\{\{ secrets\.TRENDS_SUPABASE_SECRET_KEY \}\}[\s\S]*TRENDS_API_TOKEN: \$\{\{ secrets\.TRENDS_API_TOKEN \}\}[\s\S]*TRENDS_READ_TOKEN_SECRET: \$\{\{ secrets\.TRENDS_READ_TOKEN_SECRET \}\}[\s\S]*TRENDS_NEWSLETTER_WORKER_TOKEN: \$\{\{ secrets\.TRENDS_NEWSLETTER_WORKER_TOKEN \}\}[\s\S]*wrangler deploy --env='' --secrets-file/);
     assert.equal((workflow.match(/supabase functions deploy trends-mailing-list/g) || []).length, 1);
 });
 

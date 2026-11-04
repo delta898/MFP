@@ -141,7 +141,7 @@ function createAstroSiteRuntime(options = {}) {
             BLOGGENIUS_SITE_URL: getPublicSiteUrl(site, environment),
             PUBLIC_TRENDS_API_BASE_URL: environment === 'local'
                 ? (process.env.BLOGGENIUS_LOCAL_TRENDS_API_URL || 'http://127.0.0.1:4581')
-                : environment === 'development' ? 'https://trendapi-dev.hangadac.com' : 'https://trendapi.hangadac.com'
+                : environment === 'development' ? 'https://trendapi-dev.bloggenius.kr' : 'https://trendapi.hangadac.com'
         };
         const knowledgeCollection = buildKnowledgeCollection(site);
         await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund'], buildEnvironment);
