@@ -180,29 +180,82 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
           countTitle.textContent = `트렌드 키워드 ${items.length}개`;
           headingText.append(label, countTitle);
           heading.append(headingText);
-          const list = document.createElement('div');
-          list.className = 'trend-result-list';
-          list.setAttribute('role', 'list');
-          items.forEach((item) => {
-            const row = document.createElement('article');
-            row.className = 'trend-result-item';
-            row.setAttribute('role', 'listitem');
-            const meta = document.createElement('div');
-            meta.className = 'trend-result-meta';
-            const category = document.createElement('span');
-            category.className = 'trend-result-category';
-            category.textContent = item.category || '';
-            const change = document.createElement('span');
-            const type = String(item.change_type || '').toLowerCase();
-            change.className = `trend-result-change is-${['up', 'down', 'new', 'steady'].includes(type) ? type : 'steady'}`;
-            change.textContent = item.change_raw || (type === 'new' ? '신규' : type === 'up' ? '상승' : type === 'down' ? '하락' : '유지');
-            meta.append(category, change);
-            const keyword = document.createElement('h4');
-            keyword.textContent = item.keyword || '';
-            row.append(meta, keyword);
-            list.append(row);
+          const groups = selected.map((category) => ({ category, items: items.filter((item) => item.category === category) })).filter((group) => group.items.length);
+          const content = document.createElement('div');
+          content.className = 'trend-category-groups';
+          let recommendations = [];
+          if (groups.length > 1) {
+            try {
+              const limit = Math.min(2, groups.length - 1);
+              const response = await fetch(`${apiBase}/api/v1/public/trends/recommendations?limit=${limit}`, { signal: AbortSignal.timeout(9000) });
+              if (response.ok) {
+                const payload = await response.json();
+                recommendations = Array.isArray(payload.items) ? payload.items.slice(0, limit) : [];
+              }
+            } catch (_error) { /* Blog recommendations are optional; keep trend results available. */ }
+          }
+          const createRecommendation = (post) => {
+            const card = document.createElement('a');
+            card.className = 'trend-blog-card';
+            card.href = post.url;
+            card.target = '_blank';
+            card.rel = 'noopener noreferrer';
+            const eyebrow = document.createElement('span');
+            eyebrow.className = 'trend-blog-card-label';
+            eyebrow.textContent = '도전인생 블로그에서 더 읽기';
+            const title = document.createElement('strong');
+            title.textContent = post.title || '';
+            card.append(eyebrow, title);
+            if (post.excerpt) {
+              const excerpt = document.createElement('span');
+              excerpt.className = 'trend-blog-card-excerpt';
+              excerpt.textContent = post.excerpt;
+              card.append(excerpt);
+            }
+            const source = document.createElement('span');
+            source.className = 'trend-blog-card-source';
+            source.textContent = `${post.source || 'BlogGenius'} · 글 읽기 ↗`;
+            card.append(source);
+            return card;
+          };
+          let recommendationIndex = 0;
+          groups.forEach((group, groupIndex) => {
+            const section = document.createElement('section');
+            section.className = 'trend-category-group';
+            const groupHeading = document.createElement('div');
+            groupHeading.className = 'trend-category-group-heading';
+            const categoryTitle = document.createElement('h4');
+            categoryTitle.textContent = group.category;
+            const categoryCount = document.createElement('span');
+            categoryCount.textContent = `키워드 ${group.items.length}개`;
+            groupHeading.append(categoryTitle, categoryCount);
+            const list = document.createElement('div');
+            list.className = 'trend-result-list';
+            list.setAttribute('role', 'list');
+            group.items.forEach((item) => {
+              const row = document.createElement('article');
+              row.className = 'trend-result-item';
+              row.setAttribute('role', 'listitem');
+              const meta = document.createElement('div');
+              meta.className = 'trend-result-meta';
+              const category = document.createElement('span');
+              category.className = 'trend-result-category';
+              category.textContent = group.category;
+              const change = document.createElement('span');
+              const type = String(item.change_type || '').toLowerCase();
+              change.className = `trend-result-change is-${['up', 'down', 'new', 'steady'].includes(type) ? type : 'steady'}`;
+              change.textContent = item.change_raw || (type === 'new' ? '신규' : type === 'up' ? '상승' : type === 'down' ? '하락' : '유지');
+              meta.append(category, change);
+              const keyword = document.createElement('h4');
+              keyword.textContent = item.keyword || '';
+              row.append(meta, keyword);
+              list.append(row);
+            });
+            section.append(groupHeading, list);
+            content.append(section);
+            if (groupIndex < groups.length - 1 && recommendations[recommendationIndex]) content.append(createRecommendation(recommendations[recommendationIndex++]));
           });
-          results.append(heading, list);
+          results.append(heading, content);
         }
         searchButton.textContent = '다시 조회 →';
         status.textContent = `${dateInput.value} · ${items.length}개 키워드`;

@@ -88,6 +88,27 @@ test('public trend queries require one date and one to three categories, then ap
     }
 });
 
+test('public RSS recommendations return at most two allowlisted posts and reject unsafe feed links', async () => {
+    const feeds = JSON.stringify([{ name: 'BlogGenius', feedUrl: 'https://feed.example.test/rss', siteUrl: 'https://blog.example.test/' }]);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(`<rss><channel>
+      <item><title><![CDATA[첫 번째 글]]></title><link>https://blog.example.test/one/</link><pubDate>Mon, 02 Nov 2026 00:00:00 +0000</pubDate><description><![CDATA[짧은 소개]]></description></item>
+      <item><title>외부 링크</title><link>https://evil.example/post</link><pubDate>Tue, 03 Nov 2026 00:00:00 +0000</pubDate></item>
+      <item><title>두 번째 글</title><link>https://blog.example.test/two/</link><pubDate>Wed, 04 Nov 2026 00:00:00 +0000</pubDate></item>
+    </channel></rss>`);
+    try {
+        const envWithFeeds = { ...env, TRENDS_PUBLIC_BLOG_FEEDS: feeds };
+        const response = await handleRequest(makeRequest('/api/v1/public/trends/recommendations?limit=2'), envWithFeeds);
+        const body = await response.json();
+        assert.equal(response.status, 200);
+        assert.equal(body.items.length, 2);
+        assert.ok(body.items.every((item) => item.url.startsWith('https://blog.example.test/')));
+        assert.deepEqual(new Set(body.items.map((item) => item.title)), new Set(['첫 번째 글', '두 번째 글']));
+        assert.equal(body.items.find((item) => item.title === '첫 번째 글').excerpt, '짧은 소개');
+        assert.equal((await handleRequest(makeRequest('/api/v1/public/trends/recommendations?limit=3'), envWithFeeds)).status, 400);
+    } finally { globalThis.fetch = originalFetch; }
+});
+
 test('existing authenticated endpoint remains protected', async () => {
     const response = await handleRequest(makeRequest('/api/v1/trends/meta'), env);
     assert.equal(response.status, 401);

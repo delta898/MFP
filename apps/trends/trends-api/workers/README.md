@@ -43,14 +43,20 @@ used by the BlogGenius website.
 
 `GET /api/v1/public/trends/meta` returns the available categories and dates.
 `GET /api/v1/public/trends?trend_date=YYYY-MM-DD&category=...` returns up to 150
-rows for one date and at most three repeated `category` values. The Worker adds
-CORS only for configured origins. Production allows `https://www.bloggenius.kr`;
+rows for one date and at most three repeated `category` values.
+`GET /api/v1/public/trends/recommendations?limit=2` returns up to two randomly
+selected recent posts from the allowlisted feeds in `TRENDS_PUBLIC_BLOG_FEEDS`.
+The page presents them as occasional BlogGenius reading suggestions; they are
+not category-matched. Feed errors produce an empty recommendation list.
+CORS applies to this route as well. The Worker validates each post link against
+the configured site's HTTPS host and path before exposing it. CORS applies only
+to configured origins. Production allows `https://www.bloggenius.kr`;
 Development also allows HTTP loopback origins for local preview. These routes
 do not use an internal token because the displayed trend data is public. CORS
 does not make the data private: it is a browser policy, not authentication, and
 non-browser callers can send a forged `Origin` header or omit it. Anyone can
 call these routes and read the same bounded public data, so never add private,
-licensed, or subscriber data here. Both routes read only the
+licensed, or subscriber data here. Trend data routes read only the
 `naver_creator_advisor` source. Query bounds limit a request to one date, at
 most three categories, and at most 150 rows; they limit response and query size,
 not who can call the endpoint.

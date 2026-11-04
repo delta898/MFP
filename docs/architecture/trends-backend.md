@@ -15,6 +15,7 @@ apps/
     trends-api/             # operator-only ingest/export API
       docker/               # Oracle Node/Docker rollback runtime
       workers/              # active Cloudflare Workers runtime
+    shared/lib/            # RSS and runtime utilities shared by Trends apps
 shared/
   naver-trends-core/        # shared Playwright collection and normalization logic
 wordpress/
@@ -48,6 +49,12 @@ wordpress/
   desktop clients with short-lived user read tokens.
 - Keeps runtime implementations separate: `workers/` is the active gateway and
   `docker/` preserves the prior Oracle Node service for rollback.
+
+### `apps/trends/shared/lib`
+- Owns small transport-neutral utilities used by multiple Trends applications.
+- `rss-feed.js` parses RSS/Atom entries and enforces configured site-origin and
+  path constraints; newsletter selection and public-site recommendations use
+  this shared parser rather than maintaining separate feed parsing rules.
 
 ### `wordpress/trends-download-ui`
 - Hosts WordPress integration assets only.
@@ -149,6 +156,7 @@ Legacy compatibility:
 - `GET /api/v1/trends/meta`
 - `GET /api/v1/public/trends`
 - `GET /api/v1/public/trends/meta`
+- `GET /api/v1/public/trends/recommendations`
 - `POST /api/v1/public/subscriptions`
 - `POST /api/v1/public/subscriptions/confirm`
 - `POST /api/v1/public/subscriptions/unsubscribe`
@@ -169,7 +177,7 @@ returns `501 Not Implemented`. CSV is the only implemented export contract.
 - User request limits are keyed by the token's anonymized license subject, not
   by the reverse proxy socket address. IP-level abuse protection belongs at the
   HTTPS reverse proxy.
-- The two `/api/v1/public/trends*` routes are a separate, anonymous, read-only
+- The `/api/v1/public/trends*` routes are a separate, anonymous, read-only
   contract for the public BlogGenius site. They require an allowed `Origin`
   before returning browser-readable CORS responses; this is a browser boundary,
   not authentication, and callers can still request public trend data outside
@@ -181,6 +189,12 @@ returns `501 Not Implemented`. CSV is the only implemented export contract.
   requests have a per-IP, per-minute in-memory limit; this is best-effort
   isolate-level throttling and does not replace Cloudflare edge rate rules if
   traffic warrants stronger abuse controls.
+- Public recommendations read only the RSS feeds listed in the API Worker's
+  `TRENDS_PUBLIC_BLOG_FEEDS` deployment variable. They return at most two
+  randomly selected, recent posts with links constrained to each configured
+  site origin. They are editorial discovery cards, not category-matched
+  recommendations; a feed failure returns an empty list so trend browsing
+  remains available.
 - These public routes deliberately do not authenticate callers. Their trend
   data is treated as public because it is displayed to any site visitor; query
   bounds reduce response size and database work but do not prove a caller is

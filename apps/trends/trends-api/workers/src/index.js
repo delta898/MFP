@@ -1,10 +1,12 @@
+import { parseRssFeed } from '../../../shared/lib/rss-feed.js';
+
 const DEFAULT_SCHEMA = 'trends';
 const DEFAULT_TABLE = 'items';
 const DEFAULT_CONFLICT = 'source,trend_date,category,keyword';
 const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
 const metaCache = new Map();
 const readRateWindows = new Map();
-const PUBLIC_TRENDS_PATHS = new Set(['/api/v1/public/trends', '/api/v1/public/trends/meta']);
+const PUBLIC_TRENDS_PATHS = new Set(['/api/v1/public/trends', '/api/v1/public/trends/meta', '/api/v1/public/trends/recommendations']);
 const PUBLIC_SUBSCRIPTION_PATHS = new Set(['/api/v1/public/subscriptions', '/api/v1/public/subscriptions/confirm', '/api/v1/public/subscriptions/confirm/preview', '/api/v1/public/subscriptions/unsubscribe']);
 const NEWSLETTER_CATEGORIES = new Set([
     'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
@@ -31,6 +33,7 @@ function getConfig(env) {
         publicAllowedOrigins: new Set(String(env.TRENDS_PUBLIC_ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean)),
         allowLocalPreview: String(env.TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW || '').trim().toLowerCase() === 'true',
         publicRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE, 10) || 60),
+        publicBlogFeeds: String(env.TRENDS_PUBLIC_BLOG_FEEDS || '').trim(),
         subscribeRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE, 10) || 5),
         newsletterFunctionUrl: String(env.TRENDS_NEWSLETTER_FUNCTION_URL || '').trim().replace(/\/+$/, ''),
         newsletterWorkerToken: String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim(),
@@ -518,6 +521,18 @@ function publicFilters(params, config) {
 async function handlePublicTrends(request, config, path, origin) {
     const headers = { ...publicCorsHeaders(origin), 'cache-control': 'public, max-age=60, s-maxage=60' };
     const url = new URL(request.url);
+    if (path.endsWith('/recommendations')) {
+        if ([...url.searchParams.keys()].some((key) => key !== 'limit')) return jsonResponse(400, { success: false, message: 'Unsupported recommendation filter' }, headers);
+        const requested = Number(url.searchParams.get('limit') || 2);
+        if (!Number.isInteger(requested) || requested < 1 || requested > 2) return jsonResponse(400, { success: false, message: 'Recommendation limit must be one or two' }, headers);
+        try {
+            const items = await loadPublicBlogRecommendations(config.publicBlogFeeds, requested);
+            return jsonResponse(200, { success: true, items }, { ...headers, 'cache-control': 'public, max-age=300, s-maxage=300' });
+        } catch (error) {
+            console.error('[trends-api-workers] public recommendations failed', error.message);
+            return jsonResponse(200, { success: true, items: [] }, headers);
+        }
+    }
     if (path.endsWith('/meta')) {
         if ([...url.searchParams.keys()].length) return jsonResponse(400, { success: false, message: 'Public metadata does not accept filters' }, headers);
         try {
@@ -545,6 +560,29 @@ async function handlePublicTrends(request, config, path, origin) {
         console.error('[trends-api-workers] public query failed', error.message);
         return jsonResponse(503, { success: false, message: 'Trend data is temporarily unavailable' }, headers);
     }
+}
+
+async function loadPublicBlogRecommendations(configuredFeeds, limit) {
+    let feeds;
+    try { feeds = JSON.parse(configuredFeeds); } catch { throw new Error('Invalid public RSS feed configuration'); }
+    if (!Array.isArray(feeds) || feeds.length < 1 || feeds.length > 8) throw new Error('Missing public RSS feed configuration');
+    const feedResults = await Promise.all(feeds.map(async (feed) => {
+        let feedUrl, siteUrl;
+        try { feedUrl = new URL(feed.feedUrl); siteUrl = new URL(feed.siteUrl); } catch { return []; }
+        if (feedUrl.protocol !== 'https:' || siteUrl.protocol !== 'https:' || feedUrl.username || feedUrl.password || siteUrl.username || siteUrl.password) return [];
+        try {
+            const response = await fetch(feedUrl, { headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(8000) });
+            if (!response.ok) return [];
+            const xml = await response.text();
+            const source = { name: String(feed.name || 'BlogGenius').slice(0, 80), host: siteUrl.hostname, pathPrefix: siteUrl.pathname.replace(/\/$/, '') };
+            return parseRssFeed(xml, source, { maxItems: 20, maxBytes: 1_000_000 });
+        } catch { return []; /* An unavailable feed should not hide the trends. */ }
+    }));
+    const candidates = feedResults.flat();
+    const unique = [...new Map(candidates.map((item) => [item.url, item])).values()];
+    const selected = [];
+    while (unique.length && selected.length < limit) selected.push(unique.splice(Math.floor(Math.random() * unique.length), 1)[0]);
+    return selected;
 }
 
 async function handleIngest(request, config) {
