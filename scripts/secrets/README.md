@@ -13,6 +13,12 @@ cp .secrets/.secret.dev.env.example .secrets/.secret.dev.env
 chmod 600 .secrets/.secret.dev.env
 ```
 
+Both files also contain `CLOUDFLARE_ACCOUNT_ID`. The sync utility writes that
+nonsecret value to the matching GitHub Environment variable; every other
+supported entry is written as a GitHub Environment secret. This means the
+Cloudflare account target can be initialized from the local file without
+opening GitHub Settings.
+
 The Development file contains the GitHub Environment secret names used by the
 current workflow: Cloudflare and Supabase deployment credentials, the
 Development Supabase public key, Trends API credentials, newsletter shared
@@ -21,9 +27,9 @@ token, Telegram credentials, and Development email policy/provider settings.
 before syncing. Quote values containing spaces, `#`, or other dotenv syntax
 characters. Do not put Production values in this file.
 
-The Production file contains only Production-scoped GitHub secret names for
+The Production file contains Production-scoped GitHub secrets for
 Supabase/Cloudflare access and the Trends API. Production newsletter delivery
-and automated Production deployment are not configured by this feature.
+remains a separate rollout.
 
 Authenticate GitHub CLI for this repository once with `gh auth login`, then
 run the fixed-environment wrapper:
@@ -36,15 +42,24 @@ run the fixed-environment wrapper:
 The command validates every name and required value before changing GitHub,
 requires local file mode `600`, checks GitHub CLI authentication, and asks you
 to type the target environment. Production always requires typing `PRODUCTION`.
-It prints secret names and outcomes only; secret values are sent to `gh` over
-standard input and never appear in command arguments or output. The operation
-updates GitHub Environment secrets only. It does not deploy code or contact
-Cloudflare/Supabase directly.
+It prints setting names and outcomes only. Secret values are sent to `gh` over
+standard input and are not printed; the nonsecret Cloudflare account ID is
+written as an Environment variable. The operation does not deploy code or
+contact Cloudflare/Supabase directly.
 
 After syncing Development values, push to `dev`. The existing GitHub Actions
 deployment provisions the Development Supabase Edge Function and both
-Development Workers from the GitHub `development` Environment. Production sync
-only prepares GitHub's `production` Environment; it does not deploy Production.
+Development Workers from the GitHub `development` Environment. If that
+Environment is missing, the Dev sync creates it and restricts it to the `dev`
+branch.
+
+Production sync creates the `production` Environment when it is missing,
+restricts it to `release/*`, and requires the currently authenticated GitHub
+account to approve. It then syncs its secrets and account variable; it does not
+deploy Production. Creating either Environment requires permission to
+administer repository environments. Production also requires GitHub to support
+required reviewers for this repository. If the requested protections cannot
+be configured and verified, sync stops before writing secrets or variables.
 
 If a sync is interrupted, rerun the same wrapper. GitHub secret updates are
 idempotent. Check the printed names and the Actions result; never paste secret

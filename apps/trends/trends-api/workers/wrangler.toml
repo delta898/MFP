@@ -42,8 +42,13 @@ workers_dev = true
 pattern = "trendapi.hangadac.com"
 custom_domain = true
 
+[[env.production.routes]]
+pattern = "trendapi.bloggenius.kr"
+custom_domain = true
+
 [env.production.vars]
 TRENDS_ENV = "production"
+SUPABASE_URL = "https://hocfjolcthvtgfaxjmse.supabase.co"
 TRENDS_SUPABASE_SCHEMA = "trends"
 TRENDS_SUPABASE_TABLE = "items"
 TRENDS_SUPABASE_META_FUNCTION = "get_items_meta"

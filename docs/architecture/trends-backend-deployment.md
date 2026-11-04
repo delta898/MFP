@@ -18,8 +18,8 @@ following roles distinct when operating it or preparing a Production rollout:
 
 | Role | Development | Production | Responsibility |
 | --- | --- | --- | --- |
-| Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` | Static signup, confirmation, and unsubscribe pages |
-| Trends API Worker | `bloggenius-trends-api-dev` at `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Authenticated collector ingestion and trend reads; public browser subscription actions forwarded to the matching Supabase Edge Function; accepts private collection-complete signals and starts the Newsletter Workflow |
+| Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` | Shared static site with environment-specific Trends API; Production newsletter actions require a later rollout |
+| Trends API Worker | `bloggenius-trends-api-dev` at `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` and `trendapi.bloggenius.kr` | Authenticated collector ingestion and trend reads; public browser subscription actions forwarded to the matching Supabase Edge Function; accepts private collection-complete signals and starts the Newsletter Workflow |
 | Newsletter Workflow Worker | `bloggenius-trends-newsletter-dev` | Not configured for Production | Private Workflow entry point and orchestration: readiness checks, shared edition creation/reuse, and subscriber batch delivery; no public browser API |
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` | Mailing data, RPCs, and `trends-mailing-list` Edge Function |
 
@@ -60,8 +60,48 @@ The Development push workflow installs the newsletter Edge Function secrets
 with Supabase CLI and the Newsletter Worker secrets with Wrangler before
 deploying their code. The local utility only updates GitHub Environment
 secrets; it never writes directly to Cloudflare or Supabase. Production secret
-sync is supported, but Production deployment remains a separate, unconfigured
-workflow and is not triggered by the Production sync command.
+sync only updates GitHub Environment secrets. Production deployment is a
+separate explicit operation and is never triggered by secret sync.
+
+### Production Trends web promotion
+
+The Production web experience shares the Development Astro source but receives
+explicit Production build values. `.github/workflows/deploy-trends-web-production.yml`
+can be manually dispatched from a `release/*` branch only. Its `production`
+GitHub Environment provides the approval gate and scoped Cloudflare/API
+secrets. The workflow tests and dry-runs the API configuration, builds one
+site artifact for the dispatch SHA, deploys the API first, checks both
+Production API hostnames, deploys the site artifact to the existing
+`bg-www-bloggenius-kr` Worker, then checks `https://www.bloggenius.kr`.
+
+The API alias `trendapi.bloggenius.kr` is added to the existing
+`bloggenius-trends-api-production` Worker; `trendapi.hangadac.com` remains
+active. Before deployment, the workflow verifies the existing API/site
+Workers, confirms the legacy API and site custom-domain owners, and rejects a
+new API hostname already assigned to another Worker or carrying a conflicting
+DNS record. The site build must
+contain `https://www.bloggenius.kr` and `https://trendapi.bloggenius.kr` and
+must not contain Development hostnames. No Production newsletter Worker,
+Supabase migration or Function, subscriber import, or email send is included
+in this web promotion.
+
+Production sync creates the `production` Environment if it is missing,
+restricts it to `release/*`, and requires the current GitHub account as a
+reviewer. This requires permission to administer repository environments and a
+GitHub plan that supports required reviewers. If protection cannot be
+configured and verified, sync stops before writing credentials. Create the
+release branch using the normal release process, ensure the GitHub
+`production` Environment contains `CLOUDFLARE_API_TOKEN`,
+`TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`, and
+`TRENDS_READ_TOKEN_SECRET`. The Production env-file sync sets
+`CLOUDFLARE_ACCOUNT_ID` as a GitHub Environment variable (the Development
+workflow uses the same variable); it selects the Cloudflare account and is not
+a secret. Dispatch the workflow on that release branch and approve its
+Production Environment deployment. The workflow checks out and deploys the
+same dispatch SHA. If deployment or smoke verification fails, stop promotion;
+the prior static Worker deployment remains available for rollback, and the
+prior API deployment can be selected using the established Wrangler rollback
+process. This workflow does not alter newsletter delivery.
 
 ### Development reference procedure
 

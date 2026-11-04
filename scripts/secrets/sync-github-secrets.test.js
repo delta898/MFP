@@ -6,7 +6,14 @@ const os = require('node:os');
 const path = require('node:path');
 const { PassThrough, Writable } = require('node:stream');
 const test = require('node:test');
-const { REQUIRED, parseArguments, promptForConfirmation, readSecretFile, syncGitHubSecrets } = require('./sync-github-secrets');
+const { REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProductionEnvironment, parseArguments, promptForConfirmation, readSecretFile, runGh, syncGitHubSecrets } = require('./sync-github-secrets');
+
+function makeEnvironmentValues(environment) {
+  return {
+    ...Object.fromEntries(REQUIRED[environment].map((name) => [name, `fixture-${name}`])),
+    ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name, name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32) : `fixture-${name}`]))
+  };
+}
 
 function makeSecretFile(t, values) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'github-secret-sync-'));
@@ -32,8 +39,20 @@ test('requires an explicit known environment', () => {
   assert.equal(parseArguments(['--environment', 'development']).environment, 'development');
 });
 
+test('shows safe GitHub API error details without exposing token-shaped data', () => {
+  assert.throws(() => runGh(['api', '--method', 'PUT', 'repos/owner/repo/environments/production'], undefined, () => ({
+    status: 403,
+    stderr: 'gh: Resource not accessible by personal access token (HTTP 403); Bearer ghp_abcdefghijklmnopqrstuvwxyz1234567890',
+    stdout: ''
+  })), (error) => {
+    assert.match(error.message, /Resource not accessible by personal access token/);
+    assert.doesNotMatch(error.message, /ghp_abcdefghijklmnopqrstuvwxyz/);
+    return true;
+  });
+});
+
 test('validates required and allowed names before any GitHub mutation', async (t) => {
-  const values = Object.fromEntries(REQUIRED.development.map((name) => [name, `fixture-${name}`]));
+  const values = makeEnvironmentValues('development');
   values.NEWSLETTER_EMAIL_MODE = 'allowlist';
   values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
   values.UNEXPECTED_SECRET = 'fixture';
@@ -41,6 +60,13 @@ test('validates required and allowed names before any GitHub mutation', async (t
   const calls = [];
   await assert.rejects(syncGitHubSecrets({ environment: 'development', filePath, yes: true, runCommand: (...args) => calls.push(args), output: captureOutput().stream }), /Unsupported secret names: UNEXPECTED_SECRET/);
   assert.equal(calls.length, 0);
+});
+
+test('requires a valid Cloudflare account ID before syncing GitHub settings', (t) => {
+  const values = makeEnvironmentValues('production');
+  values.CLOUDFLARE_ACCOUNT_ID = 'not-an-account-id';
+  const filePath = makeSecretFile(t, values);
+  assert.throws(() => readSecretFile(filePath, 'production'), /32-character hexadecimal Cloudflare account ID/);
 });
 
 test('refuses permissive local secret file permissions', (t) => {
@@ -56,7 +82,7 @@ test('rejects duplicate secret names', (t) => {
 });
 
 test('syncs only names to the selected GitHub environment without printing values', async (t) => {
-  const values = Object.fromEntries(REQUIRED.development.map((name) => [name, `fixture-${name}`]));
+  const values = makeEnvironmentValues('development');
   values.NEWSLETTER_EMAIL_MODE = 'allowlist';
   values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
   const filePath = makeSecretFile(t, values);
@@ -64,15 +90,40 @@ test('syncs only names to the selected GitHub environment without printing value
   const output = captureOutput();
   const result = await syncGitHubSecrets({
     environment: 'development', filePath, yes: true,
-    runCommand: (args, input) => calls.push({ args, input }), output: output.stream
+    runCommand: (args, input) => {
+      calls.push({ args, input });
+      if (args[0] === 'repo') return 'delta898/MFP';
+      if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development';
+      return '';
+    }, output: output.stream
   });
   assert.equal(calls[0].args.join(' '), 'auth status');
-  assert.deepEqual(calls[1].args, ['secret', 'list', '--env', 'development']);
-  assert.equal(calls.length, Object.keys(values).length + 2);
-  assert.ok(calls.slice(2).every(({ args }) => args.at(-1) === 'development'));
-  assert.deepEqual(result.updated, Object.keys(values).sort());
-  for (const value of Object.values(values)) assert.ok(calls.some((call) => call.input === value));
+  assert.deepEqual(calls[3].args, ['secret', 'list', '--env', 'development']);
+  assert.deepEqual(calls[4].args, ['variable', 'list', '--env', 'development']);
+  assert.equal(calls.length, Object.keys(values).length + 5);
+  assert.deepEqual(result.updated, Object.keys(values).filter((name) => !REQUIRED_VARIABLES.development.includes(name)).sort());
+  for (const name of REQUIRED.development) assert.ok(calls.some((call) => call.input === values[name]));
+  assert.deepEqual(result.updatedVariables, ['CLOUDFLARE_ACCOUNT_ID']);
+  assert.ok(calls.some(({ args }) => args.join(' ') === `variable set CLOUDFLARE_ACCOUNT_ID --env development --body ${values.CLOUDFLARE_ACCOUNT_ID}`));
   assert.ok(!Object.values(values).some((value) => output.read().includes(value)));
+});
+
+test('creates a missing Development Environment restricted to the dev branch', () => {
+  const calls = [];
+  const runCommand = (args, input) => {
+    calls.push({ args, input });
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return '';
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development') {
+      return JSON.stringify({ deployment_branch_policy: { custom_branch_policies: true } });
+    }
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development/deployment-branch-policies') {
+      return 'dev';
+    }
+    return '';
+  };
+  assert.equal(ensureDevelopmentEnvironment({ runCommand, repo: 'delta898/MFP', environmentNames: [] }), true);
+  const branchPolicy = calls.find(({ args }) => args.includes('--method') && args.includes('POST'));
+  assert.deepEqual(JSON.parse(branchPolicy.input), { name: 'dev', type: 'branch' });
 });
 
 test('production requires an explicit production guard before reading or mutating secrets', async () => {
@@ -81,15 +132,93 @@ test('production requires an explicit production guard before reading or mutatin
   assert.equal(calls, 0);
 });
 
+test('creates a missing Production Environment with a reviewer and release-only deployment policy', () => {
+  const calls = [];
+  let policyReads = 0;
+  const runCommand = (args, input) => {
+    calls.push({ args, input });
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development';
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production') {
+      return JSON.stringify({
+        protection_rules: [{ type: 'required_reviewers', prevent_self_review: false, reviewers: [{ type: 'User', reviewer: { id: 42 } }] }],
+        deployment_branch_policy: { custom_branch_policies: true }
+      });
+    }
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production/deployment-branch-policies') {
+      policyReads += 1;
+      return policyReads === 1 ? '' : 'release/*';
+    }
+    return '';
+  };
+  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP', reviewerId: '42' }), true);
+  const create = calls.find(({ args }) => args.includes('--method') && args.includes('PUT'));
+  assert.deepEqual(JSON.parse(create.input), {
+    wait_timer: 0,
+    prevent_self_review: false,
+    reviewers: [{ type: 'User', id: 42 }],
+    deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+  });
+  const branchPolicy = calls.find(({ args }) => args.includes('--method') && args.includes('POST'));
+  assert.deepEqual(JSON.parse(branchPolicy.input), { name: 'release/*', type: 'branch' });
+});
+
+test('repairs an existing Production Environment while preserving wait timers and reviewers', () => {
+  const calls = [];
+  let environmentReads = 0;
+  let policyReads = 0;
+  const runCommand = (args, input) => {
+    calls.push({ args, input });
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development\nproduction';
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production') {
+      environmentReads += 1;
+      return JSON.stringify(environmentReads === 1 ? {
+        protection_rules: [
+          { type: 'wait_timer', wait_timer: 10 },
+          { type: 'required_reviewers', prevent_self_review: true, reviewers: [{ type: 'User', reviewer: { id: 77 } }] }
+        ],
+        deployment_branch_policy: null
+      } : {
+        protection_rules: [
+          { type: 'wait_timer', wait_timer: 10 },
+          { type: 'required_reviewers', prevent_self_review: false, reviewers: [
+            { type: 'User', reviewer: { id: 77 } }, { type: 'User', reviewer: { id: 42 } }
+          ] }
+        ],
+        deployment_branch_policy: { custom_branch_policies: true }
+      });
+    }
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production/deployment-branch-policies') {
+      policyReads += 1;
+      return policyReads === 1 ? '' : 'release/*';
+    }
+    return '';
+  };
+  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP', reviewerId: '42' }), false);
+  const update = calls.find(({ args }) => args.includes('--method') && args.includes('PUT'));
+  assert.deepEqual(JSON.parse(update.input), {
+    wait_timer: 10,
+    prevent_self_review: false,
+    reviewers: [{ type: 'User', id: 77 }, { type: 'User', id: 42 }],
+    deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+  });
+});
+
 test('production always requires interactive confirmation even if yes is requested internally', async (t) => {
-  const values = Object.fromEntries(REQUIRED.production.map((name) => [name, `fixture-${name}`]));
+  const values = makeEnvironmentValues('production');
   const filePath = makeSecretFile(t, values);
   const calls = [];
   await assert.rejects(syncGitHubSecrets({
     environment: 'production', confirmProduction: true, yes: true, filePath,
-    runCommand: (args) => calls.push(args), output: captureOutput().stream
+    runCommand: (args) => {
+      calls.push(args);
+      if (args[0] === 'repo') return 'delta898/MFP';
+      if (args[0] === 'api' && args.includes('user')) return '42';
+      if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development';
+      return '';
+    }, output: captureOutput().stream
   }), /Interactive confirmation required/);
   assert.ok(!calls.some((args) => args[0] === 'secret' && args[1] === 'set'));
+  assert.ok(!calls.some((args) => args.includes('--method')));
 });
 
 test('confirmation prompt accepts the target text from an interactive input stream', async () => {

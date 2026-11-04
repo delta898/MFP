@@ -28,7 +28,12 @@ const REQUIRED = Object.freeze({
   ]
 });
 
-const ALLOWED = new Set(Object.values(REQUIRED).flat());
+const REQUIRED_VARIABLES = Object.freeze({
+  development: ['CLOUDFLARE_ACCOUNT_ID'],
+  production: ['CLOUDFLARE_ACCOUNT_ID']
+});
+
+const ALLOWED = new Set([...Object.values(REQUIRED).flat(), ...Object.values(REQUIRED_VARIABLES).flat()]);
 
 function parseArguments(argv) {
   const options = {};
@@ -66,6 +71,13 @@ function readSecretFile(filePath, environment) {
   if (unknown.length) throw new Error(`Unsupported secret names: ${unknown.join(', ')}`);
   const missing = REQUIRED[environment].filter((name) => !String(values[name] || '').trim());
   if (missing.length) throw new Error(`Required ${environment} secrets are missing or empty: ${missing.join(', ')}`);
+  const missingVariables = REQUIRED_VARIABLES[environment].filter((name) => !String(values[name] || '').trim());
+  if (missingVariables.length) throw new Error(`Required ${environment} variables are missing or empty: ${missingVariables.join(', ')}`);
+  for (const name of REQUIRED_VARIABLES[environment]) {
+    if (name === 'CLOUDFLARE_ACCOUNT_ID' && !/^[a-f\d]{32}$/i.test(String(values[name]).trim())) {
+      throw new Error(`${name} must be a 32-character hexadecimal Cloudflare account ID.`);
+    }
+  }
   if (environment === 'development' && values.NEWSLETTER_EMAIL_MODE.trim() !== 'allowlist') {
     throw new Error('Development NEWSLETTER_EMAIL_MODE must be allowlist.');
   }
@@ -75,14 +87,129 @@ function readSecretFile(filePath, environment) {
   return values;
 }
 
-function runGh(args, input) {
-  const result = spawnSync('gh', args, {
+function runGh(args, input, spawn = spawnSync) {
+  const result = spawn('gh', args, {
     cwd: REPO_ROOT,
     input,
     encoding: 'utf8',
-    stdio: ['pipe', 'ignore', 'ignore']
+    stdio: ['pipe', 'pipe', 'pipe']
   });
-  if (result.error || result.status !== 0) throw new Error(`GitHub CLI command failed (${result.error ? 'not available' : `exit ${result.status}`}).`);
+  if (result.error || result.status !== 0) {
+    let operation = args.slice(0, 2).join(' ');
+    if (args[0] === 'secret' && args[1] === 'list') operation = `list secrets for environment ${args[args.indexOf('--env') + 1] || '(unknown)'}`;
+    else if (args[0] === 'variable' && args[1] === 'list') operation = `list variables for environment ${args[args.indexOf('--env') + 1] || '(unknown)'}`;
+    else if ((args[0] === 'secret' || args[0] === 'variable') && args[1] === 'set') operation = `set ${args[0]} ${args[2] || '(unknown)'}`;
+    else if (args[0] === 'api') operation = `${args[1] === '--method' ? args[2] : 'GET'} ${args.find((value) => /^repos\//.test(value)) || 'GitHub API'}`;
+    const safeDetail = args[0] === 'api'
+      ? String(result.stderr || '').trim()
+        .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [redacted]')
+        .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+)\b/g, '[redacted token]')
+        .slice(0, 500)
+      : '';
+    throw new Error(`GitHub CLI could not ${operation} (${result.error ? 'gh unavailable' : `exit ${result.status}`})${safeDetail ? `: ${safeDetail}` : '.'}`);
+  }
+  return String(result.stdout || '').trim();
+}
+
+function parseJsonResult(value, operation) {
+  try { return JSON.parse(value); }
+  catch { throw new Error(`GitHub returned an invalid response while attempting to ${operation}.`); }
+}
+
+function listEnvironmentNames({ runCommand = runGh, repo }) {
+  return runCommand(['api', `repos/${repo}/environments`, '--paginate', '--jq', '.environments[].name'])
+    .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+}
+
+function hasProductionProtection(environment, reviewerId, branchPolicies) {
+  const hasReviewer = (environment?.protection_rules || [])
+    .filter((rule) => rule?.type === 'required_reviewers' && rule.prevent_self_review === false)
+    .some((rule) => (rule.reviewers || []).some((entry) => entry?.type === 'User'
+      && String(entry?.reviewer?.id || '') === String(reviewerId)));
+  return hasReviewer
+    && environment?.deployment_branch_policy?.custom_branch_policies === true
+    && branchPolicies.includes('release/*');
+}
+
+function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
+  const endpoint = `repos/${repo}/environments/production`;
+  const policyEndpoint = `${endpoint}/deployment-branch-policies`;
+  const existed = environmentNames.includes('production');
+  const current = existed
+    ? parseJsonResult(runCommand(['api', endpoint]), 'inspect the Production Environment')
+    : { protection_rules: [], deployment_branch_policy: null };
+  const rules = Array.isArray(current?.protection_rules) ? current.protection_rules : [];
+  const unsupportedRules = rules.filter((rule) => !['wait_timer', 'required_reviewers', 'branch_policy'].includes(rule?.type));
+  if (unsupportedRules.length) {
+    throw new Error('The existing Production Environment has protection rules this utility cannot safely preserve; no secrets or variables were changed.');
+  }
+  const reviewerRule = rules.find((rule) => rule?.type === 'required_reviewers');
+  const reviewersById = new Map();
+  for (const entry of reviewerRule?.reviewers || []) {
+    const id = Number(entry?.reviewer?.id);
+    if ((entry?.type === 'User' || entry?.type === 'Team') && Number.isInteger(id) && id > 0) {
+      reviewersById.set(`${entry.type}:${id}`, { type: entry.type, id });
+    }
+  }
+  reviewersById.set(`User:${reviewerId}`, { type: 'User', id: Number(reviewerId) });
+  const existingWaitTimer = rules.find((rule) => rule?.type === 'wait_timer')?.wait_timer;
+
+  let branchPolicies = [];
+  if (current?.deployment_branch_policy?.custom_branch_policies === true) {
+    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
+      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    const unexpectedPolicies = branchPolicies.filter((name) => name !== 'release/*');
+    if (unexpectedPolicies.length) {
+      throw new Error('The existing Production Environment has unexpected deployment branch policies; review them before syncing. No secrets or variables were changed.');
+    }
+  }
+
+  const alreadyProtected = hasProductionProtection(current, reviewerId, branchPolicies);
+  if (!alreadyProtected) {
+    const updateBody = {
+      wait_timer: Number.isInteger(existingWaitTimer) ? existingWaitTimer : 0,
+      prevent_self_review: false,
+      reviewers: [...reviewersById.values()],
+      deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+    };
+    runCommand(['api', '--method', 'PUT', endpoint, '--input', '-'], JSON.stringify(updateBody));
+  }
+
+  let environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
+  if (environment?.deployment_branch_policy?.custom_branch_policies === true) {
+    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
+      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  } else {
+    branchPolicies = [];
+  }
+  if (!branchPolicies.includes('release/*')) {
+    runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify({ name: 'release/*', type: 'branch' }));
+    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
+      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
+  }
+  if (!hasProductionProtection(environment, reviewerId, branchPolicies)) {
+    throw new Error('The Production Environment protection policy could not be verified; no secrets or variables were changed.');
+  }
+  return !existed;
+}
+
+function ensureDevelopmentEnvironment({ runCommand = runGh, repo, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
+  const endpoint = `repos/${repo}/environments/development`;
+  const policyEndpoint = `${endpoint}/deployment-branch-policies`;
+  if (environmentNames.includes('development')) return false;
+
+  runCommand(['api', '--method', 'PUT', endpoint, '--input', '-'], JSON.stringify({
+    deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+  }));
+  runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify({ name: 'dev', type: 'branch' }));
+  const environment = parseJsonResult(runCommand(['api', endpoint]), 'inspect the Development Environment');
+  const branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
+    .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  if (environment?.deployment_branch_policy?.custom_branch_policies !== true || !branchPolicies.includes('dev')) {
+    throw new Error('The Development Environment could not be restricted to the dev branch; no secrets or variables were changed.');
+  }
+  return true;
 }
 
 async function promptForConfirmation(expected, { input = process.stdin, output = process.stdout } = {}) {
@@ -102,12 +229,38 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
   }
   const values = readSecretFile(filePath || FILES[environment], environment);
   runCommand(['auth', 'status']);
-  runCommand(['secret', 'list', '--env', environment]);
-  const names = Object.keys(values).sort();
-  output.write(`Target GitHub Environment: ${environment}\nSecrets to update (${names.length}): ${names.join(', ')}\n`);
-  if (!yes || environment === 'production') {
-    const expected = environment === 'production' ? 'PRODUCTION' : 'DEVELOPMENT';
-    await confirm(expected, { output });
+  const repo = runCommand(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']);
+  if (!repo) throw new Error('Could not determine the GitHub repository; no secrets or variables were changed.');
+  const environmentNames = listEnvironmentNames({ runCommand, repo });
+  const environmentExists = environmentNames.includes(environment);
+  const names = Object.keys(values).filter((name) => REQUIRED[environment].includes(name)).sort();
+  const variableNames = Object.keys(values).filter((name) => REQUIRED_VARIABLES[environment].includes(name)).sort();
+  let environmentCreated = false;
+  let reviewerId = '';
+  output.write(`Target GitHub Environment: ${environment}\nSecrets to update (${names.length}): ${names.join(', ')}\nVariables to update (${variableNames.length}): ${variableNames.join(', ')}\n`);
+  if (!environmentExists) {
+    output.write(environment === 'production'
+      ? 'Environment guard: create if missing, allow release/* only, require the current GitHub account to approve.\n'
+      : 'Environment guard: create if missing and allow deployment from dev only.\n');
+  }
+  if (environment === 'production') {
+    reviewerId = runCommand(['api', 'user', '--jq', '.id']);
+    if (!/^\d+$/.test(reviewerId)) throw new Error('Could not determine the current GitHub reviewer; no secrets or variables were changed.');
+  } else if (environmentExists) {
+    runCommand(['secret', 'list', '--env', environment]);
+    runCommand(['variable', 'list', '--env', environment]);
+  }
+  if (environment === 'production' || !yes) {
+    await confirm(environment === 'production' ? 'PRODUCTION' : 'DEVELOPMENT', { output });
+  }
+  if (environment === 'production') {
+    environmentCreated = ensureProductionEnvironment({ runCommand, repo, reviewerId, environmentNames });
+  } else if (!environmentExists) {
+    environmentCreated = ensureDevelopmentEnvironment({ runCommand, repo, environmentNames });
+  }
+  if (!environmentExists || environment === 'production') {
+    runCommand(['secret', 'list', '--env', environment]);
+    runCommand(['variable', 'list', '--env', environment]);
   }
   let updated = 0;
   for (const name of names) {
@@ -115,15 +268,19 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
     updated += 1;
     output.write(`Updated ${name}\n`);
   }
-  output.write(`Completed: ${updated} GitHub ${environment} environment secrets updated. Values were not displayed.\n`);
-  return { environment, updated: names };
+  for (const name of variableNames) {
+    runCommand(['variable', 'set', name, '--env', environment, '--body', values[name]]);
+    output.write(`Updated variable ${name}\n`);
+  }
+  output.write(`Completed: ${updated} GitHub ${environment} environment secrets and ${variableNames.length} variables updated. Secret values were not displayed.\n`);
+  return { environment, updated: names, updatedVariables: variableNames, environmentCreated };
 }
 
 if (require.main === module) {
   syncGitHubSecrets(parseArguments(process.argv.slice(2))).catch((error) => {
-    process.stderr.write(`Secret sync stopped: ${error.message}\n`);
+    process.stderr.write(`GitHub Environment sync stopped: ${error.message}\n`);
     process.exitCode = 1;
   });
 }
 
-module.exports = { ALLOWED, FILES, REQUIRED, parseArguments, promptForConfirmation, readSecretFile, syncGitHubSecrets };
+module.exports = { ALLOWED, FILES, REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProductionEnvironment, hasProductionProtection, listEnvironmentNames, parseArguments, promptForConfirmation, readSecretFile, runGh, syncGitHubSecrets };
