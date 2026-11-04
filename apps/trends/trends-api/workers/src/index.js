@@ -1,4 +1,4 @@
-import { parseRssFeed } from '../../../shared/lib/rss-feed.js';
+import { parseRssFeed } from '../../../shared/lib/rss-feed.mjs';
 
 const DEFAULT_SCHEMA = 'trends';
 const DEFAULT_TABLE = 'items';

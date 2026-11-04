@@ -1,4 +1,4 @@
-import { parseRssFeed } from '../../../shared/lib/rss-feed.js';
+import { parseRssFeed } from '../../../shared/lib/rss-feed.mjs';
 
 const MAX_FEEDS = 8;
 const MAX_ITEMS_PER_FEED = 10;

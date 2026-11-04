@@ -167,3 +167,12 @@ BlogGenius API hostname after both hostnames pass smoke checks.
   Production sync then completed with seven secrets and the Cloudflare account
   variable. The Environment now supports the reviewer protection rule and is
   restricted to `release/*`. No Production Worker or site deployment has run.
+- 2026-11-04: The approved full unit run exposed an existing package-boundary
+  mismatch: `apps/trends/shared` declared ESM while its shared runtime modules
+  and 12 affected test/caller paths use CommonJS. Changed that package to
+  CommonJS and renamed the Worker-only RSS ESM module to `.mjs`, updating both
+  Worker imports. All 12 previously failing require-related tests now pass.
+  The full suite, run with its five loopback-listener cases excluded due to
+  sandbox `EPERM`, completed with 2,515 passing, 0 failing, and 1 pre-existing
+  skipped test. `npm run test:unit` still stops at its pretest security audit
+  because the current dependency tree reports two high-severity advisories.
