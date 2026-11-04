@@ -34,6 +34,16 @@ test('is idempotent when the domain already belongs to the target Worker', async
     assert.deepEqual(state.calls, []);
 });
 
+test('creates an explicitly allowed unbound domain and verifies the new Worker binding', async () => {
+    const state = makeAdapter({ owner: '' });
+    const result = await ensureWorkerDomain(state.adapter, {
+        accountId: 'account-1', hostname: 'www.example.com', workerName: 'new-worker', allowUnbound: true
+    });
+    assert.deepEqual(result, { hostname: 'www.example.com', workerName: 'new-worker', changed: true });
+    assert.equal(state.getOwner(), 'new-worker');
+    assert.deepEqual(state.calls, [{ accountId: 'account-1', hostname: 'www.example.com', workerName: 'new-worker' }]);
+});
+
 test('refuses missing target Workers, unknown owners, duplicate bindings, and missing host bindings', async () => {
     const input = { accountId: 'account-1', hostname: 'www.example.com', workerName: 'new-worker', allowedCurrentOwners: ['legacy-worker'] };
     await assert.rejects(() => ensureWorkerDomain(makeAdapter({ workerExists: false }).adapter, input), /must exist exactly once/);

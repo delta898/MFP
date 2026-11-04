@@ -233,7 +233,11 @@ leaves the public domain on its current Worker. The cutover operation validates
 the new Worker again, transfers the existing domain, and checks the public
 site. A rollback operation can return the domain to the preserved legacy
 Worker. Development deploys its new Worker, validates `workers.dev`, then
-transfers `www-dev.bloggenius.kr` from the known legacy Worker.
+transfers `www-dev.bloggenius.kr` from the known legacy Worker. If that
+Development hostname was manually detached first, the Development cutover
+operation can create the binding on the named Worker when no binding exists;
+unknown existing owners are still rejected. Production cutover continues to
+require a known existing owner.
 
 Production deployment is handled by
 `.github/workflows/deploy-trends-web-production.yml` from `release/*`, using a

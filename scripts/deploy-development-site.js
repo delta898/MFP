@@ -52,7 +52,9 @@ async function main(env = process.env) {
             accountId,
             hostname: SITE_HOST,
             workerName: targetWorker,
-            allowedCurrentOwners: [LEGACY_WORKER, WORKER_NAME]
+            allowedCurrentOwners: [LEGACY_WORKER, WORKER_NAME],
+            // A one-time manual detach may leave the hostname unbound before cutover.
+            allowUnbound: true
         });
         await checkWithRetry(() => checkUrl(`https://${SITE_HOST}/`, 'site'));
         console.info(JSON.stringify({ environment: 'development', operation: isRollback ? 'rollback-site-domain' : 'cutover-site-domain', worker_name: targetWorker, worker_url: workerUrl, ...result }));
