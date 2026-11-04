@@ -72,6 +72,13 @@ The earlier Oracle systemd-to-container migration used a blue/green switch from
 host `4581` to `4583`. Its legacy rollback procedure is documented in the
 [`Oracle Production runbook`](../../apps/trends/trends-api/docker/deployment/production/README.md).
 
+Production GitHub Actions entry-point workflows that use `workflow_dispatch`
+must also exist on the repository's default branch so GitHub can expose manual
+dispatch. The selected `release/*` ref remains the deployment source: the
+workflow validates that ref and checks out its exact commit SHA. Keeping the
+entry-point YAML on `main` does not make `main` a Production deployment target;
+release pushes alone do not start deployment.
+
 Preferred shape:
 
 ```text
