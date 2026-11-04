@@ -1,0 +1,96 @@
+name: Deploy Development Trends Site
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Development site operation
+        type: choice
+        required: true
+        default: deploy-site-worker
+        options:
+          - deploy-site-worker
+          - cutover-site-domain
+          - rollback-site-domain
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-trends-site
+  cancel-in-progress: false
+
+jobs:
+  require-dev-branch:
+    name: Require the dev branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject every ref except dev
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/dev" ]]; then
+            echo "::error::This Development site workflow can only run from the dev branch."
+            exit 1
+          fi
+
+  deploy-site-worker:
+    name: Deploy or update the Development site Worker
+    needs: require-dev-branch
+    if: inputs.operation == 'deploy-site-worker'
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      BLOGGENIUS_ENV: development
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+      - name: Build the Development site artifact
+        working-directory: workspace/site-hosting/sites/www-bloggenius-kr
+        env:
+          BLOGGENIUS_ENV: development
+          BLOGGENIUS_SITE_URL: https://www-dev.bloggenius.kr
+          PUBLIC_TRENDS_API_BASE_URL: https://trendapi-dev.bloggenius.kr
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.bloggenius.kr' dist
+      - name: Install Cloudflare deployment dependencies
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Deploy and smoke-check the named Development Worker
+        run: node scripts/deploy-development-site.js
+
+  development-site-domain:
+    name: Cut over or roll back the Development site domain
+    needs: require-dev-branch
+    if: inputs.operation == 'cutover-site-domain' || inputs.operation == 'rollback-site-domain'
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      BLOGGENIUS_ENV: development
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Cloudflare deployment dependencies
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Verify the new Worker before transferring the Development hostname
+        if: inputs.operation == 'cutover-site-domain'
+        run: node scripts/deploy-development-site.js --cutover-site-domain
+      - name: Return the Development hostname to the legacy Worker
+        if: inputs.operation == 'rollback-site-domain'
+        run: node scripts/deploy-development-site.js --rollback-site-domain
