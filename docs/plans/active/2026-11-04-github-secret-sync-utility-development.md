@@ -51,4 +51,14 @@ The user wants to avoid entering environment secrets manually in GitHub, Cloudfl
 
 ## Verification and follow-up
 
-Focused utility and workflow contract tests pass (8 utility tests plus the existing workflow contract tests); Newsletter Worker tests pass (38). Wrangler Development dry-run completed and printed the expected bindings; this sandbox denied Wrangler's optional log-file write under the user's Library Preferences, though the dry-run exited successfully. Workflow YAML parses, shell/JavaScript syntax checks pass, and `git diff --check` is clean. Remote GitHub secret registration, Cloudflare/Supabase mutation, and Production operation were not run.
+Focused utility and workflow contract tests pass (8 utility tests plus the existing workflow contract tests); Newsletter Worker tests pass (38). Workflow YAML parses, shell/JavaScript syntax checks pass, and `git diff --check` is clean. Wrangler Development dry-run completed and printed the expected bindings; its optional log-file write under the user's Library Preferences returned `EPERM`, but the dry-run exited successfully.
+
+The approved full unit run reached all 470 test files. Five loopback-listener test cases failed because the sandbox rejects binding `127.0.0.1` with `EPERM`:
+
+- `createServer leaves health public and protects data endpoints with the configured token`
+- `ingest rejects a collector from another Trends environment before database access`
+- `Astro runtime installs locked site dependencies, builds, and serves dist on loopback`
+- `Astro runtime builds a site before starting preview when no output exists`
+- `Astro runtime builds and serves a draft preview without recording a persistent Site build`
+
+Rerunning the full unit suite with only those five names excluded produced 2,506 passes, no failures, and one unrelated pre-existing skip. The standard `npm run test:unit` command stopped in its `pretest:unit` dependency audit before starting tests: npm reported 43 dependency advisories (4 low, 37 moderate, 2 high). No dependency changes were made. Remote GitHub secret registration, Cloudflare/Supabase mutation, and Production operation were not run.
