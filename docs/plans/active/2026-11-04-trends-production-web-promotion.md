@@ -186,3 +186,15 @@ BlogGenius API hostname after both hostnames pass smoke checks.
   separately selected, Production-environment-gated workflow operation
   smoke-checks and transfers the domain, with a rollback operation to the
   preserved legacy Worker. Existing Worker resources are retained.
+
+- 2026-11-05: The user paused further Production testing after the first
+  migration apply reached the Production Session Pooler. The workflow's
+  Edge Function secret sync completed with Production delivery disabled; the
+  following `db push` reported 35 local migrations pending, then stopped on
+  `202608270000_license_foundation.sql` because `public.licenses` already
+  exists. No migration, Edge Function, API Worker, site Worker, or site-domain
+  cutover completed in that run. Treat the Production migration history/schema
+  alignment (and exact pooler project target) as unresolved; do not retry the
+  Production workflow until Development validates the aligned migration and
+  deployment process. The dry-run preview does not detect this existing-table
+  conflict.

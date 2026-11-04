@@ -46,4 +46,3 @@ test('refuses missing target Workers, unknown owners, duplicate bindings, and mi
     await assert.rejects(() => ensureWorkerDomain(duplicates, input), /Multiple Worker domain bindings/);
     await assert.rejects(() => ensureWorkerDomain(makeAdapter({ owner: '' }).adapter, input), /no existing Worker binding/);
 });
-
