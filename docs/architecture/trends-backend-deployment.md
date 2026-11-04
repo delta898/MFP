@@ -238,12 +238,14 @@ following deployment job, which applies migrations and deploys the services.
 The preview is not a substitute for reviewing schema changes and
 backup/recovery plans.
 
-The local Production secret file now requires a distinct newsletter Worker
-token, dedicated canary trigger token, Telegram/Brevo credentials, sender,
-unsubscribe signing secret, and `NEWSLETTER_CANARY_EMAIL`. Secret sync writes
-only to GitHub's Production Environment. It does not deploy or change the
-Supabase Edge Function mode. Production secrets must not reuse Development
-values. Never record secret values in operational notes.
+The local Production secret file requires a distinct newsletter Worker token,
+dedicated canary trigger token, Telegram/Brevo credentials, sender, unsubscribe
+signing secret, and `NEWSLETTER_CANARY_EMAIL`. Production database migrations
+use the Supabase shared Session pooler URL (`SUPABASE_DB_POOLER_URL`, port
+`5432`) because GitHub-hosted runners may not support IPv6 direct connections.
+Secret sync writes only to GitHub's Production Environment. It does not deploy
+or change the Supabase Edge Function mode. Production secrets must not reuse
+Development values. Never record secret values in operational notes.
 
 ### Failure signatures observed during Development validation
 
