@@ -10,7 +10,8 @@ const edition = {
     featured_post: {
         title: 'BlogGenius 업데이트 안내',
         url: 'https://blog.gongzza.com/updates/1',
-        excerpt: '<script>alert(1)</script>새로운 기능을 소개합니다.'
+        excerpt: '<script>alert(1)</script>새로운 기능을 소개합니다.',
+        imageUrl: 'https://blog.gongzza.com/wp-content/cover.jpg'
     },
     download_url: 'https://www-dev.bloggenius.kr/download/',
     download_banner_url: 'https://www-dev.bloggenius.kr/assets/share-card.svg'
@@ -50,12 +51,25 @@ test('builds personalized HTML and text with all twenty movement details and cur
     assert.match(briefing.html, /NEW/);
     assert.doesNotMatch(briefing.html, /<script>/);
     assert.match(briefing.html, /https:\/\/blog\.gongzza\.com\/updates\/1/);
+    assert.match(briefing.html, /<img src="https:\/\/blog\.gongzza\.com\/wp-content\/cover\.jpg" alt="BlogGenius 업데이트 안내" width="144"/);
     assert.match(briefing.html, /share-card\.svg/);
     assert.match(briefing.html, /unsubscribe\//);
     assert.match(briefing.text, /전체 트렌드 보기/);
     assert.match(briefing.text, /도전인생 · BlogGenius/);
     assert.match(briefing.html, /도전인생 · BlogGenius/);
     assert.match(briefing.text, /구독 취소/);
+});
+
+test('omits an unsafe article thumbnail URL while keeping the article card', () => {
+    const briefing = makeBriefing({
+        edition: {
+            ...edition,
+            featured_post: { ...edition.featured_post, imageUrl: 'http://blog.gongzza.com/cover.jpg' }
+        }
+    });
+    assert.doesNotMatch(briefing.html, /src="http:\/\/blog\.gongzza\.com\/cover\.jpg"/);
+    assert.match(briefing.html, /BlogGenius 업데이트 안내/);
+    assert.match(briefing.html, /글 읽기/);
 });
 
 test('builds an unsubscribe-free Production canary with Production first-party links', () => {

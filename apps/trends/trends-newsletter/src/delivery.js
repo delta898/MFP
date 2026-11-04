@@ -109,6 +109,7 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
     const safeTrendsUrl = safeSiteUrl(trendsUrl, environment, '/trends/');
     const safeUnsubscribeUrl = unsubscribeUrl ? safeSiteUrl(unsubscribeUrl, environment, '/trends/unsubscribe/') : null;
     const articleUrl = safeHttpsUrl(edition.featured_post?.url);
+    const articleImageUrl = safeHttpsUrl(edition.featured_post?.imageUrl);
     const downloadUrl = safeSiteUrl(edition.download_url, environment, '/download/');
     const bannerUrl = safeSiteUrl(edition.download_banner_url, environment, '/assets/share-card.svg');
     if (!safeTrendsUrl || (includeUnsubscribe && !safeUnsubscribeUrl) || !articleUrl || !downloadUrl || !bannerUrl) {
@@ -174,9 +175,14 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
         ${htmlSections}
         <section style="margin:32px 0 0;padding:24px;border-radius:18px;background:#fff;border:1px solid #dce5df">
           <p style="margin:0 0 10px;color:#315f4c;font-size:12px;font-weight:700;letter-spacing:.16em">TODAY'S READ</p>
-          <h2 style="margin:0 0 10px;font-size:20px"><a href="${escapeHtml(articleUrl)}" style="color:#1e2b25;text-decoration:none">${escapeHtml(articleTitle)}</a></h2>
-          ${articleExcerpt ? `<p style="margin:0;color:#64736b;line-height:1.7">${escapeHtml(articleExcerpt)}</p>` : ''}
-          <p style="margin:18px 0 0"><a href="${escapeHtml(articleUrl)}" style="color:#315f4c;font-weight:700">글 읽기 →</a></p>
+          <table role="presentation" style="width:100%;border-collapse:collapse"><tbody><tr>
+            ${articleImageUrl ? `<td style="width:144px;padding:0 18px 0 0;vertical-align:top"><a href="${escapeHtml(articleUrl)}" style="display:block"><img src="${escapeHtml(articleImageUrl)}" alt="${escapeHtml(articleTitle)}" width="144" style="display:block;width:144px;max-width:100%;height:auto;border:0;border-radius:10px"></a></td>` : ''}
+            <td style="vertical-align:top">
+              <h2 style="margin:0 0 10px;font-size:20px;line-height:1.45"><a href="${escapeHtml(articleUrl)}" style="color:#1e2b25;text-decoration:none">${escapeHtml(articleTitle)}</a></h2>
+              ${articleExcerpt ? `<p style="margin:0;color:#64736b;line-height:1.7">${escapeHtml(articleExcerpt)}</p>` : ''}
+              <p style="margin:18px 0 0"><a href="${escapeHtml(articleUrl)}" style="color:#315f4c;font-weight:700">글 읽기 →</a></p>
+            </td>
+          </tr></tbody></table>
         </section>
         <section style="margin:24px 0 0;padding:18px;border-radius:18px;background:#e9f0eb;text-align:center">
           <a href="${escapeHtml(downloadUrl)}" style="display:block;color:#315f4c;text-decoration:none"><img src="${escapeHtml(bannerUrl)}" alt="BlogGenius 다운로드" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto 14px;border-radius:12px"><strong>BlogGenius 다운로드 →</strong></a>
