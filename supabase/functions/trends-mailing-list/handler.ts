@@ -1,6 +1,6 @@
 import { buildRecipientBriefing } from "../../../apps/trends/trends-newsletter/src/delivery.js";
 
-type Action = "subscribe" | "preview_confirmation" | "confirm" | "unsubscribe" | "deliver_batch";
+type Action = "subscribe" | "preview_confirmation" | "confirm" | "unsubscribe" | "deliver_batch" | "delivery_mode" | "send_canary";
 type HandlerOptions = {
   env?: Record<string, string | undefined>;
   fetcher?: typeof fetch;
@@ -120,11 +120,18 @@ export function createHandler(options: HandlerOptions = {}) {
     return null;
   }
 
+  function validEmailMode(environment: string, mode: string) {
+    return (environment === "development" && ["disabled", "allowlist"].includes(mode))
+      || (environment === "production" && ["disabled", "canary", "live"].includes(mode))
+      || (environment === "local" && ["disabled", "allowlist"].includes(mode));
+  }
+
   function canSendTo(email: string) {
     const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
-    const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "";
-    if (environment === "production") return mode === "live";
-    if (["local", "development"].includes(environment) && mode === "allowlist") {
+    const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "disabled";
+    if (!validEmailMode(environment, mode)) return false;
+    if (mode === "live") return true;
+    if (mode === "allowlist") {
       return new Set((getEnv("NEWSLETTER_EMAIL_ALLOWLIST") || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean)).has(email);
     }
     return false;
@@ -209,8 +216,8 @@ export function createHandler(options: HandlerOptions = {}) {
   async function deliverBatch(body: Record<string, unknown>) {
     const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
     const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "";
-    if (environment !== "development" || mode !== "allowlist") {
-      return json(403, { success: false, error: "development_allowlist_required" });
+    if (!validEmailMode(environment, mode) || !["allowlist", "live"].includes(mode)) {
+      return json(403, { success: false, error: "newsletter_delivery_disabled" });
     }
     const trendDate = String(body.trendDate || "").trim();
     const deliveryRevision = Number(body.deliveryRevision);
@@ -236,8 +243,9 @@ export function createHandler(options: HandlerOptions = {}) {
     let alreadyClaimed = 0;
     const signingSecret = getEnv("NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET")?.trim() || "";
     if (subscribers.length && signingSecret.length < 32) throw new Error("unsubscribe_signing_secret_not_configured");
-    const trendsUrl = "https://www-dev.bloggenius.kr/trends/";
-    const unsubscribeBase = "https://www-dev.bloggenius.kr/trends/unsubscribe/";
+    const siteOrigin = environment === "production" ? "https://www.bloggenius.kr" : "https://www-dev.bloggenius.kr";
+    const trendsUrl = `${siteOrigin}/trends/`;
+    const unsubscribeBase = `${siteOrigin}/trends/unsubscribe/`;
     let trends: unknown[] = [];
     if (subscribers.length) {
       const supabaseUrl = getEnv("SUPABASE_URL")?.trim() || "";
@@ -301,6 +309,7 @@ export function createHandler(options: HandlerOptions = {}) {
         const unsubscribeUrl = new URL(unsubscribeBase);
         unsubscribeUrl.searchParams.set("token", unsubscribeToken);
         const emailContent = buildRecipientBriefing({
+          environment,
           trendDate,
           categories: claim.categories,
           trends,
@@ -352,6 +361,35 @@ export function createHandler(options: HandlerOptions = {}) {
     try { body = await req.json(); } catch { return json(400, { success: false, error: "invalid_json" }); }
     const action = String(body.action || "") as Action;
     try {
+      if (action === "delivery_mode") {
+        const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
+        const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "disabled";
+        if (!validEmailMode(environment, mode)) {
+          return json(503, { success: false, error: "newsletter_delivery_policy_invalid" });
+        }
+        return json(200, { success: true, environment, mode,
+          deploymentId: environment === "production" ? getEnv("NEWSLETTER_DEPLOYMENT_ID")?.trim() || null : null });
+      }
+      if (action === "send_canary") {
+        const environment = getEnv("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
+        const mode = getEnv("NEWSLETTER_EMAIL_MODE")?.trim().toLowerCase() || "";
+        const recipient = getEnv("NEWSLETTER_CANARY_EMAIL")?.trim().toLowerCase() || "";
+        if (environment !== "production" || mode !== "canary"
+          || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient) || recipient.length > 254) {
+          return json(403, { success: false, error: "production_canary_policy_required" });
+        }
+        const trendDate = String(body.trendDate || "").trim();
+        const category = String(body.category || "").trim();
+        const subject = String(body.subject || "").trim();
+        const html = String(body.html || "");
+        const text = String(body.text || "");
+        if (!validTrendDate(trendDate) || !NEWSLETTER_CATEGORIES.has(category)
+          || !subject || subject.length > 200 || !html || html.length > 100_000 || !text || text.length > 30_000) {
+          return json(400, { success: false, error: "invalid_canary_content" });
+        }
+        const outcome = await sendCampaign(recipient, { subject, html, text }, trendDate);
+        return json(200, { success: true, trendDate, category, status: outcome.status, outcomeCode: outcome.outcomeCode });
+      }
       if (action === "subscribe") {
         const email = String(body.email || "").trim().toLowerCase();
         const categories = Array.isArray(body.categories) ? [...new Set(body.categories.map((item) => String(item).trim()))] : [];

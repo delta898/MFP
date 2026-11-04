@@ -58,6 +58,24 @@ test('builds personalized HTML and text with all twenty movement details and cur
     assert.match(briefing.text, /구독 취소/);
 });
 
+test('builds an unsubscribe-free Production canary with Production first-party links', () => {
+    const briefing = makeBriefing({
+        environment: 'production',
+        edition: {
+            ...edition,
+            download_url: 'https://www.bloggenius.kr/download/',
+            download_banner_url: 'https://www.bloggenius.kr/assets/share-card.svg'
+        },
+        trendsUrl: 'https://www.bloggenius.kr/trends/?date=2026-11-02',
+        unsubscribeUrl: undefined,
+        includeUnsubscribe: false
+    });
+    assert.match(briefing.html, /https:\/\/www\.bloggenius\.kr\/trends\//);
+    assert.match(briefing.html, /https:\/\/www\.bloggenius\.kr\/download\//);
+    assert.doesNotMatch(briefing.html, /unsubscribe/i);
+    assert.doesNotMatch(briefing.text, /구독 취소/);
+});
+
 test('orders increases by largest amount, then NEW, decreases closest to zero, then steady', () => {
     const rows = [
         { category: 'IT·컴퓨터', keyword: 'up-5', change_type: 'up', change_amount: 5, display_order: 1 },

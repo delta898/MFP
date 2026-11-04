@@ -1,4 +1,4 @@
-import { validateDevelopmentTarget } from '../readiness.js';
+import { validateNewsletterTarget } from '../readiness.js';
 
 function supabaseHeaders(secretKey) {
     return {
@@ -11,7 +11,7 @@ function supabaseHeaders(secretKey) {
 }
 
 async function callRpc(env, name, body) {
-    const { url } = validateDevelopmentTarget(env);
+    const { url, environment } = validateNewsletterTarget(env);
     const secretKey = String(env.SUPABASE_SECRET_KEY).trim();
     const response = await fetch(new URL(`/rest/v1/rpc/${name}`, url), {
         method: 'POST',
@@ -19,15 +19,15 @@ async function callRpc(env, name, body) {
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(15_000)
     });
-    if (!response.ok) throw new Error(`Development newsletter edition ${name} RPC failed with HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`${environment} newsletter edition ${name} RPC failed with HTTP ${response.status}.`);
     return response.json();
 }
 
-export async function loadDevelopmentEdition(env, trendDate) {
+export async function loadNewsletterEdition(env, trendDate) {
     return callRpc(env, 'get_trends_newsletter_edition', { p_trend_date: trendDate });
 }
 
-export async function saveDevelopmentEdition(env, edition) {
+export async function saveNewsletterEdition(env, edition) {
     return callRpc(env, 'save_trends_newsletter_edition', {
         p_trend_date: edition.trendDate,
         p_greeting: edition.greeting,
@@ -43,7 +43,7 @@ export async function saveDevelopmentEdition(env, edition) {
     });
 }
 
-export async function markDevelopmentEditionHeld(env, trendDate, reason) {
+export async function markNewsletterEditionHeld(env, trendDate, reason) {
     return callRpc(env, 'mark_trends_newsletter_edition_held', {
         p_trend_date: trendDate,
         p_reason_code: reason

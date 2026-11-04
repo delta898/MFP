@@ -34,6 +34,15 @@ test('explains when a prior delivery was already complete', () => {
     assert.doesNotMatch(summary, /0건 발송/);
 });
 
+test('explains that collection succeeded while subscriber email remains disabled', () => {
+    const summary = formatCollectorRunSummary({
+        environment: 'production', trendDate: '2026-11-04', runId: 'run-id', status: 'success',
+        delivery: { status: 'disabled', sent: 0, failed: 0, held: 0, skipped: 0 }
+    });
+    assert.match(summary, /수집 완료 · 메일 발송 대기/);
+    assert.match(summary, /현재 메일 발송 모드가 활성 상태가 아니에요/);
+});
+
 test('sends Telegram summaries only with configured credentials and validates provider acceptance', async (t) => {
     await assert.rejects(sendTelegramSummary({}, 'summary'), /secrets are not configured/);
     const originalFetch = globalThis.fetch;

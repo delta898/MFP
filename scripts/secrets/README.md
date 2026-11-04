@@ -28,8 +28,12 @@ before syncing. Quote values containing spaces, `#`, or other dotenv syntax
 characters. Do not put Production values in this file.
 
 The Production file contains Production-scoped GitHub secrets for
-Supabase/Cloudflare access and the Trends API. Production newsletter delivery
-remains a separate rollout.
+Supabase/Cloudflare access, Trends API, newsletter Worker/Edge Function,
+Telegram, and Brevo. `NEWSLETTER_CANARY_EMAIL` is stored as a Production
+Environment variable and is the only address the canary function can target.
+The regular Production email mode is deliberately not synced from this file;
+deployment sets it to `disabled`, and the protected control workflow changes it
+to `canary`, `live`, or `disabled`.
 
 Authenticate GitHub CLI for this repository once with `gh auth login`, then
 run the fixed-environment wrapper:

@@ -11,7 +11,10 @@ const { REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProduc
 function makeEnvironmentValues(environment) {
   return {
     ...Object.fromEntries(REQUIRED[environment].map((name) => [name, `fixture-${name}`])),
-    ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name, name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32) : `fixture-${name}`]))
+    ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name,
+      name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32)
+        : name === 'NEWSLETTER_CANARY_EMAIL' ? 'admin@example.test'
+          : `fixture-${name}`]))
   };
 }
 
@@ -67,6 +70,13 @@ test('requires a valid Cloudflare account ID before syncing GitHub settings', (t
   values.CLOUDFLARE_ACCOUNT_ID = 'not-an-account-id';
   const filePath = makeSecretFile(t, values);
   assert.throws(() => readSecretFile(filePath, 'production'), /32-character hexadecimal Cloudflare account ID/);
+});
+
+test('requires a single valid Production canary destination before syncing', (t) => {
+  const values = makeEnvironmentValues('production');
+  values.NEWSLETTER_CANARY_EMAIL = 'not-an-email';
+  const filePath = makeSecretFile(t, values);
+  assert.throws(() => readSecretFile(filePath, 'production'), /NEWSLETTER_CANARY_EMAIL must be a valid/);
 });
 
 test('refuses permissive local secret file permissions', (t) => {

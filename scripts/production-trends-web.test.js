@@ -1,10 +1,13 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const { validateProductionTrendsWebTargets } = require('./production-trends-web-targets');
 const { assertWorkflowContext } = require('./deploy-production-trends-site');
 const { checkUrl, runSmoke } = require('./production-trends-web-smoke');
+const productionWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-production.yml'), 'utf8');
 
 const expectedWorkers = [
     { id: 'bloggenius-trends-api-production' },
@@ -40,6 +43,18 @@ test('Production deploy wrapper accepts only workflow dispatch from release bran
     assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main', BLOGGENIUS_ENV: 'production' }), /release\/\*/);
     assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'production' }), /release\/\*/);
     assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'development' }), /BLOGGENIUS_ENV/);
+});
+
+test('Production migration preview must finish before the separately gated deploy job', () => {
+    const preview = productionWorkflow.match(/  production-migration-preview:[\s\S]*?(?=\n  deploy:)/)?.[0] || '';
+    const deploy = productionWorkflow.match(/  deploy:[\s\S]*$/)?.[0] || '';
+    assert.match(preview, /environment: production/);
+    assert.match(preview, /supabase db push --dry-run/);
+    assert.match(deploy, /needs: \[validate-release-ref, build, production-migration-preview\]/);
+    assert.match(deploy, /needs\.production-migration-preview\.result == 'success'/);
+    assert.match(deploy, /environment: production/);
+    assert.match(deploy, /Apply Production Supabase migrations[\s\S]*supabase db push --remote=/);
+    assert.doesNotMatch(deploy, /Preview Production migration changes/);
 });
 
 test('API smoke verifies healthy Production response from both configured hostnames', async () => {

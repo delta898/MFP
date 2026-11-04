@@ -24,13 +24,15 @@ const REQUIRED = Object.freeze({
   production: [
     'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD',
     'BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY', 'TRENDS_SUPABASE_SECRET_KEY',
-    'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET'
+    'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET', 'TRENDS_NEWSLETTER_WORKER_TOKEN',
+    'TRENDS_NEWSLETTER_CANARY_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
+    'BREVO_API_KEY', 'NEWSLETTER_EMAIL_FROM', 'NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET'
   ]
 });
 
 const REQUIRED_VARIABLES = Object.freeze({
   development: ['CLOUDFLARE_ACCOUNT_ID'],
-  production: ['CLOUDFLARE_ACCOUNT_ID']
+  production: ['CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL']
 });
 
 const ALLOWED = new Set([...Object.values(REQUIRED).flat(), ...Object.values(REQUIRED_VARIABLES).flat()]);
@@ -77,6 +79,9 @@ function readSecretFile(filePath, environment) {
     if (name === 'CLOUDFLARE_ACCOUNT_ID' && !/^[a-f\d]{32}$/i.test(String(values[name]).trim())) {
       throw new Error(`${name} must be a 32-character hexadecimal Cloudflare account ID.`);
     }
+  }
+  if (environment === 'production' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
+    throw new Error('NEWSLETTER_CANARY_EMAIL must be a valid single administrator email address.');
   }
   if (environment === 'development' && values.NEWSLETTER_EMAIL_MODE.trim() !== 'allowlist') {
     throw new Error('Development NEWSLETTER_EMAIL_MODE must be allowlist.');

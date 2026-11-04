@@ -337,3 +337,35 @@ test('confirmation and unsubscribe tokens are forwarded to their matching lifecy
         globalThis.fetch = originalFetch;
     }
 });
+
+test('Production canary endpoints require the dedicated token and never accept a recipient', async () => {
+    const created = [];
+    const signalId = 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9';
+    const canaryEnv = {
+        ...env,
+        TRENDS_ENV: 'production',
+        TRENDS_NEWSLETTER_CANARY_TOKEN: 'dedicated-canary-token',
+        TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: {
+            create: async (input) => { created.push(input); return { id: input.id }; },
+            get: async (id) => ({ id, status: async () => ({ status: 'complete', output: { canaryStatus: 'sent', releaseSha: 'a'.repeat(40) } }) })
+        }
+    };
+    const start = (authorization, body) => handleRequest(new Request('https://trendapi.example.test/internal/newsletter/canary', {
+        method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify(body)
+    }), canaryEnv);
+    assert.equal((await start('Bearer wrong-token', { trendDate: '2026-11-02', signalId, releaseSha: 'a'.repeat(40) })).status, 401);
+    const response = await start('Bearer dedicated-canary-token', { trendDate: '2026-11-02', signalId, releaseSha: 'a'.repeat(40), email: 'attacker@example.com' });
+    assert.equal(response.status, 202);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].id, `canary-${signalId}`);
+    assert.equal(created[0].params.mode, 'canary');
+    assert.equal(created[0].params.releaseSha, 'a'.repeat(40));
+    assert.equal('email' in created[0].params, false);
+    assert.equal('recipient' in created[0].params, false);
+
+    const status = await handleRequest(new Request(`https://trendapi.example.test/internal/newsletter/canary/${signalId}/status`, {
+        headers: { authorization: 'Bearer dedicated-canary-token' }
+    }), canaryEnv);
+    assert.equal(status.status, 200);
+    assert.equal((await status.json()).result.canaryStatus, 'sent');
+});

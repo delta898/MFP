@@ -1,5 +1,5 @@
 {
-  "name": "@bloggenius/trends-newsletter-workflow-dev",
+  "name": "@bloggenius/trends-newsletter-workflow",
   "private": true,
   "type": "module",
   "scripts": {

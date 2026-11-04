@@ -80,7 +80,16 @@ function deliveryHandler({
       const url = String(input);
       calls.push({ url, init });
       if (url.includes("/rpc/get_trends_newsletter_delivery_context")) {
-        return Response.json({ ...sharedEdition, run: { ...sharedEdition.run, delivery_status: runDeliveryStatus } });
+        const production = extraEnv.BLOGGENIUS_ENV === "production";
+        const context = production ? {
+          ...sharedEdition,
+          edition: {
+            ...sharedEdition.edition,
+            download_url: "https://www.bloggenius.kr/download/",
+            download_banner_url: "https://www.bloggenius.kr/assets/share-card.svg",
+          },
+        } : sharedEdition;
+        return Response.json({ ...context, run: { ...context.run, delivery_status: runDeliveryStatus } });
       }
       if (url.includes("/rpc/list_active_trends_subscribers")) return Response.json([activeSubscriber]);
       if (url.includes("/rest/v1/items")) return Response.json(trendRows());
@@ -123,6 +132,68 @@ Deno.test("rejects requests without the Worker token before calling dependencies
   const response = await handler(request({ action: "subscribe" }, "wrong-token"));
   assertEquals(response.status, 401);
   assertEquals(calls, 0);
+});
+
+Deno.test("reports only the validated Production delivery mode", async () => {
+  const handler = createHandler({ env: { ...baseEnv, BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "disabled" } });
+  const response = await handler(request({ action: "delivery_mode" }));
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { success: true, environment: "production", mode: "disabled", deploymentId: null });
+});
+
+Deno.test("Production canary uses only its fixed recipient and never touches subscriber or campaign RPCs", async () => {
+  const calls: Array<{ url: string; body?: Record<string, unknown> }> = [];
+  const handler = createHandler({
+    env: {
+      ...baseEnv, BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "canary",
+      NEWSLETTER_CANARY_EMAIL: "admin@example.com", NEWSLETTER_CONFIRMATION_URL: "https://www.bloggenius.kr/trends/confirm/",
+    },
+    fetcher: async (input, init = {}) => {
+      const url = String(input);
+      const body = init.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, body });
+      return Response.json({ messageId: "<canary-message-id>" }, { status: 201 });
+    },
+  });
+  const response = await handler(request({
+    action: "send_canary", trendDate: "2026-11-02", category: "IT·컴퓨터",
+    subject: "Production canary", html: "<p>Canary</p>", text: "Canary",
+    email: "attacker@example.com",
+  }));
+  assertEquals(response.status, 200);
+  assertEquals((await response.json() as Record<string, unknown>).status, "sent");
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].url, "https://api.brevo.com/v3/smtp/email");
+  assertEquals(calls[0].body?.to, [{ email: "admin@example.com" }]);
+});
+
+Deno.test("Production canary fails closed when mode is live or the fixed address is missing", async () => {
+  for (const extraEnv of [
+    { NEWSLETTER_EMAIL_MODE: "live", NEWSLETTER_CANARY_EMAIL: "admin@example.com" },
+    { NEWSLETTER_EMAIL_MODE: "canary", NEWSLETTER_CANARY_EMAIL: "" },
+  ]) {
+    let calls = 0;
+    const handler = createHandler({
+      env: { ...baseEnv, BLOGGENIUS_ENV: "production", ...extraEnv },
+      fetcher: async () => { calls++; return Response.json({}); },
+    });
+    const response = await handler(request({ action: "send_canary", trendDate: "2026-11-02", category: "IT·컴퓨터", subject: "Canary", html: "x", text: "x" }));
+    assertEquals(response.status, 403);
+    assertEquals(calls, 0);
+  }
+});
+
+Deno.test("email mode selects recipient policy while environment validation rejects unsafe mode combinations", async () => {
+  for (const [environment, mode] of [["production", "allowlist"], ["development", "live"]]) {
+    let calls = 0;
+    const handler = createHandler({
+      env: { ...baseEnv, BLOGGENIUS_ENV: environment, NEWSLETTER_EMAIL_MODE: mode },
+      fetcher: async () => { calls++; return Response.json({}); },
+    });
+    const response = await handler(request({ action: "subscribe", email: "reader@example.com", categories: ["IT·컴퓨터"], consent: true }));
+    assertEquals(response.status, 503);
+    assertEquals(calls, 0);
+  }
 });
 
 Deno.test("rejects invalid subscription input before database or mail calls", async () => {
@@ -295,15 +366,31 @@ Deno.test("sends a personalized Development campaign to an allowlisted subscribe
   });
 });
 
-Deno.test("keeps campaign delivery Development allowlist-only", async () => {
+Deno.test("blocks campaign delivery during Production canary mode", async () => {
   let calls = 0;
   const handler = createHandler({
-    env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "live" },
+    env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "canary" },
     fetcher: async () => { calls++; return new Response(); },
   });
   const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1 }));
   assertEquals(response.status, 403);
   assertEquals(calls, 0);
+});
+
+Deno.test("allows Production subscriber delivery only in live mode and uses Production links", async () => {
+  let emailPayload: Record<string, unknown> | undefined;
+  const { handler } = deliveryHandler({
+    extraEnv: {
+      BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "live",
+      NEWSLETTER_EMAIL_FROM: "BlogGenius <newsletter@example.com>",
+    },
+    onBrevo: (payload) => { emailPayload = payload; },
+  });
+  const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1 }));
+  assertEquals(response.status, 200);
+  assertEquals((emailPayload?.to as Array<{ email: string }>)[0].email, "reader@example.com");
+  assertStringIncludes(String(emailPayload?.htmlContent), "https://www.bloggenius.kr/download/");
+  assertStringIncludes(String(emailPayload?.htmlContent), "https://www.bloggenius.kr/trends/unsubscribe/");
 });
 
 Deno.test("does not call Brevo again for a recipient with an existing delivery claim", async () => {

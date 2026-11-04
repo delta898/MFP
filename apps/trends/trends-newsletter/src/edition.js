@@ -1,3 +1,5 @@
+import { NEWSLETTER_ENVIRONMENT_PROFILES } from './readiness.js';
+
 const SAFE_TEXT_LIMITS = Object.freeze({ greeting: 100, introduction: 360 });
 const GREETINGS = Object.freeze([
     '안녕하세요!',
@@ -58,7 +60,7 @@ export function validateSharedCopy(copy) {
     return { greeting, introduction };
 }
 
-export function buildSharedEdition({ trendDate, post, copy = buildSharedCopy(trendDate), downloadUrl, downloadBannerUrl }) {
+export function buildSharedEdition({ environment = 'development', trendDate, post, copy = buildSharedCopy(trendDate), downloadUrl, downloadBannerUrl }) {
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(trendDate || ''));
     const parsedDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])));
     if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trendDate) {
@@ -78,19 +80,22 @@ export function buildSharedEdition({ trendDate, post, copy = buildSharedCopy(tre
         throw new Error('RSS source returned no valid published article.');
     }
     const validatedCopy = validateSharedCopy(copy);
+    const profile = NEWSLETTER_ENVIRONMENT_PROFILES[environment];
+    if (!profile) throw new Error('Newsletter edition environment is invalid.');
+    const siteHost = new URL(profile.siteOrigin).hostname;
     const safeDownloadUrl = (() => {
         try {
             const url = new URL(downloadUrl);
-            return url.protocol === 'https:' && url.hostname === 'www-dev.bloggenius.kr' ? url.toString() : null;
+            return url.protocol === 'https:' && url.hostname === siteHost ? url.toString() : null;
         } catch { return null; }
     })();
     const safeBannerUrl = (() => {
         try {
             const url = new URL(downloadBannerUrl);
-            return url.protocol === 'https:' && url.hostname === 'www-dev.bloggenius.kr' ? url.toString() : null;
+            return url.protocol === 'https:' && url.hostname === siteHost ? url.toString() : null;
         } catch { return null; }
     })();
-    if (!safeDownloadUrl || !safeBannerUrl) throw new Error('Development download links are missing or invalid.');
+    if (!safeDownloadUrl || !safeBannerUrl) throw new Error(`${environment} download links are missing or invalid.`);
     return {
         trendDate,
         ...validatedCopy,

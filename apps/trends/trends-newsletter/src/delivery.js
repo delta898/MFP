@@ -1,8 +1,7 @@
-import { NAVER_TRENDS_CATEGORIES } from './readiness.js';
+import { NAVER_TRENDS_CATEGORIES, NEWSLETTER_ENVIRONMENT_PROFILES } from './readiness.js';
 
 const MAX_CATEGORIES = 10;
 const ITEMS_PER_CATEGORY = 20;
-const DEVELOPMENT_SITE_HOST = 'www-dev.bloggenius.kr';
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -14,10 +13,11 @@ function cleanText(value, maxLength = 500) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
-function safeDevelopmentUrl(value, allowedPath = null) {
+function safeSiteUrl(value, environment, allowedPath = null) {
     try {
         const url = new URL(String(value || ''));
-        if (url.protocol !== 'https:' || url.hostname !== DEVELOPMENT_SITE_HOST || url.username || url.password) return null;
+        const profile = NEWSLETTER_ENVIRONMENT_PROFILES[environment];
+        if (!profile || url.protocol !== 'https:' || url.origin !== profile.siteOrigin || url.username || url.password) return null;
         if (allowedPath && url.pathname !== allowedPath) return null;
         return url.toString();
     } catch {
@@ -102,17 +102,17 @@ function categoryItems(category, trends) {
     return rows;
 }
 
-export function buildRecipientBriefing({ trendDate, categories, trends, edition, trendsUrl, unsubscribeUrl }) {
+export function buildRecipientBriefing({ environment = 'development', trendDate, categories, trends, edition, trendsUrl, unsubscribeUrl, includeUnsubscribe = true }) {
     if (!validTrendDate(trendDate)) throw new Error('Invalid newsletter date.');
     const selectedCategories = validateCategories(categories);
     if (!edition || edition.status !== 'ready') throw new Error('Shared newsletter edition is not ready.');
-    const safeTrendsUrl = safeDevelopmentUrl(trendsUrl, '/trends/');
-    const safeUnsubscribeUrl = safeDevelopmentUrl(unsubscribeUrl, '/trends/unsubscribe/');
+    const safeTrendsUrl = safeSiteUrl(trendsUrl, environment, '/trends/');
+    const safeUnsubscribeUrl = unsubscribeUrl ? safeSiteUrl(unsubscribeUrl, environment, '/trends/unsubscribe/') : null;
     const articleUrl = safeHttpsUrl(edition.featured_post?.url);
-    const downloadUrl = safeDevelopmentUrl(edition.download_url, '/download/');
-    const bannerUrl = safeDevelopmentUrl(edition.download_banner_url, '/assets/share-card.svg');
-    if (!safeTrendsUrl || !safeUnsubscribeUrl || !articleUrl || !downloadUrl || !bannerUrl) {
-        throw new Error('Newsletter links are invalid for the Development environment.');
+    const downloadUrl = safeSiteUrl(edition.download_url, environment, '/download/');
+    const bannerUrl = safeSiteUrl(edition.download_banner_url, environment, '/assets/share-card.svg');
+    if (!safeTrendsUrl || (includeUnsubscribe && !safeUnsubscribeUrl) || !articleUrl || !downloadUrl || !bannerUrl) {
+        throw new Error(`Newsletter links are invalid for the ${environment} environment.`);
     }
 
     const dateLabel = formatDate(trendDate);
@@ -149,7 +149,7 @@ export function buildRecipientBriefing({ trendDate, categories, trends, edition,
         '도전인생 · BlogGenius',
         '선택하신 네이버 트렌드 카테고리를 바탕으로 보내드려요.',
         '',
-        `구독 취소: ${safeUnsubscribeUrl}`
+        includeUnsubscribe ? `구독 취소: ${safeUnsubscribeUrl}` : ''
     ].filter(Boolean).join('\n');
 
     const htmlSections = sections.map(({ category, items }) => `
@@ -184,7 +184,7 @@ export function buildRecipientBriefing({ trendDate, categories, trends, edition,
         <footer style="padding:28px 8px 0;color:#829087;font-size:12px;line-height:1.7">
           <p style="margin:0 0 8px;color:#315f4c;font-weight:700">도전인생 · BlogGenius</p>
           <p>선택하신 네이버 트렌드 카테고리를 바탕으로 보내드려요.</p>
-          <p><a href="${escapeHtml(safeUnsubscribeUrl)}" style="color:#53645b">구독 취소</a></p>
+          ${includeUnsubscribe ? `<p><a href="${escapeHtml(safeUnsubscribeUrl)}" style="color:#53645b">구독 취소</a></p>` : ''}
         </footer>
       </main>
     </body></html>`;

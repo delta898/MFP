@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     DEVELOPMENT_SUPABASE_PROJECT_REF,
+    PRODUCTION_SUPABASE_PROJECT_REF,
     NAVER_TRENDS_CATEGORIES,
     evaluateTrendsReadiness,
     getReadinessExpectations,
     previousKoreaDate,
-    readDevelopmentTrendRows,
-    recordDevelopmentCollectionResult,
-    validateDevelopmentTarget
+    readNewsletterTrendRows,
+    readNewsletterDeliveryMode,
+    recordNewsletterCollectionResult,
+    validateNewsletterTarget
 } from './readiness.js';
 
 function completeRows() {
@@ -59,20 +61,50 @@ test('allows the expected categories and item count to be configured', () => {
     assert.throws(() => getReadinessExpectations({ NEWSLETTER_ITEMS_PER_CATEGORY: '0' }), /between/);
 });
 
-test('refuses any Supabase target other than the Development project', () => {
+test('selects a Supabase target from its declared environment and rejects mismatches', () => {
     const devEnv = {
         BLOGGENIUS_ENV: 'development',
         SUPABASE_PROJECT_REF: DEVELOPMENT_SUPABASE_PROJECT_REF,
         SUPABASE_URL: `https://${DEVELOPMENT_SUPABASE_PROJECT_REF}.supabase.co`,
         SUPABASE_SECRET_KEY: 'test-only'
     };
-    assert.equal(validateDevelopmentTarget(devEnv).projectRef, DEVELOPMENT_SUPABASE_PROJECT_REF);
-    assert.throws(() => validateDevelopmentTarget({ ...devEnv, BLOGGENIUS_ENV: 'production' }), /restricted/);
-    assert.throws(() => validateDevelopmentTarget({ ...devEnv, SUPABASE_URL: 'https://hocfjolcthvtgfaxjmse.supabase.co' }), /does not match/);
-    assert.throws(() => validateDevelopmentTarget({ ...devEnv, SUPABASE_SECRET_KEY: '' }), /does not match/);
+    assert.equal(validateNewsletterTarget(devEnv).projectRef, DEVELOPMENT_SUPABASE_PROJECT_REF);
+    const productionEnv = {
+        BLOGGENIUS_ENV: 'production',
+        SUPABASE_PROJECT_REF: PRODUCTION_SUPABASE_PROJECT_REF,
+        SUPABASE_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`,
+        SUPABASE_SECRET_KEY: 'test-only'
+    };
+    assert.equal(validateNewsletterTarget(productionEnv).projectRef, PRODUCTION_SUPABASE_PROJECT_REF);
+    assert.throws(() => validateNewsletterTarget({ ...devEnv, BLOGGENIUS_ENV: 'staging' }), /supported/);
+    assert.throws(() => validateNewsletterTarget({ ...devEnv, SUPABASE_URL: 'https://hocfjolcthvtgfaxjmse.supabase.co' }), /does not match/);
+    assert.throws(() => validateNewsletterTarget({ ...devEnv, SUPABASE_SECRET_KEY: '' }), /does not match/);
 });
 
-test('reads only the fixed Development trends table and applies the trends schema profile', async () => {
+test('binds Production newsletter calls to the exact Production Supabase project and email mode', async () => {
+    const production = {
+        BLOGGENIUS_ENV: 'production',
+        SUPABASE_PROJECT_REF: PRODUCTION_SUPABASE_PROJECT_REF,
+        SUPABASE_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`,
+        SUPABASE_SECRET_KEY: 'test-only',
+        TRENDS_NEWSLETTER_WORKER_TOKEN: 'test-worker-token'
+    };
+    assert.equal(validateNewsletterTarget(production).profile.siteOrigin, 'https://www.bloggenius.kr');
+    assert.throws(() => validateNewsletterTarget({ ...production, SUPABASE_PROJECT_REF: DEVELOPMENT_SUPABASE_PROJECT_REF }), /does not match/);
+    const originalFetch = globalThis.fetch;
+    let captured;
+    globalThis.fetch = async (url, options) => {
+        captured = { url: new URL(url), options };
+        return Response.json({ success: true, environment: 'production', mode: 'disabled' });
+    };
+    try {
+        assert.equal(await readNewsletterDeliveryMode(production), 'disabled');
+        assert.equal(captured.url.hostname, `${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`);
+        assert.equal(JSON.parse(captured.options.body).action, 'delivery_mode');
+    } finally { globalThis.fetch = originalFetch; }
+});
+
+test('reads the selected target trends table and applies the trends schema profile', async () => {
     const originalFetch = globalThis.fetch;
     let captured;
     globalThis.fetch = async (url, options) => {
@@ -80,7 +112,7 @@ test('reads only the fixed Development trends table and applies the trends schem
         return Response.json([]);
     };
     try {
-        const rows = await readDevelopmentTrendRows({
+        const rows = await readNewsletterTrendRows({
             BLOGGENIUS_ENV: 'development',
             SUPABASE_PROJECT_REF: DEVELOPMENT_SUPABASE_PROJECT_REF,
             SUPABASE_URL: `https://${DEVELOPMENT_SUPABASE_PROJECT_REF}.supabase.co`,
@@ -98,7 +130,7 @@ test('reads only the fixed Development trends table and applies the trends schem
     }
 });
 
-test('persists only the collection result through the guarded public RPC', async () => {
+test('persists the collection result through the target-validated public RPC', async () => {
     const originalFetch = globalThis.fetch;
     let captured;
     globalThis.fetch = async (url, options) => {
@@ -106,7 +138,7 @@ test('persists only the collection result through the guarded public RPC', async
         return Response.json('run-id');
     };
     try {
-        const result = await recordDevelopmentCollectionResult({
+        const result = await recordNewsletterCollectionResult({
             BLOGGENIUS_ENV: 'development',
             SUPABASE_PROJECT_REF: DEVELOPMENT_SUPABASE_PROJECT_REF,
             SUPABASE_URL: `https://${DEVELOPMENT_SUPABASE_PROJECT_REF}.supabase.co`,

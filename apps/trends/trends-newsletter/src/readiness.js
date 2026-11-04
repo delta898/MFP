@@ -1,4 +1,9 @@
 export const DEVELOPMENT_SUPABASE_PROJECT_REF = 'bvtlwjbmjnfphxlrkzhm';
+export const PRODUCTION_SUPABASE_PROJECT_REF = 'hocfjolcthvtgfaxjmse';
+export const NEWSLETTER_ENVIRONMENT_PROFILES = Object.freeze({
+    development: Object.freeze({ projectRef: DEVELOPMENT_SUPABASE_PROJECT_REF, siteOrigin: 'https://www-dev.bloggenius.kr' }),
+    production: Object.freeze({ projectRef: PRODUCTION_SUPABASE_PROJECT_REF, siteOrigin: 'https://www.bloggenius.kr' })
+});
 
 export const NAVER_TRENDS_CATEGORIES = Object.freeze([
     'IT·컴퓨터', '건강·의학', '게임', '공연·전시', '교육·학문', '국내여행', '드라마', '만화·애니',
@@ -36,28 +41,43 @@ export function getReadinessExpectations(env = {}) {
     return { categories, itemsPerCategory: configuredItems };
 }
 
-export function validateDevelopmentTarget(env) {
-    if (String(env.BLOGGENIUS_ENV || '').trim() !== 'development') {
-        throw new Error('Newsletter Workflow is restricted to the Development environment.');
-    }
-
+export function validateNewsletterTarget(env) {
+    const environment = String(env.BLOGGENIUS_ENV || '').trim().toLowerCase();
+    const profile = NEWSLETTER_ENVIRONMENT_PROFILES[environment];
+    if (!profile) throw new Error('Newsletter Workflow requires a supported Development or Production environment.');
     const configuredRef = String(env.SUPABASE_PROJECT_REF || '').trim();
     const supabaseUrl = String(env.SUPABASE_URL || '').trim();
     let url;
     try {
         url = new URL(supabaseUrl);
     } catch {
-        throw new Error('Development Supabase URL is missing or invalid.');
+        throw new Error(`${environment} Supabase URL is missing or invalid.`);
     }
 
-    if (configuredRef !== DEVELOPMENT_SUPABASE_PROJECT_REF
+    if (configuredRef !== profile.projectRef
         || url.protocol !== 'https:'
-        || url.hostname !== `${DEVELOPMENT_SUPABASE_PROJECT_REF}.supabase.co`
+        || url.hostname !== `${profile.projectRef}.supabase.co`
         || !String(env.SUPABASE_SECRET_KEY || '').trim()) {
-        throw new Error('Newsletter Workflow target does not match the approved Development Supabase project.');
+        throw new Error(`Newsletter Workflow target does not match the approved ${environment} Supabase project.`);
     }
 
-    return { url: url.origin, projectRef: configuredRef };
+    return { environment, profile, url: url.origin, projectRef: configuredRef };
+}
+
+export async function readNewsletterDeliveryMode(env) {
+    const { url, environment } = validateNewsletterTarget(env);
+    const token = String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim();
+    if (!token) throw new Error('Newsletter delivery token is missing.');
+    const response = await fetch(new URL('/functions/v1/trends-mailing-list', url), {
+        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'delivery_mode' }), signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) throw new Error(`${environment} newsletter delivery mode check failed with HTTP ${response.status}.`);
+    const result = await response.json();
+    if (result?.success !== true || result.environment !== environment || !['disabled', 'allowlist', 'canary', 'live'].includes(result.mode)) {
+        throw new Error('Newsletter delivery mode response is invalid.');
+    }
+    return result.mode;
 }
 
 export function evaluateTrendsReadiness(rows, trendDate, {
@@ -110,12 +130,12 @@ export function evaluateTrendsReadiness(rows, trendDate, {
     };
 }
 
-export async function readDevelopmentTrendRows(env, trendDate) {
-    const { url } = validateDevelopmentTarget(env);
+export async function readNewsletterTrendRows(env, trendDate) {
+    const { url, environment } = validateNewsletterTarget(env);
     const secretKey = String(env.SUPABASE_SECRET_KEY).trim();
     const endpoint = new URL('/rest/v1/items', url);
     endpoint.search = new URLSearchParams({
-        select: 'source,trend_date,category,keyword',
+        select: 'source,trend_date,category,keyword,change_raw,change_type,change_amount,display_order',
         source: 'eq.naver_creator_advisor',
         trend_date: `eq.${trendDate}`,
         order: 'category.asc,keyword.asc',
@@ -131,15 +151,15 @@ export async function readDevelopmentTrendRows(env, trendDate) {
         signal: AbortSignal.timeout(15_000)
     });
     if (!response.ok) {
-        throw new Error(`Development trends read failed with HTTP ${response.status}.`);
+        throw new Error(`${environment} trends read failed with HTTP ${response.status}.`);
     }
     const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error('Development trends response was not a row list.');
+    if (!Array.isArray(rows)) throw new Error('Newsletter trends response was not a row list.');
     return rows;
 }
 
-export async function recordDevelopmentCollectionResult(env, result) {
-    const { url } = validateDevelopmentTarget(env);
+export async function recordNewsletterCollectionResult(env, result) {
+    const { url, environment } = validateNewsletterTarget(env);
     const secretKey = String(env.SUPABASE_SECRET_KEY).trim();
     const endpoint = new URL('/rest/v1/rpc/record_trends_newsletter_collection', url);
     const response = await fetch(endpoint, {
@@ -163,6 +183,6 @@ export async function recordDevelopmentCollectionResult(env, result) {
         }),
         signal: AbortSignal.timeout(15_000)
     });
-    if (!response.ok) throw new Error(`Development newsletter state write failed with HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`${environment} newsletter state write failed with HTTP ${response.status}.`);
     return response.json();
 }

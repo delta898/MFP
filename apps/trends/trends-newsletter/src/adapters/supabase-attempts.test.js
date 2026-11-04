@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recordDevelopmentNewsletterAttempt } from './supabase-attempts.js';
-import { DEVELOPMENT_SUPABASE_PROJECT_REF } from '../readiness.js';
+import { recordNewsletterAttempt } from './supabase-attempts.js';
+import { DEVELOPMENT_SUPABASE_PROJECT_REF, PRODUCTION_SUPABASE_PROJECT_REF } from '../readiness.js';
 
 const env = {
     BLOGGENIUS_ENV: 'development',
@@ -24,7 +24,7 @@ test('records an independent attempt by its signal ID through a private RPC', as
             trendDate: '2026-11-02', status: 'running', collectionStatus: 'complete',
             editionStatus: 'drafting', collectionReport: { uniqueTotal: 640 }
         };
-        assert.deepEqual(await recordDevelopmentNewsletterAttempt(env, attempt), { id: 'attempt-id' });
+        assert.deepEqual(await recordNewsletterAttempt(env, attempt), { id: 'attempt-id' });
         assert.equal(request.url.pathname, '/rest/v1/rpc/save_trends_newsletter_attempt');
         assert.equal(request.options.headers['content-profile'], 'public');
         assert.deepEqual(JSON.parse(request.options.body), {
@@ -36,6 +36,20 @@ test('records an independent attempt by its signal ID through a private RPC', as
     } finally { globalThis.fetch = originalFetch; }
 });
 
-test('cannot record an attempt against Production Supabase', async () => {
-    await assert.rejects(recordDevelopmentNewsletterAttempt({ ...env, BLOGGENIUS_ENV: 'production' }, {}), /restricted to the Development/);
+test('records an attempt against the Supabase project selected by target configuration', async () => {
+    const originalFetch = globalThis.fetch;
+    let request;
+    globalThis.fetch = async (url, options) => {
+        request = new URL(url);
+        return Response.json({ id: 'production-attempt-id' });
+    };
+    try {
+        const target = {
+            ...env, BLOGGENIUS_ENV: 'production',
+            SUPABASE_PROJECT_REF: PRODUCTION_SUPABASE_PROJECT_REF,
+            SUPABASE_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`
+        };
+        assert.deepEqual(await recordNewsletterAttempt(target, {}), { id: 'production-attempt-id' });
+        assert.equal(request.hostname, `${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`);
+    } finally { globalThis.fetch = originalFetch; }
 });

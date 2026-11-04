@@ -63,3 +63,12 @@ TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE = "60"
 TRENDS_PUBLIC_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
 TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
 TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "false"
+TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
+TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+TRENDS_NEWSLETTER_FUNCTION_URL = "https://hocfjolcthvtgfaxjmse.supabase.co/functions/v1/trends-mailing-list"
+
+[[env.production.workflows]]
+name = "bloggenius-trends-readiness-production"
+binding = "TRENDS_NEWSLETTER_COLLECTION_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"
+script_name = "bloggenius-trends-newsletter-production"

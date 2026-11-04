@@ -25,14 +25,17 @@ const STAGE_LABELS = {
 
 export function formatCollectorRunSummary({ environment, trendDate, runId, status, stage, error, delivery }) {
     const succeeded = status === 'success';
+    const deliveryPaused = delivery?.status === 'disabled';
     const lines = [
         `${succeeded ? '🟢' : '🔴'} <b>네이버 트렌드 뉴스레터</b>`,
-        `<b>${succeeded ? '발송 완료' : '실행 실패'}</b>`,
+        `<b>${deliveryPaused ? '수집 완료 · 메일 발송 대기' : succeeded ? '발송 완료' : '실행 실패'}</b>`,
         `🗓 ${formatDate(trendDate)}  ·  ${environment === 'development' ? '개발' : escapeHtml(environment)}`
     ];
 
     if (delivery?.status === 'already_processed') {
         lines.push('', '📨 이전 발송이 완료되어 이번 실행에서는 메일을 보내지 않았어요.');
+    } else if (deliveryPaused) {
+        lines.push('', '📭 현재 메일 발송 모드가 활성 상태가 아니에요. 구독자 메일은 발송하지 않았습니다.');
     } else if (delivery) {
         lines.push(
             '',

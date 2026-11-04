@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadDevelopmentEdition, markDevelopmentEditionHeld, saveDevelopmentEdition } from './supabase-editions.js';
-import { DEVELOPMENT_SUPABASE_PROJECT_REF } from '../readiness.js';
+import { loadNewsletterEdition, markNewsletterEditionHeld, saveNewsletterEdition } from './supabase-editions.js';
+import { DEVELOPMENT_SUPABASE_PROJECT_REF, PRODUCTION_SUPABASE_PROJECT_REF } from '../readiness.js';
 
 const env = {
     BLOGGENIUS_ENV: 'development',
@@ -18,7 +18,7 @@ test('loads one shared edition through the service-only public RPC', async () =>
         return Response.json({ status: 'ready', trend_date: '2026-11-02' });
     };
     try {
-        const result = await loadDevelopmentEdition(env, '2026-11-02');
+        const result = await loadNewsletterEdition(env, '2026-11-02');
         assert.equal(result.status, 'ready');
         assert.equal(captured.url.pathname, '/rest/v1/rpc/get_trends_newsletter_edition');
         assert.equal(captured.options.headers['content-profile'], 'public');
@@ -40,8 +40,8 @@ test('saves a date-keyed shared edition and records only a bounded failure code'
             downloadUrl: 'https://www-dev.bloggenius.kr/download/', downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg',
             aiProvider: null, aiModel: null, promptVersion: 'shared-edition-v2-static'
         };
-        await saveDevelopmentEdition(env, edition);
-        await markDevelopmentEditionHeld(env, '2026-11-02', 'generation_failed');
+        await saveNewsletterEdition(env, edition);
+        await markNewsletterEditionHeld(env, '2026-11-02', 'generation_failed');
         assert.equal(captured[0].url.pathname, '/rest/v1/rpc/save_trends_newsletter_edition');
         assert.equal(JSON.parse(captured[0].options.body).p_featured_post.id, 7);
         assert.equal(captured[1].url.pathname, '/rest/v1/rpc/mark_trends_newsletter_edition_held');
@@ -58,7 +58,7 @@ test('only Development can opt into replacing a ready edition for a deliberate r
         return Response.json({ status: 'ready' });
     };
     try {
-        await saveDevelopmentEdition({ ...env, NEWSLETTER_REGENERATE_ON_SIGNAL: 'true' }, {
+        await saveNewsletterEdition({ ...env, NEWSLETTER_REGENERATE_ON_SIGNAL: 'true' }, {
             trendDate: '2026-11-02', greeting: '안녕하세요.', introduction: '오늘의 안내입니다.',
             featuredPost: { title: '글' }, downloadUrl: 'https://www-dev.bloggenius.kr/download/',
             downloadBannerUrl: 'https://www-dev.bloggenius.kr/assets/share-card.svg',
@@ -68,6 +68,21 @@ test('only Development can opt into replacing a ready edition for a deliberate r
     } finally { globalThis.fetch = originalFetch; }
 });
 
-test('refuses to call any Supabase project other than Development', async () => {
-    await assert.rejects(loadDevelopmentEdition({ ...env, SUPABASE_PROJECT_REF: 'production-ref' }, '2026-11-02'), /does not match/);
+test('validates the configured project instead of assuming Development', async () => {
+    await assert.rejects(loadNewsletterEdition({ ...env, SUPABASE_PROJECT_REF: 'production-ref' }, '2026-11-02'), /does not match/);
+    const originalFetch = globalThis.fetch;
+    let request;
+    globalThis.fetch = async (url) => {
+        request = new URL(url);
+        return Response.json({ status: 'ready', trend_date: '2026-11-02' });
+    };
+    try {
+        const target = {
+            ...env, BLOGGENIUS_ENV: 'production',
+            SUPABASE_PROJECT_REF: PRODUCTION_SUPABASE_PROJECT_REF,
+            SUPABASE_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`
+        };
+        await loadNewsletterEdition(target, '2026-11-02');
+        assert.equal(request.hostname, `${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`);
+    } finally { globalThis.fetch = originalFetch; }
 });

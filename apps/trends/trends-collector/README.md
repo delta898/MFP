@@ -18,11 +18,16 @@ cp apps/trends/trends-collector/config/.env.trends-collector.production.sample \
 
 ## 실행
 
+수집 처리 로직은 `bin/collect.js` 하나를 공유합니다. 환경별 명령은 서로 다른
+`.env.trends-collector.<environment>` 설정과 API 대상을 선택하는 얇은 진입점이며,
+Production 명령에는 별도의 write 승인 절차가 있습니다.
+
 ```bash
 ./apps/trends/trends-collector/commands/collect_local.sh
 ./apps/trends/trends-collector/commands/collect_development.sh
 ./apps/trends/trends-collector/commands/collect_development.sh --date 2026-08-28
 ./apps/trends/trends-collector/commands/collect_development.sh --date=-1d
+./apps/trends/trends-collector/commands/collect_range_development.sh --start 2026-10-01 --end 2026-10-03
 ```
 
 Production은 기본적으로 한 번 수집한 payload의 날짜·건수를 먼저 보여주고, TTY에서 정확히
@@ -43,7 +48,16 @@ Production은 기본적으로 한 번 수집한 payload의 날짜·건수를 먼
 # CI/cron 등 비대화형 실제 반영: 명시적 승인 옵션 필수
 ./apps/trends/trends-collector/commands/collect_production.sh \
   --confirm-production --date=-1d
+
+# Production 날짜 범위: 날짜마다 Production 확인 옵션을 적용하며 실패 시 중단
+./apps/trends/trends-collector/commands/collect_range_production.sh \
+  --start 2026-10-01 --end 2026-10-03
 ```
+
+날짜 범위 실행기는 `collect_range.sh` 하나를 사용합니다. `collect_range_development.sh`와
+`collect_range_production.sh`는 환경을 명시하는 편의 진입점으로, 각 날짜의 단일 수집을
+환경별 명령에 위임합니다. Development 범위는 실패 날짜를 모아 나머지를 계속 수집하고,
+Production 범위는 첫 실패에서 중단합니다.
 
 `--dry-run`과 `--confirm-production`은 함께 쓸 수 없습니다. TTY가 없는 환경에서 명시적 모드
 없이 실행하면 수집 전에 실패합니다. 실제 write guard는 interactive 승인 또는

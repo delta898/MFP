@@ -37,6 +37,7 @@ function getConfig(env) {
         subscribeRateLimitPerMinute: Math.max(1, Number.parseInt(env.TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE, 10) || 5),
         newsletterFunctionUrl: String(env.TRENDS_NEWSLETTER_FUNCTION_URL || '').trim().replace(/\/+$/, ''),
         newsletterWorkerToken: String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim(),
+        newsletterCanaryToken: String(env.TRENDS_NEWSLETTER_CANARY_TOKEN || '').trim(),
         newsletterExpectedCategories: Math.max(1, Number.parseInt(env.TRENDS_NEWSLETTER_EXPECTED_CATEGORIES, 10) || 32),
         newsletterItemsPerCategory: Math.max(1, Number.parseInt(env.TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY, 10) || 20),
         supabaseUrl: String(env.SUPABASE_URL || '').replace(/\/+$/, ''),
@@ -715,6 +716,66 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     }
 }
 
+async function handleNewsletterCanary(request, config, env) {
+    if (config.environment !== 'production' || !config.newsletterCanaryToken
+        || !constantTimeEquals(bearerToken(request), config.newsletterCanaryToken)) {
+        return jsonResponse(401, { success: false, message: 'Unauthorized' });
+    }
+    let body;
+    try { body = await request.json(); } catch { return jsonResponse(400, { success: false, message: 'Invalid JSON body' }); }
+    let trendDate;
+    try { trendDate = normalizeYmd(body?.trendDate, 'trendDate'); }
+    catch { return jsonResponse(400, { success: false, message: 'trendDate must be YYYY-MM-DD' }); }
+    const signalId = String(body?.signalId || '').trim().toLowerCase();
+    const releaseSha = String(body?.releaseSha || '').trim().toLowerCase();
+    if (!trendDate || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
+        return jsonResponse(400, { success: false, message: 'Invalid canary date or signal ID' });
+    }
+    if (!/^[0-9a-f]{40}$/.test(releaseSha)) return jsonResponse(400, { success: false, message: 'Invalid canary release SHA' });
+    const workflow = env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW;
+    if (!workflow?.create || !workflow?.get) return jsonResponse(503, { success: false, message: 'Newsletter canary workflow is unavailable' });
+    const instanceId = `canary-${signalId}`;
+    try {
+        let instance;
+        let duplicate = false;
+        try {
+            instance = await workflow.create({ id: instanceId, params: {
+                environment: 'production', mode: 'canary', trendDate, signalId,
+                releaseSha,
+                source: 'naver_creator_advisor', signalItemCount: config.newsletterExpectedCategories * config.newsletterItemsPerCategory,
+                runStatus: 'collected'
+            } });
+        } catch {
+            instance = await workflow.get(instanceId);
+            const state = await instance.status();
+            if (state?.status === 'errored' || state?.status === 'terminated') await instance.restart();
+            else duplicate = true;
+        }
+        return jsonResponse(202, { success: true, accepted: true, duplicate, signalId, workflowId: instance.id || instanceId });
+    } catch (error) {
+        console.error('[trends-api-workers] production newsletter canary trigger failed', error.message);
+        return jsonResponse(503, { success: false, message: 'Newsletter canary could not be started' });
+    }
+}
+
+async function handleNewsletterCanaryStatus(request, config, env, signalId) {
+    if (config.environment !== 'production' || !config.newsletterCanaryToken
+        || !constantTimeEquals(bearerToken(request), config.newsletterCanaryToken)) {
+        return jsonResponse(401, { success: false, message: 'Unauthorized' });
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
+        return jsonResponse(400, { success: false, message: 'Invalid canary signal ID' });
+    }
+    try {
+        const instance = await env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW?.get(`canary-${signalId}`);
+        if (!instance) return jsonResponse(404, { success: false, message: 'Canary not found' });
+        const state = await instance.status();
+        return jsonResponse(200, { success: true, signalId, status: state?.status || 'unknown', result: state?.output || null });
+    } catch {
+        return jsonResponse(404, { success: false, message: 'Canary not found' });
+    }
+}
+
 export async function handleRequest(request, env) {
     const config = getConfig(env);
     const url = new URL(request.url);
@@ -737,6 +798,9 @@ export async function handleRequest(request, env) {
         return handlePublicSubscription(request, config, url.pathname, origin);
     }
     if (method === 'POST' && url.pathname === '/internal/ingest/naver-trends') return handleIngest(request, config);
+    if (method === 'POST' && url.pathname === '/internal/newsletter/canary') return handleNewsletterCanary(request, config, env);
+    const canaryStatusMatch = method === 'GET' && url.pathname.match(/^\/internal\/newsletter\/canary\/([0-9a-f-]{36})\/status$/i);
+    if (canaryStatusMatch) return handleNewsletterCanaryStatus(request, config, env, canaryStatusMatch[1].toLowerCase());
     if (method === 'POST' && ['/internal/newsletter/collection-complete', '/internal/newsletter/collector-run'].includes(url.pathname)) return handleNewsletterCollectionComplete(request, config, env);
     if (method === 'GET' && ['/api/v1/trends', '/api/v1/trends/meta', '/exports/trends.csv', '/exports/trends.xlsx'].includes(url.pathname)) {
         const internalRoute = url.pathname.startsWith('/exports/');
