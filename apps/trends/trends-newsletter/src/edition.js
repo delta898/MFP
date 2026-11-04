@@ -1,4 +1,11 @@
 const SAFE_TEXT_LIMITS = Object.freeze({ greeting: 100, introduction: 360 });
+const GREETINGS = Object.freeze([
+    '안녕하세요!',
+    '오늘도 찾아주셔서 반가워요.',
+    '오늘의 트렌드를 전해드려요.',
+    '오늘도 관심 트렌드를 함께 살펴봐요!',
+    '가볍게 오늘의 트렌드를 살펴볼까요?'
+]);
 
 function cleanText(value) {
     return String(value || '')
@@ -22,15 +29,19 @@ function safeArticleUrl(value) {
     }
 }
 
-export function buildSharedCopy(trendDate) {
+export function buildSharedCopy(trendDate, { random = Math.random } = {}) {
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(trendDate || ''));
     const parsedDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])));
     if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trendDate) {
         throw new Error('Invalid edition date.');
     }
     const [year, month, day] = trendDate.split('-').map(Number);
+    const randomValue = Number(random());
+    if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) {
+        throw new Error('Newsletter greeting random source must return a number from 0 (inclusive) to 1 (exclusive).');
+    }
     return {
-        greeting: '좋은 아침이에요!',
+        greeting: GREETINGS[Math.floor(randomValue * GREETINGS.length)],
         introduction: `${year}년 ${month}월 ${day}일, 오늘의 관심 트렌드를 가볍게 살펴보고 하루를 여는 데 참고해 보세요.`
     };
 }

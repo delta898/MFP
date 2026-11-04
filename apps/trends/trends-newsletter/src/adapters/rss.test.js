@@ -9,9 +9,9 @@ const feeds = JSON.stringify([
 
 test('parses a WordPress RSS item into a short summary and never retains its full content', async () => {
     const originalFetch = globalThis.fetch;
-    let captured;
+    const called = [];
     globalThis.fetch = async (url, options) => {
-        captured = { url: new URL(url), options };
+        called.push({ url: new URL(url), options });
         return new Response(`<?xml version="1.0"?><rss><channel><item>
           <title><![CDATA[BlogGenius 글]]></title><link>https://blog.gongzza.com/guide/one/</link>
           <guid>https://blog.gongzza.com/guide/one/</guid><pubDate>Mon, 02 Nov 2026 00:00:00 +0000</pubDate>
@@ -21,9 +21,11 @@ test('parses a WordPress RSS item into a short summary and never retains its ful
         </item></channel></rss>`, { headers: { 'content-type': 'application/rss+xml' } });
     };
     try {
-        const post = await fetchFeaturedBlogPost(feeds);
-        assert.equal(captured.url.href, 'https://blog.gongzza.com/feed/');
-        assert.match(captured.options.headers.accept, /application\/rss\+xml/);
+        const post = await fetchFeaturedBlogPost(feeds, { random: () => 0 });
+        assert.equal(called.length, 2);
+        assert.equal(called[0].url.href, 'https://blog.gongzza.com/feed/');
+        assert.equal(called[1].url.href, 'https://rss.blog.naver.com/amadejjs');
+        assert.match(called[0].options.headers.accept, /application\/rss\+xml/);
         assert.equal(post.title, 'BlogGenius 글');
         assert.equal(post.excerpt, '짧은 요약');
         assert.equal(post.url, 'https://blog.gongzza.com/guide/one/');
@@ -33,25 +35,45 @@ test('parses a WordPress RSS item into a short summary and never retains its ful
     } finally { globalThis.fetch = originalFetch; }
 });
 
-test('falls back in configured order when an RSS source fails and parses Naver Atom-style item', async () => {
+test('continues after a feed failure and selects among posts from all available feeds', async () => {
     const originalFetch = globalThis.fetch;
     const called = [];
     globalThis.fetch = async (url) => {
         called.push(new URL(url).hostname);
         if (called.length === 1) return new Response('', { status: 503 });
-        return new Response(`<rss><channel><item><title>네이버 글</title>
-          <link>https://blog.naver.com/amadejjs/223000000000</link><guid>naver-id-1</guid>
-          <pubDate>Mon, 02 Nov 2026 01:00:00 +0000</pubDate>
-          <description><![CDATA[네이버 요약 &amp; 소개]]></description>
-          <enclosure url="https://blog.naver.com/amadejjs/cover.jpg" type="image/jpeg" />
-        </item></channel></rss>`);
+        return new Response(`<feed><entry><title>네이버 글</title>
+          <link href="https://blog.naver.com/amadejjs/223000000000" /><id>naver-id-1</id>
+          <published>2026-11-02T01:00:00Z</published>
+          <summary>네이버 요약 &amp;amp; 소개</summary>
+        </entry></feed>`);
     };
     try {
-        const post = await fetchFeaturedBlogPost(feeds);
+        const post = await fetchFeaturedBlogPost(feeds, { random: () => 0.99 });
         assert.deepEqual(called, ['blog.gongzza.com', 'rss.blog.naver.com']);
         assert.equal(post.source, 'Naver Blog');
         assert.equal(post.id, 'naver-id-1');
         assert.equal(post.excerpt, '네이버 요약 & 소개');
+    } finally { globalThis.fetch = originalFetch; }
+});
+
+test('randomly selects from every valid item across all configured feeds', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+        const isNaver = new URL(url).hostname === 'rss.blog.naver.com';
+        const host = isNaver ? 'blog.naver.com' : 'blog.gongzza.com';
+        const title = isNaver ? '네이버 글' : 'BlogGenius 글';
+        return new Response(`<rss><channel><item><title>${title}</title>
+          <link>https://${host}${isNaver ? '/amadejjs' : ''}/post/one</link><guid>${isNaver ? 'naver' : 'blog'}-one</guid>
+          <pubDate>Mon, 02 Nov 2026 00:00:00 +0000</pubDate>
+        </item><item><title>${title} 2</title><link>https://${host}${isNaver ? '/amadejjs' : ''}/post/two</link>
+          <guid>${isNaver ? 'naver' : 'blog'}-two</guid><pubDate>Tue, 03 Nov 2026 00:00:00 +0000</pubDate>
+        </item></channel></rss>`);
+    };
+    try {
+        const first = await fetchFeaturedBlogPost(feeds, { random: () => 0 });
+        const last = await fetchFeaturedBlogPost(feeds, { random: () => 0.99 });
+        assert.equal(first.id, 'blog-one');
+        assert.equal(last.id, 'naver-two');
     } finally { globalThis.fetch = originalFetch; }
 });
 

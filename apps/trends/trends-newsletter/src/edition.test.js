@@ -21,11 +21,13 @@ test('validates concise plain text and rejects generated links or markup', () =>
     assert.throws(() => validateSharedCopy({ greeting: '안녕하세요', introduction: 'a'.repeat(361) }), /limits/);
 });
 
-test('builds deterministic shared copy from the edition date', () => {
-    assert.deepEqual(buildSharedCopy('2026-11-02'), {
-        greeting: '좋은 아침이에요!',
+test('builds date-specific shared copy and chooses a natural greeting from the list', () => {
+    assert.deepEqual(buildSharedCopy('2026-11-02', { random: () => 0 }), {
+        greeting: '안녕하세요!',
         introduction: '2026년 11월 2일, 오늘의 관심 트렌드를 가볍게 살펴보고 하루를 여는 데 참고해 보세요.'
     });
+    assert.equal(buildSharedCopy('2026-11-02', { random: () => 0.99 }).greeting, '가볍게 오늘의 트렌드를 살펴볼까요?');
+    assert.throws(() => buildSharedCopy('2026-11-02', { random: () => 1 }), /random source/);
     assert.throws(() => buildSharedCopy('2026-02-30'), /Invalid edition date/);
 });
 

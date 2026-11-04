@@ -109,9 +109,10 @@ function parseSources(config) {
     });
 }
 
-export async function fetchFeaturedBlogPost(config) {
+export async function fetchFeaturedBlogPost(config, { random = Math.random } = {}) {
     const sources = parseSources(config);
     const failures = [];
+    const candidates = [];
     for (const source of sources) {
         try {
             const response = await fetch(source.url, {
@@ -122,11 +123,18 @@ export async function fetchFeaturedBlogPost(config) {
             const xml = await response.text();
             if (new TextEncoder().encode(xml).byteLength > MAX_FEED_BYTES) throw new Error('feed_too_large');
             const posts = parseFeed(xml, source);
-            if (posts.length) return posts.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))[0];
-            throw new Error('no_valid_published_items');
+            if (posts.length) candidates.push(...posts);
+            else failures.push(`${source.name}:no_valid_published_items`);
         } catch (error) {
             failures.push(`${source.name}:${error instanceof Error ? error.message : 'unknown_error'}`);
         }
     }
-    throw new Error(`No configured newsletter RSS source returned a valid post (${failures.join(', ')}).`);
+    if (!candidates.length) {
+        throw new Error(`No configured newsletter RSS source returned a valid post (${failures.join(', ')}).`);
+    }
+    const value = Number(random());
+    if (!Number.isFinite(value) || value < 0 || value >= 1) {
+        throw new Error('Newsletter RSS random source must return a number from 0 (inclusive) to 1 (exclusive).');
+    }
+    return candidates[Math.floor(value * candidates.length)];
 }
