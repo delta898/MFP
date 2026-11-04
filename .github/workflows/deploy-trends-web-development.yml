@@ -1,4 +1,4 @@
-name: Deploy Development Trends Site
+name: Development | Deploy Trends Site
 
 on:
   workflow_dispatch:
