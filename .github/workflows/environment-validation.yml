@@ -87,18 +87,6 @@ jobs:
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF }}
       BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }}
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
-      TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
-      TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
-      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
-      NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
-      NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
-      NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
-      NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -124,6 +112,19 @@ jobs:
       - name: Preflight Development deployment secrets
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+          TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
+          TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
+          TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
+          NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
+          NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
+          NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
         run: |
           set -euo pipefail
           required_secrets=(SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY CLOUDFLARE_API_TOKEN TRENDS_SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
@@ -150,6 +151,13 @@ jobs:
       - name: Sync Development newsletter Function secrets
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         shell: bash
+        env:
+          TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
+          NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
+          NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
+          NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
         run: |
           set -euo pipefail
           required_secrets=(TRENDS_NEWSLETTER_WORKER_TOKEN BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
@@ -307,13 +315,6 @@ jobs:
     needs: validate-development-workers
     runs-on: ubuntu-latest
     environment: development
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
-      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -323,8 +324,18 @@ jobs:
           cache-dependency-path: |
             apps/trends/trends-api/workers/package-lock.json
             apps/trends/trends-newsletter/worker/package-lock.json
+      - name: Install newsletter Workflow Worker dependencies
+        working-directory: apps/trends/trends-newsletter/worker
+        run: npm ci
       - name: Deploy newsletter Workflow Worker
         working-directory: apps/trends/trends-newsletter/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+          TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
           required_secrets=(TRENDS_SUPABASE_SECRET_KEY TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID)
@@ -335,22 +346,25 @@ jobs:
             fi
           done
 
-          npm ci
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-worker-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
           node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]; const values = { ...Object.fromEntries(names.slice(1).map((name) => [name, process.env[name]])), SUPABASE_SECRET_KEY: process.env.TRENDS_SUPABASE_SECRET_KEY }; fs.writeFileSync(process.argv[1], JSON.stringify(values), { mode: 0o600 });' "$secrets_file"
           npx wrangler deploy --secrets-file "$secrets_file"
+      - name: Install Development Trends API Worker dependencies
+        working-directory: apps/trends/trends-api/workers
+        run: npm ci
       - name: Deploy Development Trends API Worker
         working-directory: apps/trends/trends-api/workers
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
           TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
           TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
         run: |
           set -euo pipefail
-          npm ci
           required_secrets=(SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN)
           for secret_name in "${required_secrets[@]}"; do
             if [[ -z "${!secret_name}" ]]; then
