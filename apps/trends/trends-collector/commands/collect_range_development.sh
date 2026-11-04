@@ -140,13 +140,19 @@ echo "스와이프 후 대기: ${SWIPE_DELAY_MS}ms"
 echo "대상: Development"
 
 day="$START_DATE"
+failed_dates=()
 
 while :; do
   echo
   echo "===== $day 수집 시작 ====="
   collector_args=(--date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS")
-  "$COLLECTOR" "${collector_args[@]}"
-  echo "===== $day 완료 ====="
+  if "$COLLECTOR" "${collector_args[@]}"; then
+    echo "===== $day 완료 ====="
+  else
+    status=$?
+    failed_dates+=("$day")
+    echo "===== $day 실패 (exit=$status); 다음 날짜를 계속합니다 =====" >&2
+  fi
 
   [[ "$day" == "$END_DATE" ]] && break
 
@@ -165,3 +171,7 @@ done
 
 echo
 echo "전체 날짜 수집 완료: $START_DATE ~ $END_DATE"
+if ((${#failed_dates[@]} > 0)); then
+  echo "실패 날짜: ${failed_dates[*]}" >&2
+  exit 1
+fi

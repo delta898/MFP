@@ -47,7 +47,7 @@ unsubscribe. Do not make the browser responsible for sending campaigns.
 Mac Studio collector
   -> environment-matched Trends API Worker (authenticated trend ingestion)
   -> matching Supabase trends table
-  -> authenticated date-specific completion signal
+  -> authenticated collector run report (one UUID per execution)
   -> environment-matched Newsletter Workflow
   -> verify persisted date/category/keyword completeness
   -> upsert collection state, leaving edition and delivery state untouched
@@ -55,7 +55,7 @@ Mac Studio collector
   -> create/load shared dated edition
   -> keyset-batched active subscribers -> per-recipient briefing -> allowlist check
   -> unique per-date/revision/subscriber claim -> Brevo -> delivery outcomes
-  -> Telegram run summary (later stage)
+  -> Telegram run summary (collector failure immediately; successful run after email attempt)
 
 Public site
   -> display the approved dated shared-edition archive
@@ -134,6 +134,15 @@ addresses in Workflow payloads or logs. Production sending is denied.
    Send separate actionable alerts for incomplete collection, content
    validation failure, provider failure, and a held run.
 
+Each collector process now creates one UUID and reports either a failed run or
+a successful collection to the authenticated Trends API Worker. A failed run
+starts a notification-only Workflow; successful collection continues through
+readiness, edition, and email delivery. The Workflow sends one durable Telegram
+summary step for each run ID. Range collection remains one process per date,
+continues after individual failures, and exits nonzero with the failed dates.
+Telegram must be configured as Development Worker secrets. A report that
+cannot reach the API remains visible only in collector logs.
+
 The Development readiness slice reads only `trends.items` for the signaled
 date and upserts a durable record in `mailing.trends_newsletter_daily_status`. The
 record has independent `collection_status`, `edition_status`, and
@@ -166,8 +175,8 @@ completion signal allocates a new revision while preserving every prior
 outcome. The checked-in Development Worker default disables force resend and
 must be explicitly enabled by an operator. `sending` or `held` outcomes block
 a new revision because the prior result may be ambiguous. Production rejects
-explicit resend until its operator path is agreed. This stage still does not publish a
-public archive or notify Telegram. Source lives under
+explicit resend until its operator path is agreed. This stage still does not
+publish a public archive. Source lives under
 `apps/trends/trends-newsletter/`, with readiness and edition policy in `src/`,
 external RSS/Supabase adapters under `src/adapters/`, and Workflow
 orchestration under `worker/`. The expected category list remains explicitly
@@ -307,7 +316,7 @@ prices and included quotas can change.
    Dev Supabase, deploy the Dev Newsletter Workflow, then deploy the Dev
    Trends API binding and Collector signal. Verify one date, duplicate signal,
    multi-date collection, incomplete rows, and read/write failure handling.
-   Keep email and Telegram disabled in this stage.
+   Keep Production email and Telegram disabled in this stage.
 3. **Shared edition:** add idempotent daily edition storage, deterministic
    date-based copy, and verified-link selection.
 4. **Development delivery:** recipient selection, personalized content,
@@ -316,9 +325,9 @@ prices and included quotas can change.
    duplicate suppression. An explicit Development completion signal can
    request a new delivery revision while retaining prior outcomes. Production
    resend remains disabled pending a separately agreed operator path.
-5. **Telegram operations:** add completion and actionable failure summaries
-   after delivery behavior is stable. Telegram is not part of the current
-   delivery implementation.
+5. **Telegram operations:** Development run summaries are implemented. Set the
+   Development bot token and administrator chat ID as Worker secrets, then
+   verify one failed collection run and one successful allowlisted delivery.
 6. **Public archive:** implement the chosen website/API publishing path and
    ensure it exposes only approved shared edition fields.
 7. **Production promotion:** after Development is stable and the user approves,
@@ -341,7 +350,7 @@ prices and included quotas can change.
   current short greeting and introduction use a date-based template.
 - Whether the first Development campaigns require approval for each edition or
   only a global test-mode approval gate before sending to the allowlist.
-- Telegram token/chat secret names and Development vs Production destinations.
+- Production Telegram destination and rollout timing.
 - Brevo batch size, provider event/reconciliation strategy, and retention for
   detailed delivery outcomes.
 - Whether account-wide Cloudflare billing is acceptable or strict account

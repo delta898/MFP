@@ -9,11 +9,32 @@ const {
     parseCollectorCliArgs,
     pushPayloadToApi,
     signalCollectionComplete,
+    reportCollectorFailure,
     resolveCollectorConfig,
     resolveCollectorExecutionMode,
     runCollector,
     verifyCollectorApiEnvironment
 } = require('./collect');
+
+test('reports one collector failure using the run ID and bounded operator context', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => { axios.post = originalPost; });
+    let request;
+    axios.post = async (url, body) => {
+        request = { url, body };
+        return { data: { success: true, workflowId: 'collection-run' } };
+    };
+    await reportCollectorFailure({
+        environment: 'development', apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token',
+        runId: 'f28721df-6e53-4601-88e9-c53b1aa55589', source: 'naver_creator_advisor', date: '-1d'
+    }, { stage: 'naver_session', error: 'Naver session expired' }, { info: () => {} });
+    assert.equal(request.url, 'https://trendapi-dev.example.com/internal/newsletter/collector-run');
+    assert.equal(request.body.runId, 'f28721df-6e53-4601-88e9-c53b1aa55589');
+    assert.equal(request.body.signalId, request.body.runId);
+    assert.equal(request.body.status, 'failed');
+    assert.equal(request.body.stage, 'naver_session');
+    assert.match(request.body.trendDate, /^\d{4}-\d{2}-\d{2}$/);
+});
 
 const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
 const defaultCliOptions = {
@@ -339,14 +360,15 @@ test('signalCollectionComplete sends only a validated completion marker to the e
         apiBaseUrl: 'https://trendapi-dev.example.com/', apiToken: 'dev-token', dryRun: false
     }, { info: () => {} });
 
-    assert.equal(request.url, 'https://trendapi-dev.example.com/internal/newsletter/collection-complete');
-    const { signalId, ...signalBody } = request.body;
+    assert.equal(request.url, 'https://trendapi-dev.example.com/internal/newsletter/collector-run');
+    const { signalId, runId, ...signalBody } = request.body;
     assert.deepEqual(signalBody, {
-        environment: 'development', trendDate: '2026-08-29', source: 'naver_creator_advisor',
+        environment: 'development', trendDate: '2026-08-29', source: 'naver_creator_advisor', status: 'collected',
         expectedCategories: 2, itemsPerCategory: 2, itemCount: 4
     });
     assert.equal(request.options.headers.Authorization, 'Bearer dev-token');
     assert.match(request.body.signalId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.equal(runId, signalId);
     assert.equal(result.workflowId, 'collection-2026-08-29-test-signal');
     await assert.rejects(() => signalCollectionComplete(payload, { ...completeness, complete: false }, {
         environment: 'development', source: 'naver_creator_advisor', apiBaseUrl: 'https://trendapi-dev.example.com', apiToken: 'dev-token'
@@ -416,7 +438,7 @@ test('interactive Production collection confirms and writes the same payload wit
     let newsletterPayload;
     axios.post = async (url, payload) => {
         if (url.endsWith('/internal/ingest/naver-trends')) postedPayload = payload;
-        if (url.endsWith('/internal/newsletter/collection-complete')) newsletterPayload = payload;
+        if (url.endsWith('/internal/newsletter/collector-run')) newsletterPayload = payload;
         return { data: { success: true, accepted: payload.itemCount, workflowId: 'collection-2026-08-29' } };
     };
     let collectionCount = 0;
@@ -557,7 +579,7 @@ test('runCollector refuses to write incomplete collection after retries', async 
     assert.equal(attempts, 3);
 });
 
-test('runCollector keeps a successful trend write when the newsletter signal fails', async (t) => {
+test('runCollector preserves an ingested trend write and reports a failed run when the Worker signal fails', async (t) => {
     const originalGet = axios.get;
     const originalPost = axios.post;
     t.after(() => {
@@ -568,7 +590,7 @@ test('runCollector keeps a successful trend write when the newsletter signal fai
     const postedUrls = [];
     axios.post = async (url) => {
         postedUrls.push(url);
-        if (url.endsWith('/internal/newsletter/collection-complete')) {
+        if (url.endsWith('/internal/newsletter/collector-run')) {
             const error = new Error('Request failed with status code 404');
             error.response = { status: 404, data: { message: 'Not found' } };
             throw error;
@@ -576,7 +598,7 @@ test('runCollector keeps a successful trend write when the newsletter signal fai
         return { data: { success: true, accepted: 1, trendDate: '2026-08-29' } };
     };
     const warnings = [];
-    const result = await runCollector({
+    await assert.rejects(() => runCollector({
         environment: 'development',
         naverId: 'operator',
         apiBaseUrl: 'https://trendapi-dev.example.com',
@@ -590,11 +612,8 @@ test('runCollector keeps a successful trend write when the newsletter signal fai
         cliOptions: {},
         isTTY: false,
         logger: { info: () => {}, warn: (message) => warnings.push(message), error: () => {}, debug: () => {} }
-    });
-
-    assert.equal(result.apiResult.success, true);
-    assert.deepEqual(result.newsletterSignal, { sent: false, error: 'Newsletter signal API 404: Not found' });
+    }), /뉴스레터 실행 보고에 실패했습니다/);
     assert.equal(postedUrls.length, 2);
     assert.match(warnings[0], /trendDate=2026-08-29/);
-    assert.match(warnings[0], /다음 날짜 수집을 계속합니다/);
+    assert.match(warnings[0], /실행 보고를 다시 시도합니다/);
 });

@@ -5,29 +5,33 @@ it verifies collection readiness, creates or reuses the shared edition, and
 sends per-subscriber Development briefings through the private mailing Edge
 Function. The separate Trends API Worker handles collector ingestion, trend
 reads, and public browser subscription requests. Recipient-specific delivery
-is deployed and verified in Development. The Dev code supports signal-scoped
+is deployed and verified in Development. Each collector process reports one
+run ID: failed collection runs notify Telegram immediately, while successful
+collection runs notify after the newsletter attempt settles. A date-range
+command launches one collector per date, so it produces one summary per date.
+The Dev code supports signal-scoped
 same-date resend and creates shared copy with a randomized greeting, static
 date-based introduction, and a random article selected from valid candidates
-across all configured RSS feeds. It does not publish an archive post or notify
-Telegram.
+across all configured RSS feeds. It does not publish an archive post.
 
 ## Event flow
 
 1. The collector verifies the configured category/item completeness before
    ingesting a date.
 2. After the environment-matched Trends API confirms the upsert, the collector
-   sends an authenticated completion signal to that API Worker. A range run
-   sends one signal per date. Production newsletter delivery is not enabled in
-   the current newsletter Worker deployment.
-   If the signal fails after the trend upsert, the collector records a warning
-   and exits successfully so a range run proceeds to the next date. Re-run the
-   affected date later to retry its signal.
+   sends an authenticated run report to that API Worker. A range run sends one
+   report per date. Production newsletter delivery is not enabled in the
+   current newsletter Worker deployment. If reporting fails, the collector
+   records the error locally; range collection continues and exits nonzero with
+   a list of failed dates. If collection was stored but run reporting failed,
+   the collector reports that execution as failed using the same run ID.
 3. The Trends API validates the internal token, environment, source, date, and
    expected count contract, then starts a private Workflow instance keyed by
    date and signal UUID. Replaying the same signal UUID is idempotent and
    returns the existing instance. The signal may include `forceResend: true`;
    it defaults to false.
-4. The Workflow reads the signaled date from Development Supabase, independently
+4. A failed collector report skips email and sends its failure summary. A
+   successful report starts the Workflow, which reads the date from Development Supabase, independently
    verifies 32 categories × 20 distinct keywords, and calls the state RPC.
 5. The collection RPC upserts one row per date in
    `mailing.trends_newsletter_daily_status`, changing only collection fields.
@@ -116,7 +120,14 @@ key interactively. Do not paste their values into source control or chat:
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SECRET_KEY
 npx wrangler secret put TRENDS_NEWSLETTER_WORKER_TOKEN
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put TELEGRAM_CHAT_ID
 ```
+
+The Telegram bot token and administrator chat ID are private Worker secrets;
+configure them only in the Development Worker until Production rollout is
+approved. Workflow summaries contain date, aggregate counts, run ID, and a
+bounded failure reason; they do not contain subscriber email addresses.
 
 The key must be the Development project's server-side secret key with read
 access to `trends.items` and execute access to the `public` RPC. Do not use a
@@ -222,9 +233,11 @@ confirm you are targeting Development before running the relevant command:
 
 There is no Cron schedule and no public `workers.dev` endpoint. The Workflow
 creates static shared copy only after collection completeness passes and sends
-only to the Development allowlist. Resend intent is signal-scoped, and the
+only to the Development allowlist. Telegram delivery uses a durable Workflow
+step keyed by the collector run; Telegram failure is logged without changing
+the email result. Resend intent is signal-scoped, and the
 Worker rejects it unless its operator-controlled gate is enabled. All prior
-delivery history is preserved; ambiguous outcomes prevent a new revision. Telegram notifications and
-Production configuration/rollout are out of scope. A real allowlisted delivery
-remains a manual Dev verification step; automated tests mock Brevo and do not
-send mail.
+delivery history is preserved; ambiguous outcomes prevent a new revision.
+Production configuration/rollout remains out of scope. A real allowlisted
+delivery and Telegram message remain manual Development verification steps;
+automated tests mock Brevo and Telegram and do not send mail or messages.

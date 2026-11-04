@@ -617,7 +617,7 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     let trendDate;
     try { trendDate = normalizeYmd(body?.trendDate, 'trendDate'); }
     catch { return jsonResponse(400, { success: false, message: 'trendDate must be YYYY-MM-DD' }); }
-    const signalId = String(body?.signalId || '').trim().toLowerCase();
+    const signalId = String(body?.runId || body?.signalId || '').trim().toLowerCase();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(signalId)) {
         return jsonResponse(400, { success: false, message: 'signalId must be a UUID' });
     }
@@ -627,11 +627,14 @@ async function handleNewsletterCollectionComplete(request, config, env) {
     if (config.environment === 'production' && body?.forceResend === true) {
         return jsonResponse(403, { success: false, message: 'Newsletter resend is not enabled for Production' });
     }
+    const status = String(body?.status || 'collected');
     const expectedTotal = config.newsletterExpectedCategories * config.newsletterItemsPerCategory;
-    if (!trendDate || body?.environment !== config.environment || body?.source !== 'naver_creator_advisor'
-        || Number(body?.expectedCategories) !== config.newsletterExpectedCategories
-        || Number(body?.itemsPerCategory) !== config.newsletterItemsPerCategory
-        || Number(body?.itemCount) !== expectedTotal) {
+    const validFailure = status === 'failed' && typeof body?.stage === 'string' && typeof body?.error === 'string';
+    const validSuccess = status === 'collected'
+        && Number(body?.expectedCategories) === config.newsletterExpectedCategories
+        && Number(body?.itemsPerCategory) === config.newsletterItemsPerCategory
+        && Number(body?.itemCount) === expectedTotal;
+    if (!trendDate || body?.environment !== config.environment || body?.source !== 'naver_creator_advisor' || (!validFailure && !validSuccess)) {
         return jsonResponse(400, { success: false, message: 'Collection completion signal does not match the configured dataset contract' });
     }
     if (!env.TRENDS_NEWSLETTER_COLLECTION_WORKFLOW?.create) {
@@ -651,7 +654,10 @@ async function handleNewsletterCollectionComplete(request, config, env) {
                     trendDate,
                     signalId: signalId || null,
                     source: 'naver_creator_advisor',
-                    signalItemCount: expectedTotal,
+                    signalItemCount: status === 'collected' ? expectedTotal : 0,
+                    runStatus: status,
+                    failureStage: validFailure ? body.stage.slice(0, 80) : null,
+                    failureSummary: validFailure ? body.error.slice(0, 500) : null,
                     forceResend: body.forceResend === true
                 }
             });
@@ -693,7 +699,7 @@ export async function handleRequest(request, env) {
         return handlePublicSubscription(request, config, url.pathname, origin);
     }
     if (method === 'POST' && url.pathname === '/internal/ingest/naver-trends') return handleIngest(request, config);
-    if (method === 'POST' && url.pathname === '/internal/newsletter/collection-complete') return handleNewsletterCollectionComplete(request, config, env);
+    if (method === 'POST' && ['/internal/newsletter/collection-complete', '/internal/newsletter/collector-run'].includes(url.pathname)) return handleNewsletterCollectionComplete(request, config, env);
     if (method === 'GET' && ['/api/v1/trends', '/api/v1/trends/meta', '/exports/trends.csv', '/exports/trends.xlsx'].includes(url.pathname)) {
         const internalRoute = url.pathname.startsWith('/exports/');
         const access = await readAccess(request, config);

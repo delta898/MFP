@@ -93,7 +93,7 @@ test('existing authenticated endpoint remains protected', async () => {
     assert.equal(response.status, 401);
 });
 
-test('collector completion signals are authenticated, environment-bound, and carry an optional resend request', async () => {
+test('collector run reports are authenticated, environment-bound, and idempotent by run ID', async () => {
     const created = [];
     const integrationEnv = {
         ...env,
@@ -109,11 +109,11 @@ test('collector completion signals are authenticated, environment-bound, and car
         }
     };
     const makeSignal = (body, { token = 'collector-only-test-token', target = 'development' } = {}) => new Request(
-        'https://trendapi.example.test/internal/newsletter/collection-complete',
+        'https://trendapi.example.test/internal/newsletter/collector-run',
         { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-trends-environment': target, 'content-type': 'application/json' }, body: JSON.stringify(body) }
     );
     const signal = {
-        environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor',
+        environment: 'development', trendDate: '2026-11-02', runId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', status: 'collected',
         expectedCategories: 32, itemsPerCategory: 20, itemCount: 640
     };
 
@@ -132,20 +132,27 @@ test('collector completion signals are authenticated, environment-bound, and car
     const repeated = await handleRequest(makeSignal(signal), integrationEnv);
     assert.equal(repeated.status, 202);
     assert.equal((await repeated.json()).duplicate, true);
-    const intentionalRetry = await handleRequest(makeSignal({ ...signal, signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10' }), integrationEnv);
+    const intentionalRetry = await handleRequest(makeSignal({ ...signal, runId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10' }), integrationEnv);
     assert.equal(intentionalRetry.status, 202);
     assert.deepEqual(created, [{
         id: 'collection-2026-11-02-f53d0eb8-93d5-4d4a-82b6-2392d13c22f9',
-        params: { environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', signalItemCount: 640, forceResend: false }
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9', source: 'naver_creator_advisor', signalItemCount: 640, runStatus: 'collected', failureStage: null, failureSummary: null, forceResend: false }
     }, {
         id: 'collection-2026-11-02-0549d3ab-2f5a-4c62-8e98-9e6d1c705a10',
-        params: { environment: 'development', trendDate: '2026-11-02', signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10', source: 'naver_creator_advisor', signalItemCount: 640, forceResend: false }
+        params: { environment: 'development', trendDate: '2026-11-02', signalId: '0549d3ab-2f5a-4c62-8e98-9e6d1c705a10', source: 'naver_creator_advisor', signalItemCount: 640, runStatus: 'collected', failureStage: null, failureSummary: null, forceResend: false }
     }]);
-    const forceSignal = { ...signal, signalId: '3c491eed-7e0e-41ca-8abd-dcf7212a4c7f' };
+    const forceSignal = { ...signal, runId: '3c491eed-7e0e-41ca-8abd-dcf7212a4c7f' };
     const forceResponse = await handleRequest(makeSignal({ ...forceSignal, forceResend: true }), integrationEnv);
     assert.equal(forceResponse.status, 202);
     assert.equal(created[2].params.forceResend, true);
     assert.equal((await handleRequest(makeSignal({ ...signal, forceResend: 'yes' }), integrationEnv)).status, 400);
+    const failed = { environment: 'development', trendDate: '2026-11-02', runId: 'f28721df-6e53-4601-88e9-c53b1aa55589', source: 'naver_creator_advisor', status: 'failed', stage: 'naver_session', error: 'session expired' };
+    const failedResponse = await handleRequest(makeSignal(failed), integrationEnv);
+    assert.equal(failedResponse.status, 202);
+    assert.deepEqual(created[3].params, {
+        environment: 'development', trendDate: '2026-11-02', signalId: failed.runId, source: 'naver_creator_advisor', signalItemCount: 0,
+        runStatus: 'failed', failureStage: 'naver_session', failureSummary: 'session expired', forceResend: false
+    });
 });
 
 test('Production accepts ordinary completion signals but rejects explicit resend intent', async () => {

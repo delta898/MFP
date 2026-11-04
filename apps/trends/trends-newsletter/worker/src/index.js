@@ -5,6 +5,7 @@ import { fetchFeaturedBlogPost } from '../../src/adapters/rss.js';
 import { loadDevelopmentEdition, saveDevelopmentEdition, markDevelopmentEditionHeld } from '../../src/adapters/supabase-editions.js';
 import { recordDevelopmentNewsletterAttempt } from '../../src/adapters/supabase-attempts.js';
 import { beginDevelopmentDeliveryCampaign, deliverDevelopmentBatch, loadDevelopmentDeliveryContext } from '../../src/adapters/supabase-delivery.js';
+import { formatCollectorRunSummary, sendTelegramSummary } from './telegram.js';
 
 export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
     async run(event, step) {
@@ -12,6 +13,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
         const payload = event?.payload || {};
         const trendDate = String(payload.trendDate || '').trim();
         const signalId = String(payload.signalId || '').trim().toLowerCase();
+        const runStatus = String(payload.runStatus || 'collected');
         const workflowId = String(event?.instanceId || '').trim();
         const expectations = getReadinessExpectations(this.env);
         const [year, month, day] = trendDate.split('-').map(Number);
@@ -24,13 +26,29 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
             || payload.environment !== 'development'
             || payload.source !== 'naver_creator_advisor'
             || (payload.forceResend !== undefined && typeof payload.forceResend !== 'boolean')
-            || Number(payload.signalItemCount) !== expectations.categories.length * expectations.itemsPerCategory) {
+            || !['collected', 'failed'].includes(runStatus)
+            || (runStatus === 'collected' && Number(payload.signalItemCount) !== expectations.categories.length * expectations.itemsPerCategory)
+            || (runStatus === 'failed' && (!payload.failureStage || !payload.failureSummary))) {
             throw new Error('Collection completion signal has an invalid date, environment, or source.');
         }
         if (payload.forceResend === true && String(this.env.NEWSLETTER_RESEND_ENABLED || '').trim().toLowerCase() !== 'true') {
             throw new Error('Explicit newsletter resend is disabled in this environment.');
         }
         console.log(JSON.stringify({ event: 'collection_signal_received', environment: 'development', projectRef: target.projectRef, trendDate, signalId, workflowId }));
+
+        const notify = async ({ status, stage, error, delivery }) => {
+            const summary = formatCollectorRunSummary({ environment: 'development', trendDate, runId: signalId, status, stage, error, delivery });
+            try {
+                await step.do('send-telegram-run-summary', { retries: { limit: 0 }, timeout: '15 seconds' }, () => sendTelegramSummary(this.env, summary));
+                console.log(JSON.stringify({ event: 'telegram_run_summary_sent', environment: 'development', trendDate, signalId }));
+            } catch (notifyError) {
+                console.error(JSON.stringify({ event: 'telegram_run_summary_failed', environment: 'development', trendDate, signalId, reason: notifyError instanceof Error ? notifyError.message : 'unknown_error' }));
+            }
+        };
+        if (runStatus === 'failed') {
+            await notify({ status: 'failure', stage: payload.failureStage, error: payload.failureSummary });
+            return { collectorStatus: 'failed', failureStage: payload.failureStage };
+        }
 
         let result;
         try {
@@ -69,6 +87,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 editionStatus: 'not_started', collectionReport: result,
                 errorCode: result.errorCode || null
             }));
+            await notify({ status: 'failure', stage: 'collection_validation', error: `수집 데이터 검증 실패 (${collectionStatus}, ${result.uniqueTotal}/${result.expectedTotal})` });
             return { ...result, collectionStatus, editionStatus: 'not_started' };
         }
 
@@ -138,6 +157,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 editionSnapshot: heldSnapshot, errorCode: 'generation_failed'
             }));
             console.error(JSON.stringify({ event: 'shared_edition_generation_failed', environment: 'development', trendDate, signalId, reason: error instanceof Error ? error.message : 'unknown_error' }));
+            await notify({ status: 'failure', stage: 'edition_generation', error: '뉴스레터 에디션 생성에 실패했습니다.' });
             return { ...result, collectionStatus, editionStatus: 'held', editionError: 'generation_failed' };
         }
 
@@ -157,6 +177,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                     event: 'newsletter_delivery_already_processed', environment: 'development',
                     trendDate, signalId, deliveryRevision: campaign.deliveryRevision
                 }));
+                await notify({ status: 'success', delivery: { status: 'already_processed', sent: 0, failed: 0, held: 0, skipped: 0 } });
                 return {
                     ...result, collectionStatus, editionStatus: 'draft_ready', editionReused,
                     deliveryStatus: 'already_processed', deliveryRevision: campaign.deliveryRevision,
@@ -198,6 +219,15 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 editionStatus: 'draft_ready', collectionReport: result, editionSnapshot,
                 errorCode: attemptStatus === 'completed' ? null : 'attempt_failed'
             }));
+            await notify({
+                status: attemptStatus === 'completed' && Number(finalDelivery.failed || 0) === 0
+                    && Number(finalDelivery.held || 0) === 0 && Number(finalDelivery.sending || 0) === 0 ? 'success' : 'failure',
+                stage: attemptStatus === 'completed' && Number(finalDelivery.failed || 0) === 0
+                    && Number(finalDelivery.held || 0) === 0 && Number(finalDelivery.sending || 0) === 0 ? null : 'email_delivery',
+                error: attemptStatus === 'completed' && Number(finalDelivery.failed || 0) === 0
+                    && Number(finalDelivery.held || 0) === 0 && Number(finalDelivery.sending || 0) === 0 ? null : `메일 발송 상태: ${finalDelivery.status}`,
+                delivery: finalDelivery
+            });
             return {
                 ...result,
                 collectionStatus,
@@ -219,6 +249,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                 event: 'recipient_delivery_failed', environment: 'development', trendDate, signalId,
                 reason: error instanceof Error ? error.message : 'unknown_error'
             }));
+            await notify({ status: 'failure', stage: 'email_delivery', error: '메일 발송 Workflow 처리에 실패했습니다.' });
             throw error;
         }
     }
