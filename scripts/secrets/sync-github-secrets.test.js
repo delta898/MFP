@@ -9,13 +9,17 @@ const test = require('node:test');
 const { REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProductionEnvironment, parseArguments, promptForConfirmation, readSecretFile, runGh, syncGitHubSecrets } = require('./sync-github-secrets');
 
 function makeEnvironmentValues(environment) {
-  return {
+  const values = {
     ...Object.fromEntries(REQUIRED[environment].map((name) => [name, `fixture-${name}`])),
     ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name,
       name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32)
         : name === 'NEWSLETTER_CANARY_EMAIL' ? 'admin@example.test'
           : `fixture-${name}`]))
   };
+  if (environment === 'production') {
+    values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.hocfjolcthvtgfaxjmse:encoded%3Bpassword@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
+  }
+  return values;
 }
 
 function makeSecretFile(t, values) {
@@ -77,6 +81,21 @@ test('requires a single valid Production canary destination before syncing', (t)
   values.NEWSLETTER_CANARY_EMAIL = 'not-an-email';
   const filePath = makeSecretFile(t, values);
   assert.throws(() => readSecretFile(filePath, 'production'), /NEWSLETTER_CANARY_EMAIL must be a valid/);
+});
+
+test('requires the Production Session Pooler URL and rejects direct or transaction pooler URLs', (t) => {
+  const values = makeEnvironmentValues('production');
+  const validFile = makeSecretFile(t, values);
+  assert.equal(readSecretFile(validFile, 'production').SUPABASE_DB_POOLER_URL, values.SUPABASE_DB_POOLER_URL);
+
+  for (const invalidUrl of [
+    'postgresql://postgres.hocfjolcthvtgfaxjmse:password@db.hocfjolcthvtgfaxjmse.supabase.co:5432/postgres',
+    'postgresql://postgres.hocfjolcthvtgfaxjmse:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres',
+    'postgresql://postgres.otherproject:password@aws-0-us-east-1.pooler.supabase.com:5432/postgres'
+  ]) {
+    const invalidFile = makeSecretFile(t, { ...values, SUPABASE_DB_POOLER_URL: invalidUrl });
+    assert.throws(() => readSecretFile(invalidFile, 'production'), /SUPABASE_DB_POOLER_URL must target/);
+  }
 });
 
 test('refuses permissive local secret file permissions', (t) => {

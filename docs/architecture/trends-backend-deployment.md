@@ -97,7 +97,12 @@ configured and verified, sync stops before writing credentials. Create the
 release branch using the normal release process, ensure the GitHub
 `production` Environment contains `CLOUDFLARE_API_TOKEN`,
 `TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`, and
-`TRENDS_READ_TOKEN_SECRET`. The Production env-file sync sets
+`TRENDS_READ_TOKEN_SECRET`. The Production migration preview and apply use
+`SUPABASE_DB_POOLER_URL` from the Production project's Session Pooler (port
+5432): the GitHub runner can reach Development's direct project-ref endpoint,
+but the Production direct endpoint reports that IPv6 is unavailable. The CLI
+explicitly recommends the pooler URL for this Production connection. The
+Production env-file sync sets
 `CLOUDFLARE_ACCOUNT_ID` and `NEWSLETTER_CANARY_EMAIL` as GitHub Environment
 variables. The first selects the Cloudflare account; the second is the sole
 canary recipient. Dispatch the workflow on that release branch and approve its

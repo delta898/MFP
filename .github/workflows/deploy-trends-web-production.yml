@@ -112,15 +112,14 @@ jobs:
           retention-days: 7
 
   production-migration-preview:
-    name: Compare Development and Production DB connections (read-only)
+    name: Preview Production migration changes
     needs: [validate-release-ref, build]
     if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
     runs-on: ubuntu-latest
     environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: bvtlwjbmjnfphxlrkzhm
+      SUPABASE_DB_POOLER_URL: ${{ secrets.SUPABASE_DB_POOLER_URL }}
       BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF: hocfjolcthvtgfaxjmse
     steps:
       - uses: actions/checkout@v6
@@ -129,27 +128,8 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.0.0-beta.17
-      - name: Dry-run Development project-ref connection on this runner
-        id: development-connection
-        continue-on-error: true
-        run: supabase db push --dry-run --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
-      - name: Dry-run Production project-ref connection on this runner
-        id: production-connection
-        continue-on-error: true
-        run: supabase db push --dry-run --remote="$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF"
-      - name: Report both read-only connection checks
-        if: always()
-        shell: bash
-        env:
-          DEVELOPMENT_RESULT: ${{ steps.development-connection.outcome }}
-          PRODUCTION_RESULT: ${{ steps.production-connection.outcome }}
-        run: |
-          set -euo pipefail
-          echo "Development project-ref dry-run: ${DEVELOPMENT_RESULT:-not run}"
-          echo "Production project-ref dry-run: ${PRODUCTION_RESULT:-not run}"
-          if [[ "$DEVELOPMENT_RESULT" != 'success' || "$PRODUCTION_RESULT" != 'success' ]]; then
-            exit 1
-          fi
+      - name: Preview pending Production migrations through the Session Pooler
+        run: supabase db push --dry-run --remote="$SUPABASE_DB_POOLER_URL"
 
   deploy:
     name: Deploy approved Production candidates
@@ -164,7 +144,7 @@ jobs:
     env:
       BLOGGENIUS_ENV: production
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_DB_POOLER_URL: ${{ secrets.SUPABASE_DB_POOLER_URL }}
       BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF: hocfjolcthvtgfaxjmse
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -191,7 +171,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD TRENDS_NEWSLETTER_CANARY_TOKEN TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET NEWSLETTER_CANARY_EMAIL)
+          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET SUPABASE_ACCESS_TOKEN SUPABASE_DB_POOLER_URL TRENDS_NEWSLETTER_CANARY_TOKEN TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET NEWSLETTER_CANARY_EMAIL)
           for name in "${required[@]}"; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Configure ${name} in the GitHub production Environment."
@@ -221,7 +201,7 @@ jobs:
           supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
       - name: Apply Production Supabase migrations
         if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
-        run: supabase db push --remote="$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
+        run: supabase db push --remote="$SUPABASE_DB_POOLER_URL" --yes
       - name: Deploy Production mailing Edge Function
         if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         run: supabase functions deploy trends-mailing-list --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
