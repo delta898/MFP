@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
+import { NonRetryableError } from 'cloudflare:workflows';
 import { evaluateTrendsReadiness, getReadinessExpectations, readDevelopmentTrendRows, recordDevelopmentCollectionResult, validateDevelopmentTarget } from '../../src/readiness.js';
 import { buildSharedEdition } from '../../src/edition.js';
 import { fetchFeaturedBlogPost } from '../../src/adapters/rss.js';
@@ -39,7 +40,15 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
         const notify = async ({ status, stage, error, delivery }) => {
             const summary = formatCollectorRunSummary({ environment: 'development', trendDate, runId: signalId, status, stage, error, delivery });
             try {
-                await step.do('send-telegram-run-summary', { retries: { limit: 0 }, timeout: '15 seconds' }, () => sendTelegramSummary(this.env, summary));
+                await step.do('send-telegram-run-summary', async () => {
+                    try {
+                        return await sendTelegramSummary(this.env, summary);
+                    } catch (sendError) {
+                        // Telegram sendMessage has no idempotency key. Do not retry an
+                        // ambiguous result and risk sending a duplicate operator alert.
+                        throw new NonRetryableError(sendError instanceof Error ? sendError.message : 'Telegram send failed.');
+                    }
+                });
                 console.log(JSON.stringify({ event: 'telegram_run_summary_sent', environment: 'development', trendDate, signalId }));
             } catch (notifyError) {
                 console.error(JSON.stringify({ event: 'telegram_run_summary_failed', environment: 'development', trendDate, signalId, reason: notifyError instanceof Error ? notifyError.message : 'unknown_error' }));

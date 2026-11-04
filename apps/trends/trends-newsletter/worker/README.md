@@ -234,8 +234,9 @@ confirm you are targeting Development before running the relevant command:
 There is no Cron schedule and no public `workers.dev` endpoint. The Workflow
 creates static shared copy only after collection completeness passes and sends
 only to the Development allowlist. Telegram delivery uses a durable Workflow
-step keyed by the collector run; Telegram failure is logged without changing
-the email result. Resend intent is signal-scoped, and the
+step keyed by the collector run. Telegram errors are non-retryable because the
+Bot API has no idempotency key; errors are logged without changing the email
+result. Resend intent is signal-scoped, and the
 Worker rejects it unless its operator-controlled gate is enabled. All prior
 delivery history is preserved; ambiguous outcomes prevent a new revision.
 Production configuration/rollout remains out of scope. A real allowlisted

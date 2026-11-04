@@ -46,3 +46,4 @@ Scope: authenticated collector run reports, per-run idempotency, success/failure
 - Production destination, secrets, and rollout require a separate decision.
 - Feature commit: `40a8aec7` (`feat: notify Telegram for newsletter collector runs`).
 - Merge and push completed after the approved full unit run.
+- Post-deployment correction: Cloudflare rejected a zero-retry `StepConfig` as invalid before the Telegram call. The summary step now uses `NonRetryableError` on send failures, preserving one-attempt behavior without an invalid config and avoiding duplicate alerts when Telegram's response is ambiguous.
