@@ -1,7 +1,7 @@
 {
   "name": "blog-genius",
   "productName": "BlogGenius",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "AI 기반 콘텐츠 작성과 블로그·SNS 발행 자동화 솔루션",
   "main": "src/host/electron/electron-main.js",
   "scripts": {
