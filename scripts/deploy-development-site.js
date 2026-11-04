@@ -27,6 +27,18 @@ function assertWorkflowContext(env) {
     }
 }
 
+async function ensureDevelopmentSiteDomain(adapter, accountId) {
+    return ensureWorkerDomain(adapter, {
+        accountId,
+        hostname: SITE_HOST,
+        workerName: WORKER_NAME,
+        // Auto-create only when unbound, or accept the already-correct binding.
+        // A legacy or unknown owner must be handled explicitly.
+        allowedCurrentOwners: [WORKER_NAME],
+        allowUnbound: true
+    });
+}
+
 async function main(env = process.env) {
     assertWorkflowContext(env);
     const accessToken = String(env.CLOUDFLARE_API_TOKEN || '').trim();
@@ -76,10 +88,14 @@ async function main(env = process.env) {
         throw new Error(`Deployment target mismatch: expected ${WORKER_NAME}, received ${deployment.worker_name}.`);
     }
     await checkWithRetry(() => checkUrl(deployment.url, 'site'));
+    const domain = await ensureDevelopmentSiteDomain(adapter, accountId);
+    await checkWithRetry(() => checkUrl(`https://${SITE_HOST}/`, 'site'));
     console.info(JSON.stringify({
         environment: 'development',
         worker_name: deployment.worker_name,
         url: deployment.url,
+        hostname: SITE_HOST,
+        domain_changed: domain.changed,
         deployment_id: deployment.deployment_id,
         version_id: deployment.version_id
     }));
@@ -90,4 +106,4 @@ if (require.main === module) main().catch((error) => {
     process.exitCode = 1;
 });
 
-module.exports = { assertWorkflowContext, main };
+module.exports = { assertWorkflowContext, ensureDevelopmentSiteDomain, main };
