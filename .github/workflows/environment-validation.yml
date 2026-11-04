@@ -87,6 +87,18 @@ jobs:
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF }}
       BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }}
       BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+      TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
+      TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
+      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
+      NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
+      NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
+      NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -109,6 +121,22 @@ jobs:
           name: supabase-release-${{ github.sha }}
       - name: Validate public development connection
         run: npm run env:development:ready
+      - name: Preflight Development deployment secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_secrets=(SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY CLOUDFLARE_API_TOKEN TRENDS_SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Add ${secret_name} to the GitHub development environment secrets."
+              exit 1
+            fi
+          done
+          if [[ "$NEWSLETTER_EMAIL_MODE" != "allowlist" ]]; then
+            echo "::error::Development newsletter email mode must be allowlist."
+            exit 1
+          fi
       - name: Preview pending Development migrations
         run: |
           supabase db push \
@@ -118,6 +146,27 @@ jobs:
         run: |
           supabase db push \
             --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --yes
+      - name: Sync Development newsletter Function secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_secrets=(TRENDS_NEWSLETTER_WORKER_TOKEN BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Add ${secret_name} to the GitHub development environment secrets."
+              exit 1
+            fi
+          done
+
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-function-secrets.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'const fs = require("node:fs"); const names = ["TRENDS_NEWSLETTER_WORKER_TOKEN", "BREVO_API_KEY", "NEWSLETTER_EMAIL_FROM", "NEWSLETTER_EMAIL_MODE", "NEWSLETTER_EMAIL_ALLOWLIST", "NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET"]; const lines = ["BLOGGENIUS_ENV=development", ...names.map((name) => `${name}=${JSON.stringify(process.env[name])}`)]; fs.writeFileSync(process.argv[1], `${lines.join("\n")}\n`, { mode: 0o600 });' "$secrets_file"
+          supabase secrets set \
+            --env-file "$secrets_file" \
+            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
             --yes
       - name: Deploy Development newsletter Edge Function
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
@@ -261,6 +310,10 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -273,8 +326,21 @@ jobs:
       - name: Deploy newsletter Workflow Worker
         working-directory: apps/trends/trends-newsletter/worker
         run: |
+          set -euo pipefail
+          required_secrets=(TRENDS_SUPABASE_SECRET_KEY TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID)
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Add ${secret_name} to the GitHub development environment secrets."
+              exit 1
+            fi
+          done
+
           npm ci
-          npx wrangler deploy
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-worker-secrets.XXXXXX.json")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]; const values = { ...Object.fromEntries(names.slice(1).map((name) => [name, process.env[name]])), SUPABASE_SECRET_KEY: process.env.TRENDS_SUPABASE_SECRET_KEY }; fs.writeFileSync(process.argv[1], JSON.stringify(values), { mode: 0o600 });' "$secrets_file"
+          npx wrangler deploy --secrets-file "$secrets_file"
       - name: Deploy Development Trends API Worker
         working-directory: apps/trends/trends-api/workers
         env:

@@ -54,6 +54,15 @@ chat. `TRENDS_NEWSLETTER_FUNCTION_URL` is not a secret: declare it in the
 matching `[vars]` section so a Wrangler deployment preserves it. It will not
 appear in `wrangler secret list`.
 
+Local GitHub secret setup and the environment-specific input names are
+documented in [GitHub Environment Secret Sync](../../scripts/secrets/README.md).
+The Development push workflow installs the newsletter Edge Function secrets
+with Supabase CLI and the Newsletter Worker secrets with Wrangler before
+deploying their code. The local utility only updates GitHub Environment
+secrets; it never writes directly to Cloudflare or Supabase. Production secret
+sync is supported, but Production deployment remains a separate, unconfigured
+workflow and is not triggered by the Production sync command.
+
 ### Development reference procedure
 
 1. Apply the mailing-list migration and all newsletter state/delivery
