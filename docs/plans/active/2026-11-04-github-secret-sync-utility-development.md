@@ -47,6 +47,7 @@ The user wants to avoid entering environment secrets manually in GitHub, Cloudfl
 - 2026-11-04: Created this feature branch from `dev`.
 - 2026-11-04: Added ignored environment secret inputs and templates, environment-pinned shell wrappers, a validated GitHub CLI sync utility, and Development Actions provisioning for Newsletter Worker and Edge Function secrets. Production sync only targets GitHub; no Production deployment was introduced.
 - 2026-11-04: First interactive run exposed `EAGAIN` from synchronous terminal reads before secrets were changed. Replaced the prompt with Node's asynchronous readline interface and added an interactive-stream regression test.
+- 2026-11-04: Review narrowed new credentials to the preflight/sync/deploy steps and preserved the Newsletter Worker's existing `SUPABASE_URL` secret binding by sourcing its value from the Development GitHub variable during deployment.
 
 ## Verification and follow-up
 

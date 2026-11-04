@@ -332,6 +332,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }}
           TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -349,7 +350,7 @@ jobs:
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-worker-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]; const values = { ...Object.fromEntries(names.slice(1).map((name) => [name, process.env[name]])), SUPABASE_SECRET_KEY: process.env.TRENDS_SUPABASE_SECRET_KEY }; fs.writeFileSync(process.argv[1], JSON.stringify(values), { mode: 0o600 });' "$secrets_file"
+          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]; const values = { ...Object.fromEntries(names.slice(1).map((name) => [name, process.env[name]])), SUPABASE_SECRET_KEY: process.env.TRENDS_SUPABASE_SECRET_KEY, SUPABASE_URL: process.env.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }; fs.writeFileSync(process.argv[1], JSON.stringify(values), { mode: 0o600 });' "$secrets_file"
           npx wrangler deploy --secrets-file "$secrets_file"
       - name: Install Development Trends API Worker dependencies
         working-directory: apps/trends/trends-api/workers
