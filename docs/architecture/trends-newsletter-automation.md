@@ -33,9 +33,9 @@ approves the Production rollout.
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` |
 | Subscriber lifecycle | Implemented and end-to-end verified | Not rolled out |
 | Trends collector | Mac Studio process writes through the matching Trends API | Existing operator-run production path |
-| Readiness Workflow and shared edition | Deployed and previously verified | Not rolled out |
+| Readiness Workflow and shared edition | Deployed and verified | Not rolled out |
 | Recipient campaign delivery | Deployed and verified with an allowlisted recipient | Not rolled out |
-| Signal-scoped same-date resend and static shared copy | Current feature branch; migration and Worker deployment pending | Resend is rejected pending an agreed operator path |
+| Signal-scoped same-date resend, static introduction, randomized greeting and RSS feature selection | Implemented for Development; deployment is managed by the `dev` CD workflow | Not rolled out; resend remains disabled pending an agreed operator path |
 
 Keep using the existing Supabase mailing tables and purpose-specific
 `trends-mailing-list` Edge Function for subscribe, confirmation, and
@@ -182,13 +182,16 @@ unnoticed duplicate message.
 
 ## Content and Public Archive
 
-- The common greeting/introduction are deterministic date-based copy. AI is not
-  needed for the current short message and the newsletter Worker no longer
-  calls Cloudflare AI Gateway.
-- Application logic chooses links from curated, verified records (for example
-  BlogGenius posts, guides, and downloads), enforces a small configured maximum,
-  checks each destination, and applies rotation/recency rules to avoid
-  repetitive or excessive links.
+- The introduction is a static date-based sentence. The greeting is selected
+  randomly from a short list of natural Korean phrases when the date's edition
+  is first created. AI is not needed for this short message and the newsletter
+  Worker no longer calls Cloudflare AI Gateway.
+- The featured article is selected randomly from all valid items in the
+  configured BlogGenius and Naver Blog RSS feeds (up to ten items per feed).
+  A candidate needs a title, a parseable publication date, and an HTTPS link
+  within that feed's configured blog URL. A failed feed does not prevent using
+  candidates from the other feed. The chosen article is saved in the dated
+  edition and reused after delivery starts.
 - Store the common edition in `mailing.trends_newsletter_editions` as the
   canonical editorial record. Development uses private service-role-only RPCs;
   this stage adds no public archive API.
@@ -209,7 +212,7 @@ inside the campaign backend.
 | Worker / Workflow deployment | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state | Separate Worker script or explicit Wrangler environment and separate Workflow binding/state |
 | Supabase | Development project only | Production project only |
 | Subscriber/delivery/edition data | Development project tables | Production project tables |
-| Shared copy | Deterministic date-based greeting and introduction | Same source behavior after explicit rollout |
+| Shared copy | Random greeting from a fixed natural-language list; date-based introduction | Same source behavior after explicit rollout |
 | Email | Brevo allowlist mode only; test recipient(s) | Live mode only after explicit rollout approval |
 | Public links | `www-dev.bloggenius.kr` and Development routes | `www.bloggenius.kr` and Production routes |
 | Telegram | Development chat/bot destination | Production operator destination |

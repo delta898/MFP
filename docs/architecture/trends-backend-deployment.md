@@ -19,8 +19,8 @@ following roles distinct when operating it or preparing a Production rollout:
 | Role | Development | Production | Responsibility |
 | --- | --- | --- | --- |
 | Website | `https://www-dev.bloggenius.kr` | `https://www.bloggenius.kr` | Static signup, confirmation, and unsubscribe pages |
-| Trends API Worker | `bloggenius-trends-api-dev` at `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Public signup/confirmation/unsubscribe HTTP paths, plus authenticated Trends API paths |
-| Newsletter Workflow Worker | `bloggenius-trends-newsletter-dev` | Not configured for Production | Receives collection workflows and sends newsletter batches; it is not the browser signup endpoint |
+| Trends API Worker | `bloggenius-trends-api-dev` at `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-production` at `trendapi.hangadac.com` | Authenticated collector ingestion and trend reads; public browser subscription actions forwarded to the matching Supabase Edge Function; accepts private collection-complete signals and starts the Newsletter Workflow |
+| Newsletter Workflow Worker | `bloggenius-trends-newsletter-dev` | Not configured for Production | Private Workflow entry point and orchestration: readiness checks, shared edition creation/reuse, and subscriber batch delivery; no public browser API |
 | Supabase project | `bvtlwjbmjnfphxlrkzhm` | `hocfjolcthvtgfaxjmse` | Mailing data, RPCs, and `trends-mailing-list` Edge Function |
 
 The browser calls the environment's Trends API hostname. The API Worker

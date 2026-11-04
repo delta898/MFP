@@ -1,11 +1,15 @@
 # Trends Newsletter Collection Workflow (Development)
 
-This Development Worker verifies collection readiness, creates or reuses the
-shared edition, and sends per-subscriber Development briefings through the
-private mailing Edge Function. Recipient-specific delivery is already deployed
-and verified in Development. The current feature branch adds explicit same-date
-resend and static shared copy; neither change is deployed yet. It does not
-publish an archive post or notify Telegram.
+This Development Worker is the private Workflow entry point and orchestrator:
+it verifies collection readiness, creates or reuses the shared edition, and
+sends per-subscriber Development briefings through the private mailing Edge
+Function. The separate Trends API Worker handles collector ingestion, trend
+reads, and public browser subscription requests. Recipient-specific delivery
+is deployed and verified in Development. The Dev code supports signal-scoped
+same-date resend and creates shared copy with a randomized greeting, static
+date-based introduction, and a random article selected from valid candidates
+across all configured RSS feeds. It does not publish an archive post or notify
+Telegram.
 
 ## Event flow
 
@@ -28,10 +32,10 @@ publish an archive post or notify Telegram.
 5. The collection RPC upserts one row per date in
    `mailing.trends_newsletter_daily_status`, changing only collection fields.
 6. After a complete collection, the Workflow records a separate attempt by
-   signal UUID, then checks the configured RSS sources in priority order,
-   selects the newest valid item from the first usable feed, builds a
-   deterministic short greeting and introduction from the date, validates the
-   copy, and saves one dated snapshot. Only the title, short summary, link,
+   signal UUID, then gathers valid items from all configured RSS sources and
+   randomly selects one candidate. It chooses a natural greeting from a fixed
+   list, builds the introduction from the date, validates the copy, and saves
+   one dated snapshot. Only the title, short summary, link,
    date, source name, and optional image URL are retained; full post content is
    not stored.
 7. The date-level edition row stores the latest generated draft; each attempt
