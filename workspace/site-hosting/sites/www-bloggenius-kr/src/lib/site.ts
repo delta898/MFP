@@ -23,7 +23,7 @@ export const legalNavigation = [
   { label: '개인정보 처리방침', path: '/privacy-policy/' },
   { label: '이용약관', path: '/terms/' },
 ];
-export const publicOrigin = 'https://www.bloggenius.kr';
+export const publicOrigin = String(import.meta.env.SITE || 'https://www.bloggenius.kr').replace(/\/+$/, '');
 
 export function pageTitle(id) {
   return ({

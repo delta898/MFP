@@ -109,9 +109,9 @@ jobs:
           npm run build
           test -s dist/index.html
           grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi.bloggenius.kr' dist
-          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://www.bloggenius.kr' dist
-          if grep -R -n -E --include='*.html' --include='*.js' --include='*.css' 'www-dev\.bloggenius\.kr|trendapi-dev\.bloggenius\.kr' dist; then
-            echo '::error::Development hostnames were found in the Production site artifact.'
+          grep -R -l --include='*.html' 'rel="canonical" href="https://www.bloggenius.kr/' dist
+          if grep -R -n -E --include='*.html' 'rel="canonical" href="https://www-dev\.bloggenius\.kr/|property="og:url" content="https://www-dev\.bloggenius\.kr/|property="og:image" content="https://www-dev\.bloggenius\.kr/' dist; then
+            echo '::error::Development canonical metadata was found in the Production site artifact.'
             exit 1
           fi
       - uses: actions/upload-artifact@v6

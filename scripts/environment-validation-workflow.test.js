@@ -44,7 +44,7 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /npm run env:development:drift/);
     assert.match(workflow, /npm run env:development:smoke/);
     assert.match(workflow, /https:\/\/www-dev\.bloggenius\.kr/);
-    assert.match(workflow, /Production hostnames were found in the Development site artifact/);
+    assert.match(workflow, /Production canonical metadata was found in the Development site artifact/);
     assert.match(workflow, /development-promotion-/);
 
     const dryRun = workflow.indexOf('Preview pending Development migrations');

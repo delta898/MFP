@@ -9,6 +9,7 @@ const { assertWorkflowContext } = require('./deploy-production-trends-site');
 const { checkUrl, runSmoke } = require('./production-trends-web-smoke');
 const productionWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-production.yml'), 'utf8');
 const developmentWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/environment-validation.yml'), 'utf8');
+const siteSource = fs.readFileSync(path.join(__dirname, '../workspace/site-hosting/sites/www-bloggenius-kr/src/lib/site.ts'), 'utf8');
 
 const expectedWorkers = [
     { id: 'bloggenius-trends-api-production' },
@@ -47,6 +48,11 @@ test('Development and Production release workflows deploy the same three Worker 
     }
     assert.match(developmentWorkflow, /SUPABASE_DB_POOLER_URL/);
     assert.match(productionWorkflow, /SUPABASE_DB_POOLER_URL/);
+    assert.match(siteSource, /import\.meta\.env\.SITE/);
+    assert.match(developmentWorkflow, /rel="canonical" href="https:\/\/www-dev\.bloggenius\.kr\//);
+    assert.match(productionWorkflow, /rel="canonical" href="https:\/\/www\.bloggenius\.kr\//);
+    assert.match(developmentWorkflow, /PUBLIC_TRENDS_API_BASE_URL: https:\/\/trendapi-dev\.bloggenius\.kr/);
+    assert.match(productionWorkflow, /PUBLIC_TRENDS_API_BASE_URL: https:\/\/trendapi\.bloggenius\.kr/);
     const scopeBlocks = [...productionWorkflow.matchAll(/case "\$file" in([\s\S]*?)\n            esac/g)].map((match) => match[1]);
     assert.equal(scopeBlocks.length, 2);
     assert.match(scopeBlocks[0], /apps\/trends\/trends-api\/workers\/\*/) ;
