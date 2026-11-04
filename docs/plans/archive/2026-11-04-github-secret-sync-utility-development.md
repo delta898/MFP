@@ -5,7 +5,7 @@
 - Branch: `codex/github-secret-sync-utility`
 - Base branch: `dev`
 - Start date: 2026-11-04
-- Status: Ready for review
+- Status: Complete
 
 ## User need and goal
 
@@ -48,6 +48,7 @@ The user wants to avoid entering environment secrets manually in GitHub, Cloudfl
 - 2026-11-04: Added ignored environment secret inputs and templates, environment-pinned shell wrappers, a validated GitHub CLI sync utility, and Development Actions provisioning for Newsletter Worker and Edge Function secrets. Production sync only targets GitHub; no Production deployment was introduced.
 - 2026-11-04: First interactive run exposed `EAGAIN` from synchronous terminal reads before secrets were changed. Replaced the prompt with Node's asynchronous readline interface and added an interactive-stream regression test.
 - 2026-11-04: Review narrowed new credentials to the preflight/sync/deploy steps and preserved the Newsletter Worker's existing `SUPABASE_URL` secret binding by sourcing its value from the Development GitHub variable during deployment.
+- 2026-11-04: Fast-forward merged into `dev` and pushed through commit `365ac89a`; GitHub Actions run `41769334110` completed successfully, including Supabase Function secret sync/deploy and both Cloudflare Worker deployments.
 
 ## Verification and follow-up
 
@@ -61,4 +62,8 @@ The approved full unit run reached all 470 test files. Five loopback-listener te
 - `Astro runtime builds a site before starting preview when no output exists`
 - `Astro runtime builds and serves a draft preview without recording a persistent Site build`
 
-Rerunning the full unit suite with only those five names excluded produced 2,506 passes, no failures, and one unrelated pre-existing skip. The standard `npm run test:unit` command stopped in its `pretest:unit` dependency audit before starting tests: npm reported 43 dependency advisories (4 low, 37 moderate, 2 high). No dependency changes were made. Remote GitHub secret registration, Cloudflare/Supabase mutation, and Production operation were not run.
+Rerunning the full unit suite with only those five names excluded produced 2,506 passes, no failures, and one unrelated pre-existing skip. The standard `npm run test:unit` command stopped in its `pretest:unit` dependency audit before starting tests: npm reported 43 dependency advisories (4 low, 37 moderate, 2 high). No dependency changes were made. The successful Development Actions run used the already configured GitHub Environment values; the local sync utility was not rerun after its interactive prompt fix. Production operation was not run.
+
+The local secret sync remains to be manually confirmed once with
+`./scripts/secrets/dev_sync_github_secret.sh`; its GitHub CLI writes were
+verified with mocks, not against the user's live GitHub Environment.
