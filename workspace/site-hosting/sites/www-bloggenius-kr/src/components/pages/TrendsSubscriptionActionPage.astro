@@ -23,8 +23,8 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
         <p data-action-completion-message></p>
       </div>
       <nav class="subscribe-completion-actions" aria-label="다음으로 이동">
-        <a class="button button-primary" href="/trends/">트렌드 둘러보기 <span aria-hidden="true">↗</span></a>
-        <a class="button button-quiet" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
+        <a class="button button-primary" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
+        <a class="button button-quiet" href="/trends/">트렌드 둘러보기 <span aria-hidden="true">↗</span></a>
       </nav>
     </section>
   </section>
@@ -95,7 +95,7 @@ const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'h
           if (!response.ok || payload.success !== true) throw new Error('request_failed');
           completionTitle.textContent = action === 'confirm' ? '구독이 완료됐어요' : '구독을 취소했어요';
           completionMessage.textContent = action === 'confirm'
-            ? '관심 카테고리를 확인했습니다. 다음 트렌드 브리핑부터 메일을 보내드릴게요.'
+            ? '관심 카테고리를 확인했어요. 다음 브리핑은 BlogGenius가 메일로 전해드릴게요.'
             : '요청을 처리했습니다. 이후 트렌드 메일은 발송되지 않습니다.';
           interaction.hidden = true;
           status.hidden = true;

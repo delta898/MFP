@@ -146,6 +146,9 @@ export function buildRecipientBriefing({ trendDate, categories, trends, edition,
         '',
         `BlogGenius 다운로드: ${downloadUrl}`,
         '',
+        '도전인생 · BlogGenius',
+        '선택하신 네이버 트렌드 카테고리를 바탕으로 보내드려요.',
+        '',
         `구독 취소: ${safeUnsubscribeUrl}`
     ].filter(Boolean).join('\n');
 
@@ -179,7 +182,8 @@ export function buildRecipientBriefing({ trendDate, categories, trends, edition,
           <a href="${escapeHtml(downloadUrl)}" style="display:block;color:#315f4c;text-decoration:none"><img src="${escapeHtml(bannerUrl)}" alt="BlogGenius 다운로드" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto 14px;border-radius:12px"><strong>BlogGenius 다운로드 →</strong></a>
         </section>
         <footer style="padding:28px 8px 0;color:#829087;font-size:12px;line-height:1.7">
-          <p>이 메일은 선택하신 네이버 트렌드 카테고리를 바탕으로 발송되었습니다.</p>
+          <p style="margin:0 0 8px;color:#315f4c;font-weight:700">도전인생 · BlogGenius</p>
+          <p>선택하신 네이버 트렌드 카테고리를 바탕으로 보내드려요.</p>
           <p><a href="${escapeHtml(safeUnsubscribeUrl)}" style="color:#53645b">구독 취소</a></p>
         </footer>
       </main>

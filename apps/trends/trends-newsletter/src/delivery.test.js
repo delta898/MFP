@@ -53,6 +53,8 @@ test('builds personalized HTML and text with all twenty movement details and cur
     assert.match(briefing.html, /share-card\.svg/);
     assert.match(briefing.html, /unsubscribe\//);
     assert.match(briefing.text, /전체 트렌드 보기/);
+    assert.match(briefing.text, /도전인생 · BlogGenius/);
+    assert.match(briefing.html, /도전인생 · BlogGenius/);
     assert.match(briefing.text, /구독 취소/);
 });
 
