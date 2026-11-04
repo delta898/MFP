@@ -1,4 +1,4 @@
-name: Deploy Production Trends Release
+name: Production | Deploy Trends Release
 
 on:
   workflow_dispatch:

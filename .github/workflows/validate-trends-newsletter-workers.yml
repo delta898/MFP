@@ -1,4 +1,4 @@
-name: Validate Trends Newsletter Workers
+name: Development | Validate Newsletter Workers
 
 on:
   pull_request:

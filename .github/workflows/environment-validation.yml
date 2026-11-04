@@ -1,4 +1,4 @@
-name: Validate Environment Promotion
+name: Development + Production | Validate Environment Promotion
 
 on:
   pull_request:

@@ -1,4 +1,4 @@
-name: Control Production newsletter delivery
+name: Production | Control Newsletter Delivery
 
 on:
   workflow_dispatch:
