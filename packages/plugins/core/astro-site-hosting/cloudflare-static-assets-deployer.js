@@ -139,11 +139,12 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
             const items = await listItems(page);
             return items.flatMap((item) => Array.isArray(item?.deployments) ? item.deployments : [item]);
         },
-        attachWorkerDomain: ({ accountId, hostname, workerName, zoneId }) => client.workers.domains.update({
+        attachWorkerDomain: ({ accountId, hostname, workerName, zoneId, zoneName }) => client.workers.domains.update({
             account_id: accountId,
             hostname,
             service: workerName,
-            zone_id: zoneId
+            ...(zoneId ? { zone_id: zoneId } : {}),
+            ...(zoneName ? { zone_name: zoneName } : {})
         })
     };
 }
@@ -212,8 +213,8 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
         if (!/^[a-f\d]{32}$/i.test(accountId)) throw new Error('Cloudflare 계정 정보를 확인하지 못했습니다.');
         const environment = context.environment === 'development' ? 'development' : 'production';
         const workerBaseName = `bg-${String(site.id).toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
-        const workerName = environment === 'development' ? `${workerBaseName}-dev` : workerBaseName;
-        if (workerName.length > 63 || !/^bg-[a-z0-9][a-z0-9-]*$/.test(workerName)) throw new Error('사이트 배포 이름을 만들 수 없습니다.');
+        const workerName = String(context.workerName || (environment === 'development' ? `${workerBaseName}-dev` : workerBaseName));
+        if (workerName.length > 63 || !/^[a-z0-9][a-z0-9-]*$/.test(workerName)) throw new Error('사이트 배포 이름을 만들 수 없습니다.');
         let activeStep = 'workers.dev 주소 확인';
         try {
             const adapter = createAdapter({ client: createClient(accessToken), fetchImpl: options.fetchImpl });

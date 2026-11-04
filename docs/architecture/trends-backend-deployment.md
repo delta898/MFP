@@ -86,8 +86,10 @@ Workers, confirms the legacy API and site custom-domain owners, and rejects a
 new API hostname already assigned to another Worker or carrying a conflicting
 DNS record. The site build must
 contain `https://www.bloggenius.kr` and `https://trendapi.bloggenius.kr` and
-must not contain Development hostnames. Site-only releases use read-only smoke
-checks and do not deploy the newsletter stack or reset its send mode.
+must not contain Development hostnames. The site Worker may be absent on the
+first deploy; `www.bloggenius.kr` must still belong to the new Worker or the
+known legacy Production Worker. Site-only releases do not deploy the newsletter
+stack or reset its send mode.
 
 Production sync creates the `production` Environment if it is missing,
 restricts it to `release/*`, and requires the current GitHub account as a
@@ -164,14 +166,25 @@ Function; deploy the API Worker with the preview route; then build and deploy
 the matching static site. On a `dev` push, `.github/workflows/environment-validation.yml`
 automates this sequence: it applies pending Development migrations, deploys
 the Edge Function, validates and deploys both Development Workers, builds the
-Development site artifact, and deploys that artifact to the existing
-`bg-www-bloggenius-kr-dev` Worker. The site deploy step requires the GitHub
-`development` environment's Cloudflare API token and account ID and refuses to
-deploy unless that existing Development Worker is present. The API Worker
+Development site artifact, and deploys that artifact to the
+`www-bloggenius-kr-dev` Worker. The site deploy step requires the GitHub
+`development` environment's Cloudflare API token and account ID; it creates
+the Worker on first deployment and reuses it afterward. The API Worker
 deploy also requires `TRENDS_NEWSLETTER_WORKER_TOKEN` in the GitHub
 `development` Environment secrets and uploads it as a Worker secret in the
 same Wrangler deployment. This avoids relying on dashboard-only plain
 variables, which Wrangler reconciles from the configuration.
+
+The static site Worker names are `www-bloggenius-kr-dev` and
+`www-bloggenius-kr-production`; the API and newsletter Workers already use
+their matching `-dev` and `-production` names. Production Worker deployment
+and `www.bloggenius.kr` cutover are separate manual workflow operations. The
+deploy operation validates the new Worker through its `workers.dev` URL and
+leaves the public domain on its current Worker. The cutover operation validates
+the new Worker again, transfers the existing domain, and checks the public
+site. A rollback operation can return the domain to the preserved legacy
+Worker. Development deploys its new Worker, validates `workers.dev`, then
+transfers `www-dev.bloggenius.kr` from the known legacy Worker.
 
 Production deployment is handled by
 `.github/workflows/deploy-trends-web-production.yml` from `release/*`, using a

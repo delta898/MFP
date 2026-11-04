@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Cloudflare = require('cloudflare');
 const { createCloudflareSdkAdapter, createCloudflareStaticAssetsDeployer } = require('../packages/plugins/core/astro-site-hosting/cloudflare-static-assets-deployer');
-const { validateProductionTrendsWebTargets } = require('./production-trends-web-targets');
+const { validateProductionTrendsWebTargets, SITE_WORKER, SITE_HOST, LEGACY_SITE_WORKERS } = require('./production-trends-web-targets');
+const { ensureWorkerDomain } = require('./ensure-worker-domain');
+const { checkUrl, checkWithRetry } = require('./production-trends-web-smoke');
 
 const SITE_ROOT = path.resolve(__dirname, '../workspace/site-hosting/sites/www-bloggenius-kr');
 
@@ -30,6 +32,28 @@ async function main(env = process.env) {
         console.info(JSON.stringify({ environment: 'production', preflight: 'passed', ...targets }));
         return;
     }
+    if (process.argv.includes('--cutover-site-domain') || process.argv.includes('--rollback-site-domain')) {
+        const rollback = process.argv.includes('--rollback-site-domain');
+        const targetWorker = rollback ? LEGACY_SITE_WORKERS[0] : SITE_WORKER;
+        const allowedCurrentOwners = rollback ? [SITE_WORKER, ...LEGACY_SITE_WORKERS.slice(1)] : LEGACY_SITE_WORKERS;
+        const scripts = await adapter.listWorkerScripts(accountId);
+        if (!rollback && !scripts.some((script) => String(script?.id || script?.name || '') === targetWorker)) {
+            throw new Error(`Production site Worker ${targetWorker} is missing; deploy and validate the Worker before domain cutover.`);
+        }
+        const subdomain = await adapter.getWorkersSubdomain(accountId);
+        if (!subdomain) throw new Error('Cloudflare account workers.dev subdomain is unavailable.');
+        const workerUrl = `https://${targetWorker}.${subdomain}.workers.dev/`;
+        if (!rollback) await checkWithRetry(() => checkUrl(workerUrl, 'site'));
+        const result = await ensureWorkerDomain(adapter, {
+            accountId,
+            hostname: SITE_HOST,
+            workerName: targetWorker,
+            allowedCurrentOwners
+        });
+        await checkWithRetry(() => checkUrl(`https://${SITE_HOST}/`, 'site'));
+        console.info(JSON.stringify({ environment: 'production', operation: rollback ? 'rollback-site-domain' : 'cutover-site-domain', worker_name: targetWorker, worker_url: workerUrl, ...result }));
+        return;
+    }
     if (!fs.existsSync(path.join(SITE_ROOT, 'dist', 'index.html'))) throw new Error('Production site build output is missing.');
 
     const deployer = createCloudflareStaticAssetsDeployer({
@@ -38,10 +62,11 @@ async function main(env = process.env) {
     const deployment = await deployer.deploy({ id: 'www-bloggenius-kr', root_path: SITE_ROOT }, {
         accessToken,
         account: { id: accountId, name: 'GitHub Actions Production' }
-    }, { environment: 'production' });
+    }, { environment: 'production', workerName: SITE_WORKER });
     if (deployment.worker_name !== targets.siteWorker) {
-        throw new Error(`Deployment target mismatch: expected ${targets.siteWorker}, received ${deployment.worker_name}.`);
+        throw new Error(`Deployment target mismatch: expected ${SITE_WORKER}, received ${deployment.worker_name}.`);
     }
+    await checkWithRetry(() => checkUrl(deployment.url, 'site'));
     console.info(JSON.stringify({ environment: 'production', worker_name: deployment.worker_name, url: deployment.url, deployment_id: deployment.deployment_id, version_id: deployment.version_id }));
 }
 

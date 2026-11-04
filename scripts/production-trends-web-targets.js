@@ -1,7 +1,8 @@
 'use strict';
 
 const API_WORKER = 'bloggenius-trends-api-production';
-const SITE_WORKER = 'bg-www-bloggenius-kr';
+const SITE_WORKER = 'www-bloggenius-kr-production';
+const LEGACY_SITE_WORKERS = ['bg-fca282ece0e348c4baf36294d0d3f0f0'];
 const API_HOSTS = ['trendapi.hangadac.com', 'trendapi.bloggenius.kr'];
 const SITE_HOST = 'www.bloggenius.kr';
 
@@ -23,10 +24,20 @@ function assertDomainOwner(bindings, hostname, expectedWorker, { optional = fals
     }
 }
 
+function assertSiteDomainOwner(bindings) {
+    const matches = bindings.filter((binding) => String(binding?.hostname || '').toLowerCase() === SITE_HOST);
+    if (matches.length !== 1) throw new Error(`Domain ${SITE_HOST} must have exactly one existing Worker binding; found ${matches.length}.`);
+    const owner = String(matches[0]?.service || '');
+    if (![SITE_WORKER, ...LEGACY_SITE_WORKERS].includes(owner)) {
+        throw new Error(`Domain ${SITE_HOST} must belong to ${SITE_WORKER} or a known legacy Worker; found ${owner || 'unknown'}.`);
+    }
+}
+
 async function validateProductionTrendsWebTargets(adapter, accountId) {
     const scripts = await adapter.listWorkerScripts(accountId);
     assertWorker(scripts, API_WORKER, 'Production Trends API');
-    assertWorker(scripts, SITE_WORKER, 'Production site');
+    const siteWorkers = scripts.filter((script) => workerName(script) === SITE_WORKER);
+    if (siteWorkers.length > 1) throw new Error(`Expected at most one Production site Worker ${SITE_WORKER}; found ${siteWorkers.length}.`);
 
     const apiBindings = await Promise.all(API_HOSTS.map((hostname) =>
         adapter.listWorkerDomains({ accountId, hostname })));
@@ -44,8 +55,8 @@ async function validateProductionTrendsWebTargets(adapter, accountId) {
         if (records.length) throw new Error(`DNS records already exist for ${API_HOSTS[1]}; resolve the conflict before deploying its Custom Domain.`);
     }
     const siteBindings = await adapter.listWorkerDomains({ accountId, hostname: SITE_HOST });
-    assertDomainOwner(siteBindings, SITE_HOST, SITE_WORKER);
-    return { apiWorker: API_WORKER, siteWorker: SITE_WORKER, apiHosts: API_HOSTS, siteHost: SITE_HOST };
+    assertSiteDomainOwner(siteBindings);
+    return { apiWorker: API_WORKER, siteWorker: SITE_WORKER, siteWorkerExists: siteWorkers.length === 1, siteHostOwner: siteBindings.find((binding) => String(binding?.hostname || '').toLowerCase() === SITE_HOST)?.service, apiHosts: API_HOSTS, siteHost: SITE_HOST };
 }
 
-module.exports = { validateProductionTrendsWebTargets };
+module.exports = { API_WORKER, SITE_WORKER, LEGACY_SITE_WORKERS, API_HOSTS, SITE_HOST, validateProductionTrendsWebTargets };

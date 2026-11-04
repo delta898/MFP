@@ -43,7 +43,8 @@ test('Cloudflare adapter reads Worker bindings and DNS records and deletes only 
     const client = {
         workers: { domains: {
             list: (args) => { calls.push(['worker-domains-list', args]); return [{ id: 'binding-1', hostname: args.hostname }]; },
-            delete: (id, args) => { calls.push(['worker-domains-delete', id, args]); return { id }; }
+            delete: (id, args) => { calls.push(['worker-domains-delete', id, args]); return { id }; },
+            update: (args) => { calls.push(['worker-domains-update', args]); return args; }
         }, scripts: { delete: (name, args) => { calls.push(['worker-delete', name, args]); return {}; } } },
         dns: { records: {
             list: (args) => { calls.push(['dns-list', args]); return [{ id: 'record-1', name: args.name }]; }
@@ -57,11 +58,13 @@ test('Cloudflare adapter reads Worker bindings and DNS records and deletes only 
         { id: 'record-1', name: 'blog.example.com' }
     ]);
     await adapter.detachWorkerDomain({ accountId: 'account-1', bindingId: 'binding-1' });
+    await adapter.attachWorkerDomain({ accountId: 'account-1', hostname: 'blog.example.com', workerName: 'new-worker', zoneId: 'zone-1' });
     await adapter.deleteWorker({ accountId: 'account-1', workerName: 'bg-site-1' });
     assert.deepEqual(calls, [
         ['worker-domains-list', { account_id: 'account-1', hostname: 'blog.example.com' }],
         ['dns-list', { zone_id: 'zone-1', name: 'blog.example.com', per_page: 100 }],
         ['worker-domains-delete', 'binding-1', { account_id: 'account-1' }],
+        ['worker-domains-update', { account_id: 'account-1', hostname: 'blog.example.com', service: 'new-worker', zone_id: 'zone-1' }],
         ['worker-delete', 'bg-site-1', { account_id: 'account-1' }]
     ]);
 });
@@ -120,6 +123,36 @@ test('deploy uses the connected account with a stable Site ID worker name', asyn
         });
         assert.equal(reconnectedAccountDeploy.managed_by_app, false,
             'a Worker in another Cloudflare account must not inherit BlogGenius ownership');
+    } finally {
+        fs.rmSync(siteRoot, { recursive: true, force: true });
+    }
+});
+
+test('deploy accepts the explicit environment Worker name while retaining create-or-reuse behavior', async () => {
+    const siteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudflare-static-deploy-explicit-'));
+    try {
+        fs.mkdirSync(path.join(siteRoot, 'dist'));
+        fs.writeFileSync(path.join(siteRoot, 'dist', 'index.html'), '<h1>deployed site</h1>');
+        const calls = [];
+        const adapter = {
+            getWorkersSubdomain: async () => 'example',
+            listWorkerScripts: async () => [],
+            createWorker: async ({ workerName }) => { calls.push(['create', workerName]); return { id: workerName, created_on: '2026-11-05' }; },
+            createAssetUploadSession: async ({ workerName, manifest }) => ({ buckets: [[manifest['/index.html'].hash]], jwt: workerName }),
+            uploadAssetBuckets: async () => 'completion-token',
+            createWorkerVersion: async ({ workerId }) => ({ id: workerId }),
+            createDeployment: async ({ workerName }) => ({ id: workerName }),
+            listDeployments: async ({ workerName }) => [{ id: workerName, versions: [{ version_id: workerName, percentage: 100 }] }]
+        };
+        const deployer = createCloudflareStaticAssetsDeployer({
+            fs, path, createClient: () => ({}), createAdapter: () => adapter, sleep: async () => {}
+        });
+        const result = await deployer.deploy({ id: 'www-bloggenius-kr', root_path: siteRoot }, {
+            accessToken: 'token', account: { id: 'a'.repeat(32) }
+        }, { environment: 'production', workerName: 'www-bloggenius-kr-production' });
+        assert.equal(result.worker_name, 'www-bloggenius-kr-production');
+        assert.equal(result.url, 'https://www-bloggenius-kr-production.example.workers.dev/');
+        assert.deepEqual(calls, [['create', 'www-bloggenius-kr-production']]);
     } finally {
         fs.rmSync(siteRoot, { recursive: true, force: true });
     }

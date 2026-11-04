@@ -2,6 +2,16 @@ name: Deploy Production Trends Release
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Production operation
+        type: choice
+        required: true
+        default: deploy-workers
+        options:
+          - deploy-workers
+          - cutover-site-domain
+          - rollback-site-domain
 
 permissions:
   contents: read
@@ -114,7 +124,7 @@ jobs:
   production-migration-preview:
     name: Preview Production migration changes
     needs: [validate-release-ref, build]
-    if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
+    if: inputs.operation == 'deploy-workers' && needs.validate-release-ref.outputs.newsletter_changed == 'true'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -134,11 +144,7 @@ jobs:
   deploy:
     name: Deploy approved Production candidates
     needs: [validate-release-ref, build, production-migration-preview]
-    if: >-
-      always() && needs.validate-release-ref.result == 'success'
-      && needs.build.result == 'success'
-      && (needs.production-migration-preview.result == 'success'
-        || needs.production-migration-preview.result == 'skipped')
+    if: ${{ inputs.operation == 'deploy-workers' && always() && needs.validate-release-ref.result == 'success' && needs.build.result == 'success' && (needs.production-migration-preview.result == 'success' || needs.production-migration-preview.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -259,7 +265,34 @@ jobs:
         with:
           name: production-trends-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
-      - name: Deploy the existing Production site Worker
+      - name: Deploy or create the Production site Worker
         run: node scripts/deploy-production-trends-site.js
-      - name: Verify the Production site
-        run: node scripts/production-trends-web-smoke.js site
+
+  site-domain-cutover:
+    name: Cut over the Production site domain
+    needs: [validate-release-ref, build]
+    if: inputs.operation == 'cutover-site-domain' || inputs.operation == 'rollback-site-domain'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      BLOGGENIUS_ENV: production
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify Production deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo '::error::Configure CLOUDFLARE_API_TOKEN in the production Environment.'; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || { echo '::error::Configure CLOUDFLARE_ACCOUNT_ID in the production Environment.'; exit 1; }
+      - name: Install Cloudflare deployment dependencies
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Transfer the Production site domain after workers.dev validation
+        run: node scripts/deploy-production-trends-site.js --${{ inputs.operation }}

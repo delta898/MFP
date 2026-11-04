@@ -176,3 +176,13 @@ BlogGenius API hostname after both hostnames pass smoke checks.
   sandbox `EPERM`, completed with 2,515 passing, 0 failing, and 1 pre-existing
   skipped test. `npm run test:unit` still stops at its pretest security audit
   because the current dependency tree reports two high-severity advisories.
+- 2026-11-05: During Production release preflight, the user requested consistent
+  explicit Worker names: `www-bloggenius-kr-dev` and
+  `www-bloggenius-kr-production`, alongside the already matching Trends API
+  and Newsletter Worker names. Site deployment now creates the named Worker
+  when absent and reuses it thereafter. Development smoke-checks its new
+  `workers.dev` endpoint before transferring its site hostname. Production
+  Worker deployment leaves `www.bloggenius.kr` on its current Worker; a
+  separately selected, Production-environment-gated workflow operation
+  smoke-checks and transfers the domain, with a rollback operation to the
+  preserved legacy Worker. Existing Worker resources are retained.
