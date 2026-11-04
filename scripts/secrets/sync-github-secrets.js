@@ -23,7 +23,6 @@ const REQUIRED = Object.freeze({
   ],
   production: [
     'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD',
-    'SUPABASE_DB_POOLER_URL',
     'BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY', 'TRENDS_SUPABASE_SECRET_KEY',
     'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET', 'TRENDS_NEWSLETTER_WORKER_TOKEN',
     'TRENDS_NEWSLETTER_CANARY_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
@@ -83,21 +82,6 @@ function readSecretFile(filePath, environment) {
   }
   if (environment === 'production' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
     throw new Error('NEWSLETTER_CANARY_EMAIL must be a valid single administrator email address.');
-  }
-  if (environment === 'production') {
-    let poolerUrl;
-    try { poolerUrl = new URL(String(values.SUPABASE_DB_POOLER_URL || '').trim()); }
-    catch { throw new Error('SUPABASE_DB_POOLER_URL must be the Production Supabase session-pooler connection string.'); }
-    if (!['postgres:', 'postgresql:'].includes(poolerUrl.protocol)
-      || !poolerUrl.hostname.endsWith('.pooler.supabase.com')
-      || poolerUrl.port !== '5432'
-      || poolerUrl.username !== 'postgres.hocfjolcthvtgfaxjmse'
-      || poolerUrl.pathname !== '/postgres'
-      || !poolerUrl.password
-      || poolerUrl.search
-      || poolerUrl.hash) {
-      throw new Error('SUPABASE_DB_POOLER_URL must target the Production session pooler on port 5432.');
-    }
   }
   if (environment === 'development' && values.NEWSLETTER_EMAIL_MODE.trim() !== 'allowlist') {
     throw new Error('Development NEWSLETTER_EMAIL_MODE must be allowlist.');

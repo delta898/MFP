@@ -49,13 +49,13 @@ test('Production migration preview must finish before the separately gated deplo
     const preview = productionWorkflow.match(/  production-migration-preview:[\s\S]*?(?=\n  deploy:)/)?.[0] || '';
     const deploy = productionWorkflow.match(/  deploy:[\s\S]*$/)?.[0] || '';
     assert.match(preview, /environment: production/);
+    assert.match(preview, /supabase link --project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --password "\$SUPABASE_DB_PASSWORD"/);
     assert.match(preview, /supabase db push --dry-run/);
-    assert.match(preview, /SUPABASE_DB_POOLER_URL: \$\{\{ secrets\.SUPABASE_DB_POOLER_URL \}\}/);
-    assert.match(preview, /--remote="\$SUPABASE_DB_POOLER_URL"/);
     assert.match(deploy, /needs: \[validate-release-ref, build, production-migration-preview\]/);
     assert.match(deploy, /needs\.production-migration-preview\.result == 'success'/);
     assert.match(deploy, /environment: production/);
-    assert.match(deploy, /Apply Production Supabase migrations[\s\S]*supabase db push --remote="\$SUPABASE_DB_POOLER_URL"/);
+    assert.match(deploy, /Configure ephemeral Production database connection[\s\S]*supabase link --project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --password "\$SUPABASE_DB_PASSWORD"/);
+    assert.match(deploy, /Apply Production Supabase migrations[\s\S]*supabase db push --remote="\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF"/);
     assert.doesNotMatch(deploy, /Preview Production migration changes/);
 });
 

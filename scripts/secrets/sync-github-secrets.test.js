@@ -10,10 +10,7 @@ const { REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProduc
 
 function makeEnvironmentValues(environment) {
   return {
-    ...Object.fromEntries(REQUIRED[environment].map((name) => [name,
-      name === 'SUPABASE_DB_POOLER_URL'
-        ? 'postgresql://postgres.hocfjolcthvtgfaxjmse:fixture-password@aws-0-us-east-1.pooler.supabase.com:5432/postgres'
-        : `fixture-${name}`])),
+    ...Object.fromEntries(REQUIRED[environment].map((name) => [name, `fixture-${name}`])),
     ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name,
       name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32)
         : name === 'NEWSLETTER_CANARY_EMAIL' ? 'admin@example.test'
@@ -80,21 +77,6 @@ test('requires a single valid Production canary destination before syncing', (t)
   values.NEWSLETTER_CANARY_EMAIL = 'not-an-email';
   const filePath = makeSecretFile(t, values);
   assert.throws(() => readSecretFile(filePath, 'production'), /NEWSLETTER_CANARY_EMAIL must be a valid/);
-});
-
-test('requires the Production Supabase IPv4 session pooler URL', (t) => {
-  const values = makeEnvironmentValues('production');
-  const validFilePath = makeSecretFile(t, values);
-  assert.doesNotThrow(() => readSecretFile(validFilePath, 'production'));
-  delete values.SUPABASE_DB_POOLER_URL;
-  const missingFilePath = makeSecretFile(t, values);
-  assert.throws(() => readSecretFile(missingFilePath, 'production'), /Required production secrets are missing or empty: SUPABASE_DB_POOLER_URL/);
-  values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres:fixture-password@db.hocfjolcthvtgfaxjmse.supabase.co:5432/postgres';
-  const filePath = makeSecretFile(t, values);
-  assert.throws(() => readSecretFile(filePath, 'production'), /Production session pooler on port 5432/);
-  values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.hocfjolcthvtgfaxjmse:fixture-password@aws-0-us-east-1.pooler.supabase.com:6543/postgres';
-  const transactionPoolerFilePath = makeSecretFile(t, values);
-  assert.throws(() => readSecretFile(transactionPoolerFilePath, 'production'), /Production session pooler on port 5432/);
 });
 
 test('refuses permissive local secret file permissions', (t) => {

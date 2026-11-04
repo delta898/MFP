@@ -29,12 +29,7 @@ characters. Do not put Production values in this file.
 
 The Production file contains Production-scoped GitHub secrets for
 Supabase/Cloudflare access, Trends API, newsletter Worker/Edge Function,
-Telegram, and Brevo. `SUPABASE_DB_POOLER_URL` must be the Production project's
-Session pooler connection string copied from Supabase Connect, using port
-`5432`. Replace its password placeholder with the URL-encoded database
-password. The workflow uses this IPv4-compatible URL for migration preview and
-application; it never falls back to the IPv6-only direct database hostname.
-`NEWSLETTER_CANARY_EMAIL` is stored as a Production
+Telegram, and Brevo. `NEWSLETTER_CANARY_EMAIL` is stored as a Production
 Environment variable and is the only address the canary function can target.
 The regular Production email mode is deliberately not synced from this file;
 deployment sets it to `disabled`, and the protected control workflow changes it
