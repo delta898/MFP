@@ -5,7 +5,7 @@
 - Branch: `codex/trends-api-dev-worker-rename-dev-implementation`
 - Base/parent branch: `codex/trends-api-dev-worker-rename-inventory`
 - Start date: 2026-11-04
-- Status: In progress
+- Status: Complete; merged into `dev` as `93e57415`
 
 ## User need and goal
 
@@ -93,6 +93,7 @@ by Cloudflare and asked for a safe, complete repository change.
 
 ## Final result and follow-up
 
-- Implementation and validation are complete; merge into `dev` is the next
-  authorized operation. The Cloudflare deployment itself will occur only after
-  a later push to `dev`.
+- Merged into `dev` as `93e57415` (`feat: rename development trends api worker`).
+- The Cloudflare deployment itself will occur after a later push to `dev`.
+- The old Worker and old Dev hostname remain available for rollback; Production
+  Worker/domain configuration is unchanged.

@@ -5,7 +5,7 @@
 - Branch: `codex/trends-api-dev-worker-rename-inventory`
 - Base branch: `dev`
 - Start date: 2026-11-04
-- Status: In progress
+- Status: Complete (inventory stage)
 
 ## User need and goal
 
@@ -110,12 +110,10 @@ configuration also contain fixed hostnames and must be classified deliberately.
 
 ## Final result and follow-up
 
-Repository references and environment-specific call paths are inventoried.
-No runtime code, deployment configuration, hostname, Cloudflare resource, DNS,
-Collector local configuration, or Production resource was changed. The next
-implementation proposal should first reconcile the Production deployed-state
-discrepancy, then update the Worker name and hostname as separate migration
-steps with an overlap/rollback period and coordinated site, Collector,
-WordPress, and fallback decisions.
+Repository references and environment-specific call paths were inventoried.
+The follow-up Development implementation is recorded in
+[`2026-11-04-trends-api-dev-worker-rename-implementation.md`](2026-11-04-trends-api-dev-worker-rename-implementation.md)
+and was merged into `dev` in commit `93e57415`. Production resource and domain
+changes remain a later task.
 
-No manual environment changes, DNS changes, or deploys were performed.
+No Cloudflare deployment or DNS mutation was performed in the inventory stage.
