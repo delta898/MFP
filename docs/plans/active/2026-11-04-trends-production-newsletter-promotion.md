@@ -5,7 +5,7 @@
 - Branch: `codex/trends-production-newsletter-promotion`
 - Base/parent branch: `dev` at `d87b1e90`
 - Start date: 2026-11-04
-- Status: Implementation complete; Production rollout and real canary remain pending
+- Status: Release implementation merged locally into `dev`; Development parity validation is in progress; Production rollout remains blocked on Development verification and migration-history reconciliation
 
 ## User need and goal
 
@@ -193,3 +193,14 @@ using `docs/architecture/platform-kernel-applications-plugins.md`.
 - 2026-11-04: Implementation is complete in the working tree. Production
   rollout remains unexecuted pending the user's review of the release diff,
   migration dry-run, and configured fixed canary address.
+- 2026-11-05: User-directed release/v0.7.2 changes were committed and pushed,
+  then fast-forwarded into local `dev` after the approved full-suite run. The
+  Development follow-up now uses its own Session Pooler URL for migration
+  preview/apply/history inspection, and site deploy/cutover/rollback are split
+  into Development operations gated to `dev` before Environment credentials
+  are exposed. The secret sync also reconciles the existing Development
+  Environment to a single `dev` branch policy. These follow-up changes remain
+  uncommitted and unpushed; Production is not being retried. The attempted
+  Production migration failed because the first local migration tried to
+  create an already-existing `licenses` table, so Production migration history
+  and schema reconciliation still require a safe, Development-first process.

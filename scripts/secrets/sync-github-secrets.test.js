@@ -16,6 +16,11 @@ function makeEnvironmentValues(environment) {
         : name === 'NEWSLETTER_CANARY_EMAIL' ? 'admin@example.test'
           : `fixture-${name}`]))
   };
+  if (environment === 'development') {
+    values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.bvtlwjbmjnfphxlrkzhm:encoded%3Bpassword@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+    values.NEWSLETTER_EMAIL_MODE = 'allowlist';
+    values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
+  }
   if (environment === 'production') {
     values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.hocfjolcthvtgfaxjmse:encoded%3Bpassword@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
   }
@@ -83,20 +88,23 @@ test('requires a single valid Production canary destination before syncing', (t)
   assert.throws(() => readSecretFile(filePath, 'production'), /NEWSLETTER_CANARY_EMAIL must be a valid/);
 });
 
-test('requires the Production Session Pooler URL and rejects direct or transaction pooler URLs', (t) => {
-  const values = makeEnvironmentValues('production');
-  const validFile = makeSecretFile(t, values);
-  assert.equal(readSecretFile(validFile, 'production').SUPABASE_DB_POOLER_URL, values.SUPABASE_DB_POOLER_URL);
+for (const environment of ['development', 'production']) {
+  test(`requires the ${environment} Session Pooler URL and rejects direct or transaction pooler URLs`, (t) => {
+    const values = makeEnvironmentValues(environment);
+    const projectRef = environment === 'development' ? 'bvtlwjbmjnfphxlrkzhm' : 'hocfjolcthvtgfaxjmse';
+    const validFile = makeSecretFile(t, values);
+    assert.equal(readSecretFile(validFile, environment).SUPABASE_DB_POOLER_URL, values.SUPABASE_DB_POOLER_URL);
 
-  for (const invalidUrl of [
-    'postgresql://postgres.hocfjolcthvtgfaxjmse:password@db.hocfjolcthvtgfaxjmse.supabase.co:5432/postgres',
-    'postgresql://postgres.hocfjolcthvtgfaxjmse:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres',
-    'postgresql://postgres.otherproject:password@aws-0-us-east-1.pooler.supabase.com:5432/postgres'
-  ]) {
-    const invalidFile = makeSecretFile(t, { ...values, SUPABASE_DB_POOLER_URL: invalidUrl });
-    assert.throws(() => readSecretFile(invalidFile, 'production'), /SUPABASE_DB_POOLER_URL must target/);
-  }
-});
+    for (const invalidUrl of [
+      `postgresql://postgres.${projectRef}:password@db.${projectRef}.supabase.co:5432/postgres`,
+      `postgresql://postgres.${projectRef}:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres`,
+      'postgresql://postgres.otherproject:password@aws-0-us-east-1.pooler.supabase.com:5432/postgres'
+    ]) {
+      const invalidFile = makeSecretFile(t, { ...values, SUPABASE_DB_POOLER_URL: invalidUrl });
+      assert.throws(() => readSecretFile(invalidFile, environment), /SUPABASE_DB_POOLER_URL must target/);
+    }
+  });
+}
 
 test('refuses permissive local secret file permissions', (t) => {
   const filePath = makeSecretFile(t, { CLOUDFLARE_API_TOKEN: 'fixture' });
@@ -123,13 +131,19 @@ test('syncs only names to the selected GitHub environment without printing value
       calls.push({ args, input });
       if (args[0] === 'repo') return 'delta898/MFP';
       if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development';
+      if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development') {
+        return JSON.stringify({ deployment_branch_policy: { custom_branch_policies: true } });
+      }
+      if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development/deployment-branch-policies') {
+        return JSON.stringify([{ id: 1, name: 'dev', type: 'branch' }]);
+      }
       return '';
     }, output: output.stream
   });
   assert.equal(calls[0].args.join(' '), 'auth status');
   assert.deepEqual(calls[3].args, ['secret', 'list', '--env', 'development']);
   assert.deepEqual(calls[4].args, ['variable', 'list', '--env', 'development']);
-  assert.equal(calls.length, Object.keys(values).length + 5);
+  assert.equal(calls.length, Object.keys(values).length + 9);
   assert.deepEqual(result.updated, Object.keys(values).filter((name) => !REQUIRED_VARIABLES.development.includes(name)).sort());
   for (const name of REQUIRED.development) assert.ok(calls.some((call) => call.input === values[name]));
   assert.deepEqual(result.updatedVariables, ['CLOUDFLARE_ACCOUNT_ID']);
@@ -139,14 +153,24 @@ test('syncs only names to the selected GitHub environment without printing value
 
 test('creates a missing Development Environment restricted to the dev branch', () => {
   const calls = [];
+  let environmentCreated = false;
+  let branchPolicies = [];
   const runCommand = (args, input) => {
     calls.push({ args, input });
-    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return '';
-    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development') {
-      return JSON.stringify({ deployment_branch_policy: { custom_branch_policies: true } });
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return environmentCreated ? 'development' : '';
+    if (args[0] === 'api' && args[1] === '--method' && args[2] === 'PUT') {
+      environmentCreated = true;
+      return '';
     }
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development/deployment-branch-policies') {
-      return 'dev';
+      return JSON.stringify(branchPolicies);
+    }
+    if (args[0] === 'api' && args[1] === '--method' && args[2] === 'POST') {
+      branchPolicies.push({ id: 1, name: 'dev', type: 'branch' });
+      return '';
+    }
+    if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/development') {
+      return JSON.stringify({ deployment_branch_policy: { custom_branch_policies: true } });
     }
     return '';
   };

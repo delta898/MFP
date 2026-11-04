@@ -15,7 +15,7 @@ const FILES = Object.freeze({
 
 const REQUIRED = Object.freeze({
   development: [
-    'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD',
+    'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD', 'SUPABASE_DB_POOLER_URL',
     'BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY', 'TRENDS_SUPABASE_SECRET_KEY',
     'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET', 'TRENDS_NEWSLETTER_WORKER_TOKEN',
     'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'BREVO_API_KEY', 'NEWSLETTER_EMAIL_FROM',
@@ -83,17 +83,18 @@ function readSecretFile(filePath, environment) {
   if (environment === 'production' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
     throw new Error('NEWSLETTER_CANARY_EMAIL must be a valid single administrator email address.');
   }
-  if (environment === 'production') {
+  if (environment === 'development' || environment === 'production') {
     let pooler;
     try { pooler = new URL(String(values.SUPABASE_DB_POOLER_URL || '').trim()); }
-    catch { throw new Error('SUPABASE_DB_POOLER_URL must be a valid Supabase Session Pooler connection URL.'); }
+    catch { throw new Error(`SUPABASE_DB_POOLER_URL must be a valid ${environment} Supabase Session Pooler connection URL.`); }
+    const projectRef = environment === 'development' ? 'bvtlwjbmjnfphxlrkzhm' : 'hocfjolcthvtgfaxjmse';
     if (!['postgres:', 'postgresql:'].includes(pooler.protocol)
       || !pooler.hostname.endsWith('.pooler.supabase.com')
       || pooler.port !== '5432'
-      || pooler.username !== 'postgres.hocfjolcthvtgfaxjmse'
+      || pooler.username !== `postgres.${projectRef}`
       || pooler.pathname !== '/postgres'
       || !pooler.password) {
-      throw new Error('SUPABASE_DB_POOLER_URL must target the Production Supabase Session Pooler (port 5432) and the expected project.');
+      throw new Error(`SUPABASE_DB_POOLER_URL must target the ${environment} Supabase Session Pooler (port 5432) and the expected project.`);
     }
   }
   if (environment === 'development' && values.NEWSLETTER_EMAIL_MODE.trim() !== 'allowlist') {
@@ -215,19 +216,61 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
 function ensureDevelopmentEnvironment({ runCommand = runGh, repo, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
   const endpoint = `repos/${repo}/environments/development`;
   const policyEndpoint = `${endpoint}/deployment-branch-policies`;
-  if (environmentNames.includes('development')) return false;
+  const existed = environmentNames.includes('development');
+  const current = existed
+    ? parseJsonResult(runCommand(['api', endpoint]), 'inspect the Development Environment')
+    : { protection_rules: [], deployment_branch_policy: null };
+  const rules = Array.isArray(current?.protection_rules) ? current.protection_rules : [];
+  if (rules.some((rule) => !['wait_timer', 'required_reviewers', 'branch_policy'].includes(rule?.type))) {
+    throw new Error('The existing Development Environment has protection rules this utility cannot safely preserve; no secrets or variables were changed.');
+  }
 
-  runCommand(['api', '--method', 'PUT', endpoint, '--input', '-'], JSON.stringify({
-    deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
-  }));
-  runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify({ name: 'dev', type: 'branch' }));
+  let branchPolicies = [];
+  if (current?.deployment_branch_policy?.custom_branch_policies === true) {
+    branchPolicies = parseJsonResult(
+      runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies']),
+      'inspect the Development Environment branch policies'
+    );
+  }
+  const hasOnlyDevPolicy = current?.deployment_branch_policy?.custom_branch_policies === true
+    && branchPolicies.length === 1 && branchPolicies[0]?.name === 'dev';
+  if (!hasOnlyDevPolicy) {
+    const reviewersByKey = new Map();
+    for (const entry of rules.find((rule) => rule?.type === 'required_reviewers')?.reviewers || []) {
+      const id = Number(entry?.reviewer?.id);
+      if ((entry?.type === 'User' || entry?.type === 'Team') && Number.isInteger(id) && id > 0) {
+        reviewersByKey.set(`${entry.type}:${id}`, { type: entry.type, id });
+      }
+    }
+    const waitTimer = rules.find((rule) => rule?.type === 'wait_timer')?.wait_timer;
+    runCommand(['api', '--method', 'PUT', endpoint, '--input', '-'], JSON.stringify({
+      wait_timer: Number.isInteger(waitTimer) ? waitTimer : 0,
+      prevent_self_review: rules.find((rule) => rule?.type === 'required_reviewers')?.prevent_self_review ?? false,
+      reviewers: [...reviewersByKey.values()],
+      deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
+    }));
+    const afterUpdate = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies']);
+    branchPolicies = afterUpdate ? parseJsonResult(afterUpdate, 'inspect the Development Environment branch policies') : [];
+    for (const policy of branchPolicies) {
+      if (policy?.name !== 'dev' && policy?.id) {
+        runCommand(['api', '--method', 'DELETE', `${policyEndpoint}/${policy.id}`]);
+      }
+    }
+    if (!branchPolicies.some((policy) => policy?.name === 'dev')) {
+      runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify({ name: 'dev', type: 'branch' }));
+    }
+  }
+
   const environment = parseJsonResult(runCommand(['api', endpoint]), 'inspect the Development Environment');
-  const branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
-    .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-  if (environment?.deployment_branch_policy?.custom_branch_policies !== true || !branchPolicies.includes('dev')) {
+  branchPolicies = parseJsonResult(
+    runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies']),
+    'verify the Development Environment branch policies'
+  );
+  if (environment?.deployment_branch_policy?.custom_branch_policies !== true
+    || branchPolicies.length !== 1 || branchPolicies[0]?.name !== 'dev') {
     throw new Error('The Development Environment could not be restricted to the dev branch; no secrets or variables were changed.');
   }
-  return true;
+  return !existed;
 }
 
 async function promptForConfirmation(expected, { input = process.stdin, output = process.stdout } = {}) {
@@ -256,11 +299,9 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
   let environmentCreated = false;
   let reviewerId = '';
   output.write(`Target GitHub Environment: ${environment}\nSecrets to update (${names.length}): ${names.join(', ')}\nVariables to update (${variableNames.length}): ${variableNames.join(', ')}\n`);
-  if (!environmentExists) {
-    output.write(environment === 'production'
-      ? 'Environment guard: create if missing, allow release/* only, require the current GitHub account to approve.\n'
-      : 'Environment guard: create if missing and allow deployment from dev only.\n');
-  }
+  output.write(environment === 'production'
+    ? 'Environment guard: require release/* only and the current GitHub account to approve.\n'
+    : 'Environment guard: allow deployment from dev only.\n');
   if (environment === 'production') {
     reviewerId = runCommand(['api', 'user', '--jq', '.id']);
     if (!/^\d+$/.test(reviewerId)) throw new Error('Could not determine the current GitHub reviewer; no secrets or variables were changed.');
@@ -273,7 +314,7 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
   }
   if (environment === 'production') {
     environmentCreated = ensureProductionEnvironment({ runCommand, repo, reviewerId, environmentNames });
-  } else if (!environmentExists) {
+  } else {
     environmentCreated = ensureDevelopmentEnvironment({ runCommand, repo, environmentNames });
   }
   if (!environmentExists || environment === 'production') {

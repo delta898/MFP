@@ -64,6 +64,16 @@ secrets; it never writes directly to Cloudflare or Supabase. Production secret
 sync only updates GitHub Environment secrets. Production deployment is a
 separate explicit operation and is never triggered by secret sync.
 
+Development database migrations use `SUPABASE_DB_POOLER_URL` from the
+Development project's Session Pooler (port 5432), matching Production's
+connection method. The development secret sync validates that the URL belongs
+to the Development project. The `development` GitHub Environment is created
+or reconciled to allow only the `dev` branch. Development site deploy,
+hostname cutover, and rollback are separate operations in
+`.github/workflows/deploy-trends-web-development.yml`; a branch-check job runs
+before any job receives Development Environment credentials, and the deploy
+script independently rejects refs other than `dev`.
+
 ### Production Trends promotion
 
 The Production web experience shares the Development Astro source but receives
@@ -101,9 +111,9 @@ release branch using the normal release process, ensure the GitHub
 `TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`, and
 `TRENDS_READ_TOKEN_SECRET`. The Production migration preview and apply use
 `SUPABASE_DB_POOLER_URL` from the Production project's Session Pooler (port
-5432): the GitHub runner can reach Development's direct project-ref endpoint,
-but the Production direct endpoint reports that IPv6 is unavailable. The CLI
-explicitly recommends the pooler URL for this Production connection. The
+5432), matching Development's connection method. The Production direct
+endpoint reports that IPv6 is unavailable, and the CLI recommends the pooler
+URL for this connection. The
 Production env-file sync sets
 `CLOUDFLARE_ACCOUNT_ID` and `NEWSLETTER_CANARY_EMAIL` as GitHub Environment
 variables. The first selects the Cloudflare account; the second is the sole

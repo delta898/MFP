@@ -25,7 +25,10 @@ Development Supabase public key, Trends API credentials, newsletter shared
 token, Telegram credentials, and Development email policy/provider settings.
 `NEWSLETTER_EMAIL_MODE` must be `allowlist`; set the test-recipient allowlist
 before syncing. Quote values containing spaces, `#`, or other dotenv syntax
-characters. Do not put Production values in this file.
+characters. `SUPABASE_DB_POOLER_URL` must come from the Development project's
+Supabase **Connect → Session pooler** details and use port `5432`; the sync
+utility verifies its hostname, project username, and port without printing it.
+Do not put Production values in this file.
 
 The Production file contains Production-scoped GitHub secrets for
 Supabase/Cloudflare access, Trends API, newsletter Worker/Edge Function,
@@ -57,11 +60,13 @@ standard input and are not printed; the nonsecret Cloudflare account ID is
 written as an Environment variable. The operation does not deploy code or
 contact Cloudflare/Supabase directly.
 
-After syncing Development values, push to `dev`. The existing GitHub Actions
-deployment provisions the Development Supabase Edge Function and both
-Development Workers from the GitHub `development` Environment. If that
-Environment is missing, the Dev sync creates it and restricts it to the `dev`
-branch.
+After syncing Development values, push to `dev`. Development migration
+preview, apply, and migration-history inspection all use the Development
+Session Pooler URL. The GitHub `development` Environment is created or
+reconciled by the sync utility and restricted to the `dev` branch. Development
+site deploy, domain cutover, and rollback operations also reject all other
+refs, with Environment credentials available only after the workflow's `dev`
+branch guard.
 
 Production sync creates the `production` Environment when it is missing,
 restricts it to `release/*`, and requires the currently authenticated GitHub
