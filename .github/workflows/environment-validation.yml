@@ -76,6 +76,8 @@ jobs:
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift'))
     needs: [release-artifact, build-development-site, validate-development-workers]
+    outputs:
+      newsletter_deployment_id: ${{ steps.newsletter-deployment.outputs.id }}
     runs-on: ubuntu-latest
     environment: development
     env:
@@ -101,6 +103,10 @@ jobs:
           version: 3.0.0-beta.17
       - uses: denoland/setup-deno@v2
       - run: npm ci
+      - name: Create Development newsletter deployment identity
+        id: newsletter-deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: echo "id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')" >> "$GITHUB_OUTPUT"
       - name: Validate newsletter Edge Function
         run: |
           deno check supabase/functions/trends-mailing-list/index.ts
@@ -119,31 +125,41 @@ jobs:
           TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
           TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+          TRENDS_NEWSLETTER_CANARY_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_CANARY_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
-          NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
-          NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
           NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
+          NEWSLETTER_CANARY_EMAIL: ${{ vars.NEWSLETTER_CANARY_EMAIL }}
+          NEWSLETTER_DEPLOYMENT_ID: ${{ steps.newsletter-deployment.outputs.id }}
         run: |
           set -euo pipefail
-          required_secrets=(SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_DB_POOLER_URL BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY CLOUDFLARE_API_TOKEN TRENDS_SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
+          required_secrets=(SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_DB_POOLER_URL BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY CLOUDFLARE_API_TOKEN TRENDS_SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN TRENDS_NEWSLETTER_CANARY_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
           for secret_name in "${required_secrets[@]}"; do
             if [[ -z "${!secret_name}" ]]; then
               echo "::error::Add ${secret_name} to the GitHub development environment secrets."
               exit 1
             fi
           done
-          if [[ "$NEWSLETTER_EMAIL_MODE" != "allowlist" ]]; then
-            echo "::error::Development newsletter email mode must be allowlist."
-            exit 1
-          fi
+          for variable_name in NEWSLETTER_CANARY_EMAIL NEWSLETTER_DEPLOYMENT_ID; do
+            if [[ -z "${!variable_name}" ]]; then echo "::error::Configure ${variable_name} in development."; exit 1; fi
+          done
       - name: Preview pending Development migrations
         run: |
           supabase db push \
             --dry-run \
             --remote="$SUPABASE_DB_POOLER_URL"
+      - name: Disable Development newsletter delivery before database changes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          printf 'BLOGGENIUS_ENV=development\nNEWSLETTER_EMAIL_MODE=disabled\n' > "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes
       - name: Apply pending Development migrations
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         run: |
@@ -157,12 +173,12 @@ jobs:
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
-          NEWSLETTER_EMAIL_MODE: ${{ secrets.NEWSLETTER_EMAIL_MODE }}
-          NEWSLETTER_EMAIL_ALLOWLIST: ${{ secrets.NEWSLETTER_EMAIL_ALLOWLIST }}
           NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
+          NEWSLETTER_CANARY_EMAIL: ${{ vars.NEWSLETTER_CANARY_EMAIL }}
+          NEWSLETTER_DEPLOYMENT_ID: ${{ steps.newsletter-deployment.outputs.id }}
         run: |
           set -euo pipefail
-          required_secrets=(TRENDS_NEWSLETTER_WORKER_TOKEN BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_EMAIL_MODE NEWSLETTER_EMAIL_ALLOWLIST NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET)
+          required_secrets=(TRENDS_NEWSLETTER_WORKER_TOKEN BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET NEWSLETTER_CANARY_EMAIL NEWSLETTER_DEPLOYMENT_ID)
           for secret_name in "${required_secrets[@]}"; do
             if [[ -z "${!secret_name}" ]]; then
               echo "::error::Add ${secret_name} to the GitHub development environment secrets."
@@ -173,7 +189,7 @@ jobs:
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-function-secrets.XXXXXX.env")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'const fs = require("node:fs"); const names = ["TRENDS_NEWSLETTER_WORKER_TOKEN", "BREVO_API_KEY", "NEWSLETTER_EMAIL_FROM", "NEWSLETTER_EMAIL_MODE", "NEWSLETTER_EMAIL_ALLOWLIST", "NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET"]; const lines = ["BLOGGENIUS_ENV=development", ...names.map((name) => `${name}=${JSON.stringify(process.env[name])}`)]; fs.writeFileSync(process.argv[1], `${lines.join("\n")}\n`, { mode: 0o600 });' "$secrets_file"
+          node -e 'const fs = require("node:fs"); const names = ["TRENDS_NEWSLETTER_WORKER_TOKEN", "BREVO_API_KEY", "NEWSLETTER_EMAIL_FROM", "NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET", "NEWSLETTER_CANARY_EMAIL", "NEWSLETTER_DEPLOYMENT_ID"]; const lines = ["BLOGGENIUS_ENV=development", "NEWSLETTER_EMAIL_MODE=disabled", ...names.map((name) => `${name}=${JSON.stringify(process.env[name])}`)]; fs.writeFileSync(process.argv[1], `${lines.join("\n")}\n`, { mode: 0o600 });' "$secrets_file"
           supabase secrets set \
             --env-file "$secrets_file" \
             --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
@@ -409,6 +425,8 @@ jobs:
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NEWSLETTER_RELEASE_SHA: ${{ github.sha }}
+          NEWSLETTER_DEPLOYMENT_ID: ${{ needs.development-drift.outputs.newsletter_deployment_id }}
         run: |
           set -euo pipefail
           required_secrets=(TRENDS_SUPABASE_SECRET_KEY TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID)
@@ -423,7 +441,7 @@ jobs:
           secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-worker-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
           node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]; const values = { ...Object.fromEntries(names.slice(1).map((name) => [name, process.env[name]])), SUPABASE_SECRET_KEY: process.env.TRENDS_SUPABASE_SECRET_KEY, SUPABASE_URL: process.env.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }; fs.writeFileSync(process.argv[1], JSON.stringify(values), { mode: 0o600 });' "$secrets_file"
-          npx wrangler deploy --secrets-file "$secrets_file"
+          npx wrangler deploy --var "NEWSLETTER_RELEASE_SHA:$NEWSLETTER_RELEASE_SHA" --var "NEWSLETTER_DEPLOYMENT_ID:$NEWSLETTER_DEPLOYMENT_ID" --secrets-file "$secrets_file"
       - name: Install Development Trends API Worker dependencies
         working-directory: apps/trends/trends-api/workers
         run: npm ci
@@ -436,9 +454,10 @@ jobs:
           TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
           TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
           TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+          TRENDS_NEWSLETTER_CANARY_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_CANARY_TOKEN }}
         run: |
           set -euo pipefail
-          required_secrets=(SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN)
+          required_secrets=(SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET TRENDS_NEWSLETTER_WORKER_TOKEN TRENDS_NEWSLETTER_CANARY_TOKEN)
           for secret_name in "${required_secrets[@]}"; do
             if [[ -z "${!secret_name}" ]]; then
               echo "::error::Add ${secret_name} to the GitHub development environment secrets."
@@ -449,7 +468,7 @@ jobs:
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/trends-api-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_API_TOKEN", "TRENDS_READ_TOKEN_SECRET", "TRENDS_NEWSLETTER_WORKER_TOKEN"]; const secrets = Object.fromEntries(names.map((name) => [name, process.env[name]])); fs.writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });' "$secrets_file"
+          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_API_TOKEN", "TRENDS_READ_TOKEN_SECRET", "TRENDS_NEWSLETTER_WORKER_TOKEN", "TRENDS_NEWSLETTER_CANARY_TOKEN"]; const secrets = Object.fromEntries(names.map((name) => [name, process.env[name]])); fs.writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });' "$secrets_file"
           npx wrangler deploy --env='' --secrets-file "$secrets_file"
 
   deploy-development-site:
@@ -476,6 +495,50 @@ jobs:
         run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Deploy the Development site Worker and ensure its domain
         run: node scripts/deploy-development-site.js
+
+  send-development-newsletter-canary:
+    name: Development | Send administrator canary
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: [development-drift, deploy-development-site]
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      BLOGGENIUS_ENV: development
+      BLOGGENIUS_TRENDS_API_URL: ${{ vars.BLOGGENIUS_TRENDS_API_URL }}
+      SUPABASE_URL: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF }}
+      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+      TRENDS_NEWSLETTER_CANARY_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_CANARY_TOKEN }}
+      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
+      NEWSLETTER_RELEASE_SHA: ${{ github.sha }}
+      NEWSLETTER_DEPLOYMENT_ID: ${{ needs.development-drift.outputs.newsletter_deployment_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.0.0-beta.17
+      - name: Send canary and wait for Telegram-backed Worker summary
+        run: node scripts/newsletter/send-canary.js
+      - name: Enable Development live delivery after canary success
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          printf 'BLOGGENIUS_ENV=development\nNEWSLETTER_EMAIL_MODE=live\n' > "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes
+      - name: Verify Development live delivery mode and deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.json")"
+          trap 'rm -f "$response"' EXIT
+          curl --silent --show-error --fail -X POST \
+            -H "Authorization: Bearer $TRENDS_NEWSLETTER_WORKER_TOKEN" -H 'content-type: application/json' \
+            --data '{"action":"delivery_mode"}' "$SUPABASE_URL/functions/v1/trends-mailing-list" -o "$response"
+          node -e 'const fs=require("node:fs"); const b=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(b.success!==true||b.environment!=="development"||b.mode!=="live"||b.deploymentId!==process.env.NEWSLETTER_DEPLOYMENT_ID){console.error("::error::Development live mode or deployment identity verification failed.");process.exit(1)}' "$response"
 
   production-checklist:
     name: Generate Production Approval Checklist

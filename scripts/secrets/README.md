@@ -16,17 +16,18 @@ chmod 600 .secrets/.secret.dev.env
 Both files contain `BLOGGENIUS_TRENDS_API_URL` and `CLOUDFLARE_ACCOUNT_ID`.
 The sync utility writes these nonsecret values to the matching GitHub
 Environment variables; every other supported entry is written as a GitHub
-Environment secret. Production also writes `NEWSLETTER_CANARY_EMAIL` as an
+Environment secret. Both environments write `NEWSLETTER_CANARY_EMAIL` as an
 Environment variable. This initializes the workflow configuration without
 opening GitHub Settings.
 
 The Development file contains the GitHub Environment secret names used by the
-current workflow: Cloudflare and Supabase deployment credentials, the
-Development Supabase public key, Trends API credentials, newsletter shared
-token, Telegram credentials, and Development email policy/provider settings.
-`NEWSLETTER_EMAIL_MODE` must be `allowlist`; set the test-recipient allowlist
-before syncing. Quote values containing spaces, `#`, or other dotenv syntax
-characters. `SUPABASE_DB_POOLER_URL` must come from the Development project's
+current workflow, including the dedicated canary trigger token: Cloudflare and
+Supabase deployment credentials, the Development Supabase public key, Trends
+API credentials, newsletter shared token, Telegram credentials, and Brevo
+settings. The workflow sets newsletter mode to `disabled` during deployment,
+sends the fixed-recipient canary, and enables `live` only after it succeeds.
+Quote values containing spaces, `#`, or other dotenv syntax characters.
+`SUPABASE_DB_POOLER_URL` must come from the Development project's
 Supabase **Connect → Session pooler** details and use port `5432`; the sync
 utility verifies its hostname, project username, and port without printing it.
 Do not put Production values in this file.
@@ -39,11 +40,11 @@ The Production direct endpoint is not reachable over IPv6 from the GitHub
 runner, so migrations use this IPv4-capable Session Pooler URL. Use the exact
 host Supabase displays and URL-encode reserved password characters (for
 example, `;` as `%3B`). The sync utility checks the URL shape without printing
-it. `NEWSLETTER_CANARY_EMAIL` is stored as a Production Environment variable
-and is the only address the canary function can target.
-The regular Production email mode is deliberately not synced from this file;
-deployment sets it to `disabled`, and the protected control workflow changes it
-to `canary`, `live`, or `disabled`.
+it. `NEWSLETTER_CANARY_EMAIL` is stored as an Environment variable in both environments
+and is the only address the canary function can target. Both environments set
+mode to `disabled` during deployment, send the canary, and change it to `live`
+only after success. The Production emergency control workflow can set it back
+to `disabled`.
 
 Authenticate GitHub CLI for this repository once with `gh auth login`, then
 run the fixed-environment wrapper:
@@ -71,13 +72,13 @@ branch guard.
 
 Production sync creates the `production` Environment when it is missing,
 restricts it to the `release/*` branch pattern and the `v*` tag pattern, and
-requires the currently authenticated GitHub account to approve. The branch
+removes reviewer and wait-timer gates so a `release/*` push deploys directly. The branch
 pattern permits Production Worker releases; the tag pattern permits protected
 app release builds to read the same Production API URL. It then syncs its
-secrets and variables; it does not deploy Production. Creating either Environment requires permission to
-administer repository environments. Production also requires GitHub to support
-required reviewers for this repository. If the requested protections cannot
-be configured and verified, sync stops before writing secrets or variables.
+secrets and variables; it does not deploy Production. Creating either
+Environment requires permission to administer repository environments. The
+Production branch and tag policy is verified before any secrets or variables
+are written.
 
 If a sync is interrupted, rerun the same wrapper. GitHub secret updates are
 idempotent. Check the printed names and the Actions result; never paste secret

@@ -19,8 +19,6 @@ function makeEnvironmentValues(environment) {
   };
   if (environment === 'development') {
     values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.bvtlwjbmjnfphxlrkzhm:encoded%3Bpassword@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
-    values.NEWSLETTER_EMAIL_MODE = 'allowlist';
-    values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
   }
   if (environment === 'production') {
     values.SUPABASE_DB_POOLER_URL = 'postgresql://postgres.hocfjolcthvtgfaxjmse:encoded%3Bpassword@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
@@ -66,8 +64,6 @@ test('shows safe GitHub API error details without exposing token-shaped data', (
 
 test('validates required and allowed names before any GitHub mutation', async (t) => {
   const values = makeEnvironmentValues('development');
-  values.NEWSLETTER_EMAIL_MODE = 'allowlist';
-  values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
   values.UNEXPECTED_SECRET = 'fixture';
   const filePath = makeSecretFile(t, values);
   const calls = [];
@@ -114,6 +110,14 @@ for (const environment of ['development', 'production']) {
   });
 }
 
+test('accepts but does not require legacy Development email mode entries', (t) => {
+  const values = makeEnvironmentValues('development');
+  values.NEWSLETTER_EMAIL_MODE = 'allowlist';
+  values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
+  const filePath = makeSecretFile(t, values);
+  assert.equal(readSecretFile(filePath, 'development').NEWSLETTER_EMAIL_MODE, 'allowlist');
+});
+
 test('refuses permissive local secret file permissions', (t) => {
   const filePath = makeSecretFile(t, { CLOUDFLARE_API_TOKEN: 'fixture' });
   fs.chmodSync(filePath, 0o644);
@@ -128,8 +132,6 @@ test('rejects duplicate secret names', (t) => {
 
 test('syncs only names to the selected GitHub environment without printing values', async (t) => {
   const values = makeEnvironmentValues('development');
-  values.NEWSLETTER_EMAIL_MODE = 'allowlist';
-  values.NEWSLETTER_EMAIL_ALLOWLIST = 'reader@example.test';
   const filePath = makeSecretFile(t, values);
   const calls = [];
   const output = captureOutput();
@@ -154,9 +156,10 @@ test('syncs only names to the selected GitHub environment without printing value
   assert.equal(calls.length, Object.keys(values).length + 9);
   assert.deepEqual(result.updated, Object.keys(values).filter((name) => !REQUIRED_VARIABLES.development.includes(name)).sort());
   for (const name of REQUIRED.development) assert.ok(calls.some((call) => call.input === values[name]));
-  assert.deepEqual(result.updatedVariables, ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID']);
+  assert.deepEqual(result.updatedVariables, ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL']);
   assert.ok(calls.some(({ args }) => args.join(' ') === `variable set CLOUDFLARE_ACCOUNT_ID --env development --body ${values.CLOUDFLARE_ACCOUNT_ID}`));
   assert.ok(calls.some(({ args }) => args.join(' ') === `variable set BLOGGENIUS_TRENDS_API_URL --env development --body ${values.BLOGGENIUS_TRENDS_API_URL}`));
+  assert.ok(calls.some(({ args }) => args.join(' ') === `variable set NEWSLETTER_CANARY_EMAIL --env development --body ${values.NEWSLETTER_CANARY_EMAIL}`));
   assert.ok(!Object.values(values).some((value) => output.read().includes(value)));
 });
 
@@ -194,7 +197,7 @@ test('production requires an explicit production guard before reading or mutatin
   assert.equal(calls, 0);
 });
 
-test('creates a missing Production Environment with a reviewer and release/tag deployment policies', () => {
+test('creates a missing Production Environment without approval gates and with release/tag deployment policies', () => {
   const calls = [];
   let policyReads = 0;
   const runCommand = (args, input) => {
@@ -202,7 +205,7 @@ test('creates a missing Production Environment with a reviewer and release/tag d
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments') return 'development';
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production') {
       return JSON.stringify({
-        protection_rules: [{ type: 'required_reviewers', prevent_self_review: false, reviewers: [{ type: 'User', reviewer: { id: 42 } }] }],
+        protection_rules: [],
         deployment_branch_policy: { custom_branch_policies: true }
       });
     }
@@ -215,12 +218,12 @@ test('creates a missing Production Environment with a reviewer and release/tag d
     }
     return '';
   };
-  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP', reviewerId: '42' }), true);
+  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP' }), true);
   const create = calls.find(({ args }) => args.includes('--method') && args.includes('PUT'));
   assert.deepEqual(JSON.parse(create.input), {
     wait_timer: 0,
     prevent_self_review: false,
-    reviewers: [{ type: 'User', id: 42 }],
+    reviewers: [],
     deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
   });
   const branchPolicy = calls.find(({ args }) => args.includes('--method') && args.includes('POST'));
@@ -229,7 +232,7 @@ test('creates a missing Production Environment with a reviewer and release/tag d
   ]);
 });
 
-test('repairs an existing Production Environment while preserving wait timers and reviewers', () => {
+test('removes Production reviewer and wait-timer gates while preserving release/tag deployment policies', () => {
   const calls = [];
   let environmentReads = 0;
   let policyReads = 0;
@@ -239,18 +242,10 @@ test('repairs an existing Production Environment while preserving wait timers an
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production') {
       environmentReads += 1;
       return JSON.stringify(environmentReads === 1 ? {
-        protection_rules: [
-          { type: 'wait_timer', wait_timer: 10 },
-          { type: 'required_reviewers', prevent_self_review: true, reviewers: [{ type: 'User', reviewer: { id: 77 } }] }
-        ],
+        protection_rules: [ { type: 'wait_timer', wait_timer: 10 }, { type: 'required_reviewers', prevent_self_review: true, reviewers: [{ type: 'User', reviewer: { id: 77 } }] } ],
         deployment_branch_policy: null
       } : {
-        protection_rules: [
-          { type: 'wait_timer', wait_timer: 10 },
-          { type: 'required_reviewers', prevent_self_review: false, reviewers: [
-            { type: 'User', reviewer: { id: 77 } }, { type: 'User', reviewer: { id: 42 } }
-          ] }
-        ],
+        protection_rules: [],
         deployment_branch_policy: { custom_branch_policies: true }
       });
     }
@@ -263,12 +258,12 @@ test('repairs an existing Production Environment while preserving wait timers an
     }
     return '';
   };
-  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP', reviewerId: '42' }), false);
+  assert.equal(ensureProductionEnvironment({ runCommand, repo: 'delta898/MFP' }), false);
   const update = calls.find(({ args }) => args.includes('--method') && args.includes('PUT'));
   assert.deepEqual(JSON.parse(update.input), {
-    wait_timer: 10,
+    wait_timer: 0,
     prevent_self_review: false,
-    reviewers: [{ type: 'User', id: 77 }, { type: 'User', id: 42 }],
+    reviewers: [],
     deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
   });
 });

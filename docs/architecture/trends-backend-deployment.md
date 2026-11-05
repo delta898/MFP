@@ -28,12 +28,14 @@ not replace that full release path.
 
 Production follows the same component order and targets the corresponding
 Production resources in .github/workflows/deploy-trends-web-production.yml.
-Its operator entry point is a manual dispatch from release/*, and it keeps
-the Production Environment approval. Deployment behavior that is intentionally
-environment-specific stays explicit: Production newsletter delivery is set to
-disabled during a newsletter release, the Production canary/live controls
-remain separate, and site-domain cutover is a separate operation. Those
-controls do not change the three Worker component pairing:
+A push to `release/*` runs the Production build and deployment automatically;
+that push is the user's deployment approval. The workflow disables Production
+subscriber delivery while deploying, sends one fixed-recipient administrator
+canary, and enables live delivery only after that canary succeeds. The existing
+newsletter Workflow sends the Telegram run summary; GitHub Actions does not
+send a duplicate Telegram message. Site-domain cutover and emergency disable
+remain separate manual operations. Those controls do not change the three
+Worker component pairing:
 
 | Component | Development | Production |
 | --- | --- | --- |
@@ -46,9 +48,10 @@ resources for the newsletter component, not additional Workers. Do not use a
 Development run as proof that Production credentials, DNS, or target ownership
 are correct; it verifies the same code and sequence against Development's
 separate configuration.
-Production API-only changes deploy the API Worker without resetting the
-newsletter delivery mode; changes to the API Worker's Wrangler binding
-configuration still enter the newsletter-safe deployment path.
+Every push to either integration branch deploys the complete matching stack,
+including API, newsletter, and site Workers, then runs the same canary and
+live-mode transition. This keeps the tested Development sequence paired with
+Production.
 
 Development is the verified environment for the newsletter lifecycle. Keep the
 following roles distinct when operating it or preparing a Production rollout:
@@ -80,9 +83,9 @@ explicit `[env.production]` section and is deployed with `--env production`.
 | --- | --- | --- | --- |
 | Function URL | `TRENDS_NEWSLETTER_FUNCTION_URL` as a plain `wrangler.toml` variable, matching the project's Function URL | Not used for subscription; the delivery adapter has its own configured Supabase target | N/A |
 | Shared token | `TRENDS_NEWSLETTER_WORKER_TOKEN` secret for signup, confirmation, and unsubscribe forwarding | Same environment's token secret for `deliver_batch` calls | Same environment's `TRENDS_NEWSLETTER_WORKER_TOKEN` secret for authentication |
-| Canary trigger token | Production-only `TRENDS_NEWSLETTER_CANARY_TOKEN` protects private canary/status routes | Not used | Not used |
+| Canary trigger token | `TRENDS_NEWSLETTER_CANARY_TOKEN` protects private canary/status routes in both environments | Not used | Not used |
 | Project/runtime marker | `TRENDS_ENV` | `BLOGGENIUS_ENV` and `SUPABASE_PROJECT_REF` | `BLOGGENIUS_ENV`, `SUPABASE_URL`, and server-side key |
-| Email policy | N/A | `NEWSLETTER_EMAIL_MODE` selects send behavior | `allowlist` sends only to listed Development recipients; `disabled` blocks sends; Production `canary` permits only the fixed admin send action; `live` permits normal subscriber delivery after approval. Environment validation rejects unsupported mode/target combinations. |
+| Email policy | N/A | `NEWSLETTER_EMAIL_MODE` selects send behavior | Both environments set mode to `disabled` during deployment, send one canary to the fixed administrator address, and enter `live` only after success. |
 
 Use one randomly generated raw token per environment and store it in that
 environment's API Worker, Newsletter Workflow Worker, and Edge Function. The
@@ -98,8 +101,9 @@ The Development push workflow installs the newsletter Edge Function secrets
 with Supabase CLI and the Newsletter Worker secrets with Wrangler before
 deploying their code. The local utility only updates GitHub Environment
 secrets; it never writes directly to Cloudflare or Supabase. Production secret
-sync only updates GitHub Environment secrets. Production deployment is a
-separate explicit operation and is never triggered by secret sync.
+sync only updates GitHub Environment secrets. A later push to `release/*`
+starts the Production build, deployment, canary, and live-mode transition;
+secret sync itself never deploys.
 
 Development database migrations use `SUPABASE_DB_POOLER_URL` from the
 Development project's Session Pooler (port 5432), matching Production's
@@ -120,17 +124,16 @@ explicit Production build values. Both site builds read the environment-scoped
 `BLOGGENIUS_TRENDS_API_URL` GitHub variable; the sync utility validates the
 Development and Production canonical hostnames before writing them. The
 tag-triggered app release build reads the same Production Environment
-variable. `.github/workflows/deploy-trends-web-production.yml`
-can be manually dispatched from a `release/*` branch only. Its `production`
-GitHub Environment provides the approval gate and scoped Cloudflare/API
-secrets. The workflow builds the site artifact from the exact dispatch SHA and detects
-component changes against `main`. It always deploys and smoke-checks the site.
-When the API Worker changes, it deploys and smoke-checks both Production API
-hostnames. When newsletter code/config or related API wiring changes, it also
-previews and applies pending migrations, sets the mailing Function mode to
-`disabled`, deploys the Edge Function and Production Newsletter Workflow, and
-updates the API Workflow binding. The release GitHub `production` Environment
-approval gates every mutating deployment step.
+variable. `.github/workflows/deploy-trends-web-production.yml` is triggered by pushes to
+`release/*`; a manual dispatch remains available for site-domain cutover and
+rollback. The Production `production` GitHub Environment provides scoped
+Cloudflare/API secrets and allows `release/*` branches without a reviewer or
+wait-timer gate. The workflow validates all three Workers and Functions,
+previews and applies pending migrations through the Production Session Pooler,
+deploys the mailing and access-token Edge Functions, Newsletter Workflow
+Worker, Trends API Worker, and site Worker from the same commit, then sends the
+fixed-recipient canary. Only after the canary confirms the same commit and
+deployment identity does it switch the Production mode to `live`.
 
 The API alias `trendapi.bloggenius.kr` is added to the existing
 `bloggenius-trends-api-production` Worker; `trendapi.hangadac.com` remains
@@ -138,22 +141,19 @@ active. Before deployment, the workflow verifies the existing API Worker and
 validates the site hostname if it is bound. An unbound site hostname is allowed;
 an unknown owner or duplicate binding is rejected. The workflow also rejects a
 new API hostname already assigned to another Worker or carrying a conflicting
-DNS record. The site build must
-contain `https://www.bloggenius.kr` and `https://trendapi.bloggenius.kr` and
-must not contain Development hostnames. The site Worker may be absent on the
-first deploy. After deploying and validating its `workers.dev` URL, the site
-deploy ensures an unbound `www.bloggenius.kr` hostname is attached to the named
-Production Worker, keeps an existing binding to that Worker, and preserves a
-known legacy owner for the separate cutover operation. Site-only releases do
-not deploy the newsletter stack or reset its send mode.
+DNS record. The site build must contain `https://www.bloggenius.kr` and
+`https://trendapi.bloggenius.kr` and must not contain Development hostnames.
+The site Worker may be absent on the first deploy. After deploying and
+validating its `workers.dev` URL, the site deploy attaches an unbound
+`www.bloggenius.kr` hostname to the named Production Worker, keeps an existing
+binding to that Worker, and preserves a known legacy owner for the separate
+cutover operation. Site-only releases do not deploy the newsletter stack or
+reset its send mode.
 
-Production sync creates the `production` Environment if it is missing,
-restricts it to `release/*` branches and `v*` tags, and requires the current
-GitHub account as a reviewer. The `v*` tag policy lets the app release workflow
-read Production-scoped build configuration. This requires permission to administer repository environments and a
-GitHub plan that supports required reviewers. If protection cannot be
-configured and verified, sync stops before writing credentials. Create the
-release branch using the normal release process, ensure the GitHub
+Production sync creates the `production` Environment if it is missing and
+restricts it to `release/*` branches and `v*` tags. The `v*` tag policy lets
+the app release workflow read Production-scoped build configuration. Create
+the release branch using the normal release process, ensure the GitHub
 `production` Environment contains `CLOUDFLARE_API_TOKEN`,
 `TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`, and
 `TRENDS_READ_TOKEN_SECRET`. The Production migration preview and apply use
@@ -164,12 +164,12 @@ URL for this connection. The
 Production env-file sync sets
 `CLOUDFLARE_ACCOUNT_ID` and `NEWSLETTER_CANARY_EMAIL` as GitHub Environment
 variables. The first selects the Cloudflare account; the second is the sole
-canary recipient. Dispatch the workflow on that release branch and approve its
-Production Environment deployment. The workflow checks out and deploys the
-same dispatch SHA. If deployment or smoke verification fails, stop promotion;
-the prior static Worker deployment remains available for rollback, and the
-prior API deployment can be selected using the established Wrangler rollback
-process. Site-only changes leave the current newsletter delivery mode intact.
+canary recipient in that environment. Push the intended release commit to its
+`release/*` branch. If deployment, canary, or live-mode verification fails,
+stop promotion; delivery remains disabled after the workflow has entered its
+deployment phase. The prior static Worker deployment remains available for
+rollback, and the prior API deployment can be selected using the established
+Wrangler rollback process.
 
 Every `deploy-workers` Production operation also synchronizes and deploys the
 `issue-trends-access-token` Edge Function. It writes the Production Supabase
@@ -187,9 +187,10 @@ rollback operations.
    exposed to PostgREST while table access remains service-role-only.
 2. Deploy `trends-mailing-list` to the Development Supabase project. Set its
    Development-only database key, shared token, Brevo API key/sender,
-   confirmation URL, unsubscribe signing secret, environment marker, and
-   allowlist policy. Include the intended test recipient in
-   `NEWSLETTER_EMAIL_ALLOWLIST`.
+   confirmation URL, unsubscribe signing secret, and environment marker. The
+   push workflow sets delivery to disabled during deployment, then enables live
+   only after the fixed administrator canary succeeds. The optional allowlist
+   mode remains available for deliberate non-deployment testing.
 3. In `apps/trends/trends-api/workers/wrangler.toml`, keep the Development
    Function URL in base `[vars]`. The Development GitHub Environment must
    provide `TRENDS_SUPABASE_SECRET_KEY`, `TRENDS_API_TOKEN`,
@@ -244,12 +245,12 @@ variables, which Wrangler reconciles from the configuration.
 The static site Worker names are `www-bloggenius-kr-dev` and
 `www-bloggenius-kr-production`; the API and newsletter Workers already use
 their matching `-dev` and `-production` names. Production Worker deployment
-and `www.bloggenius.kr` cutover are separate manual workflow operations. The
-deploy operation validates the new Worker through its `workers.dev` URL and
-attaches the hostname when it is unbound, while preserving a known legacy
-owner. The cutover operation validates the new Worker again, transfers a known
-legacy binding, and checks the public site. A rollback operation can return the
-domain to the preserved legacy Worker. Development deploys its new Worker,
+runs automatically on a `release/*` push. It validates the new Worker through
+its `workers.dev` URL and attaches `www.bloggenius.kr` when it is unbound,
+while preserving a known legacy owner. The separate manual cutover operation
+validates the new Worker again, transfers a known legacy binding, and checks
+the public site. A rollback operation can return the domain to the preserved
+legacy Worker. Development deploys its new Worker,
 validates `workers.dev`, ensures
 `www-dev.bloggenius.kr` is bound to the named Worker, then checks the public
 site. An unbound hostname is attached automatically; an existing binding to
@@ -260,19 +261,21 @@ Worker set.
 
 Production deployment is handled by
 `.github/workflows/deploy-trends-web-production.yml` from `release/*`, using a
-separate GitHub `production` Environment and independently reviewed Supabase
-project, Function, API Worker, site Worker, hostnames, URLs, and credentials.
+separate GitHub `production` Environment and independently configured
+Supabase project, Function, API Worker, site Worker, hostnames, URLs, and
+credentials.
 The newsletter Workflow Worker uses the same source as Development; its
 `[env.production]` Wrangler profile selects the Production Worker identity,
-project, and site links. The release workflow deploys that profile and starts
-newsletter sending disabled. Never copy Development credentials or enable
-Production live sending as a side effect of deployment.
+project, and site links. The release workflow first disables newsletter
+delivery, sends the administrator canary after deployment, and enables live
+delivery only when the canary succeeds. Never copy Development credentials.
 
 For manual recovery only, commands in each Worker package directory are
 Development-targeted unless a command explicitly names an environment. The
 API Worker's `npm run secret:development` and Newsletter Worker's
 `npm run deploy:development` operate on Development. Production deployment and
-newsletter mode changes go through the protected release workflows. Worker
+newsletter mode changes go through the release workflows restricted to
+`release/*`. Worker
 secret listing reveals names only; a `secret put` publishes a new Worker
 version. Keep Function URLs in Wrangler variables, not secrets.
 
@@ -284,59 +287,40 @@ applying the same reviewed sequence to Production.
 
 ### Production newsletter safety and operations
 
-The Production newsletter stack is configured in source, but it is not live until
-a release workflow is run. A newsletter-related release applies the reviewed
-Supabase migrations, deploys the Edge Function and newsletter Worker, and sets
-`NEWSLETTER_EMAIL_MODE=disabled` before deployment. No deployment turns on live
-subscriber sends.
+Each Production deployment sets newsletter delivery to `disabled` before
+mutations. After the Workers and site are healthy, the workflow reads the latest
+Production trend date and sends a one-category email only to the fixed
+`NEWSLETTER_CANARY_EMAIL`. This address is configured in that GitHub Environment
+and is never accepted from a request. Canary reads trend rows and RSS only; it
+does not query subscribers or write normal collection, edition, attempt,
+campaign, or delivery records. The existing Newsletter Worker sends the
+Telegram run summary. On success, the workflow changes Production mode to
+`live`; if any step fails before that transition, mode remains `disabled`.
 
-The `production-newsletter-control.yml` workflow is manually dispatched only
-from `release/*` and uses the protected GitHub `production` Environment:
+Development and Production use the same push sequence: set mode to
+`disabled`, deploy the stack, send a canary to the fixed administrator address,
+and set mode to `live` only after success. The canary action does not enumerate
+subscribers or write the normal delivery ledger. There is no persistent
+`canary` mode. `deliver_batch` is accepted only in `allowlist` or `live`. If a
+collection occurs while delivery is disabled, the Workflow reports collection
+success and email waiting through Telegram and makes no subscriber delivery
+ledger writes. Once live mode is enabled, normal collection signals start
+subscriber delivery automatically. `allowlist` remains available for explicit
+non-deployment testing, but neither push workflow uses it.
 
-1. **Read-only smoke:** deploy workflow checks the Production API hosts and site.
-2. **Canary:** choose `canary`. It sets the Edge Function mode to `canary`,
-   reads the latest Production trend date (or the requested date), and sends one
-   category to the fixed `NEWSLETTER_CANARY_EMAIL`. The recipient is configured
-   in the Production GitHub Environment and is never accepted from a request.
-   This path reads trend rows and RSS only; it does not query subscribers or
-   write normal collection, edition, attempt, campaign, or delivery records.
-3. **Review:** inspect the administrator's real email and the Telegram summary.
-4. **Activate:** in a separate approved run, choose `activate_live` and provide
-   the successful canary signal ID. Activation checks the canary result and
-   requires it to match the exact release commit selected for activation.
-5. **Disable:** choose `disable` to immediately block subsequent subscription
-   confirmation and campaign emails. Existing in-flight recipient batches may
-   finish their current request; the next batch is rejected by the Edge
-   Function policy.
-
-The Edge Function enforces three Production modes: `disabled`, `canary`, and
-`live`. `deliver_batch` is accepted only in `live`; canary mode exposes only a
-fixed-recipient send action. If a Production collection occurs while delivery
-is disabled or in canary mode, the Workflow validates the collected trends,
-notifies Telegram that collection succeeded and email is waiting, and makes no
-newsletter ledger writes. Once `live` is activated, normal collection signals
-start subscriber delivery automatically.
-
-A canary is required before the first live activation and after newsletter code
-or configuration changes. The release workflow detects newsletter migrations,
-mailing Function, newsletter Worker, API Worker, and Workflow configuration
-changes and resets delivery to disabled. Site-only releases retain the current
-newsletter mode and use read-only smoke checks. Newsletter releases first run
-a separate, read-only Supabase migration preview behind the Production
-Environment gate. Review that preview and Production data before approving the
-following deployment job, which applies migrations and deploys the services.
-The preview is not a substitute for reviewing schema changes and
-backup/recovery plans.
+The `production-newsletter-control.yml` workflow is retained as a manually
+dispatched emergency disable action from `release/*`. Every release push is
+canaried; API-only, newsletter, and site changes use the same full stack
+sequence to keep Development and Production paired. The migration preview is
+read-only; deployment applies pending migrations after preview succeeds.
 
 The local Production secret file requires a distinct newsletter Worker token,
 dedicated canary trigger token, Telegram/Brevo credentials, sender, unsubscribe
-signing secret, and `NEWSLETTER_CANARY_EMAIL`. Production migration jobs create
-an ephemeral Supabase CLI link with the existing database password, matching
-the Development CI pattern that selects Supavisor's IPv4 pooler. The link
-exists only in each GitHub runner job. Secret sync writes only to GitHub's
-Production Environment. It does not deploy or change the Supabase Edge Function
-mode. Production secrets must not reuse Development values. Never record secret
-values in operational notes.
+signing secret, and `NEWSLETTER_CANARY_EMAIL`. Production migration jobs use
+`SUPABASE_DB_POOLER_URL` from the Production Session Pooler. Secret sync writes
+only to GitHub's Production Environment; it does not deploy or change the
+Supabase Edge Function mode. Production secrets must not reuse Development
+values. Never record secret values in operational notes.
 
 ### Failure signatures observed during Development validation
 

@@ -11,8 +11,10 @@ const { checkUrl, checkWithRetry } = require('./production-trends-web-smoke');
 const SITE_ROOT = path.resolve(__dirname, '../workspace/site-hosting/sites/www-bloggenius-kr');
 
 function assertWorkflowContext(env) {
-    if (env.GITHUB_ACTIONS !== 'true' || env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || !/^refs\/heads\/release\/.+/.test(env.GITHUB_REF || '')) {
-        throw new Error('Production site deployment requires a manual workflow dispatch from a release/* branch.');
+    const releasePush = env.GITHUB_EVENT_NAME === 'push' && /^refs\/heads\/release\/.+/.test(env.GITHUB_REF || '');
+    const releaseDispatch = env.GITHUB_EVENT_NAME === 'workflow_dispatch' && /^refs\/heads\/release\/.+/.test(env.GITHUB_REF || '');
+    if (env.GITHUB_ACTIONS !== 'true' || (!releasePush && !releaseDispatch)) {
+        throw new Error('Production site deployment requires a push or manual operation from a release/* branch.');
     }
     if (String(env.BLOGGENIUS_ENV || '').trim().toLowerCase() !== 'production') {
         throw new Error('Production site deployment requires BLOGGENIUS_ENV=production.');
@@ -90,7 +92,7 @@ async function main(env = process.env) {
     await checkWithRetry(() => checkUrl(deployment.url, 'site'));
     const domain = await ensureProductionSiteDomain(adapter, accountId);
     await checkWithRetry(() => checkUrl(`https://${SITE_HOST}/`, 'site'));
-    console.info(JSON.stringify({ environment: 'production', worker_name: deployment.worker_name, url: deployment.url, hostname: SITE_HOST, domain_changed: domain.changed, domain_owner: domain.workerName, deployment_id: deployment.deployment_id, version_id: deployment.version_id }));
+    console.info(JSON.stringify({ environment: 'production', worker_name: deployment.worker_name, url: deployment.url, hostname: SITE_HOST, domain_changed: domain.changed, domain_owner: domain.workerName, preserved_legacy_owner: domain.preservedLegacyOwner === true, deployment_id: deployment.deployment_id, version_id: deployment.version_id }));
 }
 
 if (require.main === module) {

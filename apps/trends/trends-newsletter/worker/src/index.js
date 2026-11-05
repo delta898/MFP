@@ -63,48 +63,48 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
         }
 
         if (payload.mode === 'canary') {
-            if (target.environment !== 'production') throw new Error('Canary mode is restricted to Production.');
             try {
                 if (!/^[0-9a-f]{40}$/.test(String(this.env.NEWSLETTER_RELEASE_SHA || ''))
                     || payload.releaseSha !== this.env.NEWSLETTER_RELEASE_SHA
                     || !/^[0-9a-f-]{36}$/.test(String(this.env.NEWSLETTER_DEPLOYMENT_ID || ''))) {
-                    throw new Error('Canary request does not match the deployed Production newsletter release.');
+                    throw new Error('Canary request does not match the deployed newsletter release.');
                 }
-                const mode = await step.do('check-production-canary-mode', {
+                const mode = await step.do('check-newsletter-canary-mode', {
                     retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' }, timeout: '20 seconds'
                 }, () => readNewsletterDeliveryMode(this.env));
-                if (mode !== 'canary') throw new Error('Production email mode is not canary.');
-                const rows = await step.do('read-production-canary-trends', {
+                const expectedMode = 'disabled';
+                if (mode !== expectedMode) throw new Error(`Newsletter email mode must remain ${expectedMode} during canary.`);
+                const rows = await step.do('read-newsletter-canary-trends', {
                     retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' }, timeout: '30 seconds'
                 }, () => readNewsletterTrendRows(this.env, trendDate));
                 const result = evaluateTrendsReadiness(rows, trendDate, expectations);
-                if (result.status !== 'ready') throw new Error(`Production trend data is incomplete (${result.uniqueTotal}/${result.expectedTotal}).`);
+                if (result.status !== 'ready') throw new Error(`Newsletter trend data is incomplete (${result.uniqueTotal}/${result.expectedTotal}).`);
                 const category = String(this.env.NEWSLETTER_CANARY_CATEGORY || 'IT·컴퓨터').trim();
-                if (!expectations.categories.includes(category)) throw new Error('Production canary category is not in the expected category set.');
-                const post = await step.do('fetch-production-canary-article', {
+                if (!expectations.categories.includes(category)) throw new Error('Newsletter canary category is not in the expected category set.');
+                const post = await step.do('fetch-newsletter-canary-article', {
                     retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' }, timeout: '2 minutes'
                 }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
                 const edition = buildSharedEdition({
-                    environment: 'production', trendDate, post,
+                    environment: target.environment, trendDate, post,
                     downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,
                     downloadBannerUrl: this.env.NEWSLETTER_DOWNLOAD_BANNER_URL
                 });
                 const email = buildRecipientBriefing({
-                    environment: 'production', trendDate, categories: [category], trends: rows,
+                    environment: target.environment, trendDate, categories: [category], trends: rows,
                     edition: { status: 'ready', greeting: edition.greeting, introduction: edition.introduction,
                         featured_post: edition.featuredPost, download_url: edition.downloadUrl,
                         download_banner_url: edition.downloadBannerUrl },
                     trendsUrl: `${target.profile.siteOrigin}/trends/?date=${trendDate}`,
                     includeUnsubscribe: false
                 });
-                const outcome = await step.do('send-production-canary-email', {
+                const outcome = await step.do('send-newsletter-canary-email', {
                     retries: { limit: 0, delay: '1 second', backoff: 'constant' }, timeout: '45 seconds'
                 }, () => sendNewsletterCanary(this.env, { trendDate, category, ...email }));
                 const success = outcome.status === 'sent';
                 await notify({ status: success ? 'success' : 'failure', stage: success ? null : 'email_delivery', error: success ? null : `관리자 canary 메일 상태: ${outcome.status}` });
                 return { environment: target.environment, trendDate, mode: 'canary', canaryStatus: outcome.status, category, releaseSha: payload.releaseSha, deploymentId: this.env.NEWSLETTER_DEPLOYMENT_ID };
             } catch (error) {
-                await notify({ status: 'failure', stage: 'email_delivery', error: 'Production 관리자 canary 검증 또는 발송에 실패했습니다.' });
+                await notify({ status: 'failure', stage: 'email_delivery', error: '관리자 canary 검증 또는 발송에 실패했습니다.' });
                 return { environment: target.environment, trendDate, mode: 'canary', canaryStatus: 'failed', releaseSha: payload.releaseSha, deploymentId: this.env.NEWSLETTER_DEPLOYMENT_ID };
             }
         }

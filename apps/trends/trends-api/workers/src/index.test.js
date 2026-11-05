@@ -338,12 +338,12 @@ test('confirmation and unsubscribe tokens are forwarded to their matching lifecy
     }
 });
 
-test('Production canary endpoints require the dedicated token and never accept a recipient', async () => {
+test('Development and Production canary endpoints require the dedicated token and never accept a recipient', async () => {
     const created = [];
     const signalId = 'f53d0eb8-93d5-4d4a-82b6-2392d13c22f9';
     const canaryEnv = {
         ...env,
-        TRENDS_ENV: 'production',
+        TRENDS_ENV: 'development',
         TRENDS_NEWSLETTER_CANARY_TOKEN: 'dedicated-canary-token',
         TRENDS_NEWSLETTER_COLLECTION_WORKFLOW: {
             create: async (input) => { created.push(input); return { id: input.id }; },
@@ -359,6 +359,7 @@ test('Production canary endpoints require the dedicated token and never accept a
     assert.equal(created.length, 1);
     assert.equal(created[0].id, `canary-${signalId}`);
     assert.equal(created[0].params.mode, 'canary');
+    assert.equal(created[0].params.environment, 'development');
     assert.equal(created[0].params.releaseSha, 'a'.repeat(40));
     assert.equal('email' in created[0].params, false);
     assert.equal('recipient' in created[0].params, false);

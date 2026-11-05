@@ -717,7 +717,7 @@ async function handleNewsletterCollectionComplete(request, config, env) {
 }
 
 async function handleNewsletterCanary(request, config, env) {
-    if (config.environment !== 'production' || !config.newsletterCanaryToken
+    if (!['development', 'production'].includes(config.environment) || !config.newsletterCanaryToken
         || !constantTimeEquals(bearerToken(request), config.newsletterCanaryToken)) {
         return jsonResponse(401, { success: false, message: 'Unauthorized' });
     }
@@ -740,7 +740,7 @@ async function handleNewsletterCanary(request, config, env) {
         let duplicate = false;
         try {
             instance = await workflow.create({ id: instanceId, params: {
-                environment: 'production', mode: 'canary', trendDate, signalId,
+                environment: config.environment, mode: 'canary', trendDate, signalId,
                 releaseSha,
                 source: 'naver_creator_advisor', signalItemCount: config.newsletterExpectedCategories * config.newsletterItemsPerCategory,
                 runStatus: 'collected'
@@ -753,13 +753,13 @@ async function handleNewsletterCanary(request, config, env) {
         }
         return jsonResponse(202, { success: true, accepted: true, duplicate, signalId, workflowId: instance.id || instanceId });
     } catch (error) {
-        console.error('[trends-api-workers] production newsletter canary trigger failed', error.message);
+        console.error('[trends-api-workers] newsletter canary trigger failed', error.message);
         return jsonResponse(503, { success: false, message: 'Newsletter canary could not be started' });
     }
 }
 
 async function handleNewsletterCanaryStatus(request, config, env, signalId) {
-    if (config.environment !== 'production' || !config.newsletterCanaryToken
+    if (!['development', 'production'].includes(config.environment) || !config.newsletterCanaryToken
         || !constantTimeEquals(bearerToken(request), config.newsletterCanaryToken)) {
         return jsonResponse(401, { success: false, message: 'Unauthorized' });
     }

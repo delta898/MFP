@@ -1,23 +1,11 @@
-name: Production | Control Newsletter Delivery
+name: Production | Emergency Disable Newsletter Delivery
 
 on:
   workflow_dispatch:
     inputs:
-      operation:
-        description: Canary to the fixed administrator address, activate live sends, or disable sends
+      confirm_disable:
+        description: Type DISABLE to block Production newsletter delivery immediately
         required: true
-        type: choice
-        options:
-          - canary
-          - activate_live
-          - disable
-      canary_date:
-        description: Optional date for canary; blank selects the latest available Production trend date
-        required: false
-        type: string
-      canary_signal_id:
-        description: Required for activation; signal ID from a successful canary on this exact release commit
-        required: false
         type: string
 
 permissions:
@@ -28,21 +16,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  control:
+  disable:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_URL: https://hocfjolcthvtgfaxjmse.supabase.co
-      SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
-      TRENDS_NEWSLETTER_WORKER_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_WORKER_TOKEN }}
-      TRENDS_NEWSLETTER_CANARY_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_CANARY_TOKEN }}
-      NEWSLETTER_EMAIL_MODE: ${{ inputs.operation == 'canary' && 'canary' || inputs.operation == 'activate_live' && 'live' || 'disabled' }}
-      CANARY_SIGNAL_ID: ${{ inputs.canary_signal_id }}
-      CANARY_DATE: ${{ inputs.canary_date }}
-      OPERATION: ${{ inputs.operation }}
-      RELEASE_SHA: ${{ github.sha }}
+      BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF: hocfjolcthvtgfaxjmse
+      CONFIRM_DISABLE: ${{ inputs.confirm_disable }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -50,104 +31,16 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.0.0-beta.17
-      - name: Validate controls and required credentials
-        shell: bash
+      - name: Require an explicit emergency disable confirmation
         run: |
-          set -euo pipefail
-          if [[ ! "$GITHUB_REF" =~ ^refs/heads/release/.+ ]]; then
-            echo "::error::Production newsletter control is available only from release/* branches."
-            exit 1
-          fi
-          for name in SUPABASE_ACCESS_TOKEN SUPABASE_SECRET_KEY TRENDS_NEWSLETTER_WORKER_TOKEN TRENDS_NEWSLETTER_CANARY_TOKEN; do
-            if [[ -z "${!name}" ]]; then echo "::error::Configure ${name} in the production Environment."; exit 1; fi
-          done
-          if [[ "$OPERATION" == "activate_live" && ! "$CANARY_SIGNAL_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
-            echo "::error::Provide the successful canary signal ID for this release commit before activation."
-            exit 1
-          fi
-      - name: Verify the matching canary before live activation
-        if: inputs.operation == 'activate_live'
-        shell: bash
-        run: |
-          set -euo pipefail
-          response="$(mktemp "$RUNNER_TEMP/canary-status.XXXXXX.json")"
-          trap 'rm -f "$response"' EXIT
-          curl --silent --show-error --fail \
-            -H "Authorization: Bearer $TRENDS_NEWSLETTER_CANARY_TOKEN" \
-            "https://trendapi.bloggenius.kr/internal/newsletter/canary/${CANARY_SIGNAL_ID,,}/status" \
-            -o "$response"
-          deployment="$(mktemp "$RUNNER_TEMP/current-newsletter-deployment.XXXXXX.json")"
-          trap 'rm -f "$response" "$deployment"' EXIT
-          curl --silent --show-error --fail -X POST \
-            -H "Authorization: Bearer $TRENDS_NEWSLETTER_WORKER_TOKEN" -H 'content-type: application/json' \
-            --data '{"action":"delivery_mode"}' "$SUPABASE_URL/functions/v1/trends-mailing-list" \
-            -o "$deployment"
-          node -e 'const fs=require("node:fs"); const body=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const edge=JSON.parse(fs.readFileSync(process.argv[2],"utf8")); const result=body.result; if(body.success!==true||body.status!=="complete"||result?.canaryStatus!=="sent"||result?.releaseSha!==process.env.RELEASE_SHA||edge.success!==true||edge.environment!=="production"||edge.mode!=="canary"||!edge.deploymentId||edge.deploymentId!==result?.deploymentId){console.error("::error::A successful canary for this exact Production deployment is required.");process.exit(1)}' "$response" "$deployment"
-      - name: Enable or disable canary email policy
-        if: inputs.operation != 'activate_live'
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Configure SUPABASE_ACCESS_TOKEN in production.'; exit 1; }
+          test "$CONFIRM_DISABLE" = DISABLE || { echo '::error::Type DISABLE to continue.'; exit 1; }
+      - name: Disable Production newsletter delivery
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.env")"
           trap 'rm -f "$secrets_file"' EXIT
-          printf 'BLOGGENIUS_ENV=production\nNEWSLETTER_EMAIL_MODE=%s\n' "$NEWSLETTER_EMAIL_MODE" > "$secrets_file"
-          supabase secrets set --env-file "$secrets_file" --project-ref hocfjolcthvtgfaxjmse --yes
-      - name: Read latest Production trend date when omitted
-        if: inputs.operation == 'canary' && inputs.canary_date == ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          response="$(mktemp "$RUNNER_TEMP/latest-trend.XXXXXX.json")"
-          trap 'rm -f "$response"' EXIT
-          curl --silent --show-error --fail \
-            -H "apikey: $SUPABASE_SECRET_KEY" -H "Authorization: Bearer $SUPABASE_SECRET_KEY" \
-            -H 'accept-profile: trends' \
-            "$SUPABASE_URL/rest/v1/items?select=trend_date&source=eq.naver_creator_advisor&order=trend_date.desc&limit=1" \
-            -o "$response"
-          date="$(node -e 'const rows=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); if(!Array.isArray(rows)||! /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(rows[0]?.trend_date||"")) process.exit(1); process.stdout.write(rows[0].trend_date)' "$response")"
-          echo "CANARY_DATE=$date" >> "$GITHUB_ENV"
-      - name: Start the fixed-recipient Production canary
-        if: inputs.operation == 'canary'
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$CANARY_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo '::error::Provide a valid trend date.'; exit 1; }
-          signal_id="$(cat /proc/sys/kernel/random/uuid)"
-          response="$(mktemp "$RUNNER_TEMP/canary-start.XXXXXX.json")"
-          status_response="$(mktemp "$RUNNER_TEMP/canary-status.XXXXXX.json")"
-          trap 'rm -f "$response" "$status_response"' EXIT
-          SIGNAL_ID="$signal_id" node -e 'const fs=require("node:fs"); fs.writeFileSync(process.argv[1],JSON.stringify({trendDate:process.env.CANARY_DATE,signalId:process.env.SIGNAL_ID,releaseSha:process.env.RELEASE_SHA}),{mode:0o600})' "$response"
-          curl --silent --show-error --fail -X POST \
-            -H "Authorization: Bearer $TRENDS_NEWSLETTER_CANARY_TOKEN" -H 'content-type: application/json' \
-            --data-binary "@$response" https://trendapi.bloggenius.kr/internal/newsletter/canary >/dev/null
-          for attempt in $(seq 1 60); do
-            code="$(curl --silent --show-error -w '%{http_code}' \
-              -H "Authorization: Bearer $TRENDS_NEWSLETTER_CANARY_TOKEN" \
-              "https://trendapi.bloggenius.kr/internal/newsletter/canary/$signal_id/status" \
-              -o "$status_response")"
-            if [[ "$code" == 200 ]]; then
-              state="$(node -e 'const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); process.stdout.write(b.status||"")' "$status_response")"
-              if [[ "$state" == complete ]]; then
-                node -e 'const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); if(b.result?.canaryStatus!=="sent"){console.error("::error::Production canary did not send successfully.");process.exit(1)}' "$status_response"
-                echo "Canary succeeded for signal $signal_id at release $RELEASE_SHA. Use this signal ID in a separate activate_live run after reviewing the email."
-                exit 0
-              fi
-              if [[ "$state" == errored || "$state" == terminated ]]; then echo '::error::Production canary workflow failed.'; exit 1; fi
-            elif [[ "$code" != 404 ]]; then
-              echo "::error::Canary status request returned HTTP $code."; exit 1
-            fi
-            sleep 5
-          done
-          echo '::error::Production canary did not complete within five minutes.'
-          exit 1
-      - name: Activate live Production newsletter delivery
-        if: inputs.operation == 'activate_live'
-        shell: bash
-        run: |
-          set -euo pipefail
-          umask 077
-          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.env")"
-          trap 'rm -f "$secrets_file"' EXIT
-          printf 'BLOGGENIUS_ENV=production\nNEWSLETTER_EMAIL_MODE=live\n' > "$secrets_file"
-          supabase secrets set --env-file "$secrets_file" --project-ref hocfjolcthvtgfaxjmse --yes
+          printf 'BLOGGENIUS_ENV=production\nNEWSLETTER_EMAIL_MODE=disabled\n' > "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
