@@ -82,7 +82,7 @@ tmp/test_pytrends_robust.py
 test_cf.sh
 vault_example/
 
-# Keep workspace data private by default; version only the public BlogGenius site source.
+# Keep workspace data private by default; version only public website source projects.
 !workspace/
 workspace/*
 !workspace/site-hosting/
@@ -90,6 +90,7 @@ workspace/site-hosting/*
 !workspace/site-hosting/sites/
 workspace/site-hosting/sites/*
 !workspace/site-hosting/sites/www-bloggenius-kr/
+!workspace/site-hosting/sites/www-mentivenus-com/
 
 # Environment-specific desktop OAuth configuration (local only)
 .env.oauth.dev

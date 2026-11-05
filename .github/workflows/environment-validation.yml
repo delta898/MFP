@@ -337,7 +337,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+          cache-dependency-path: |
+            workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+            workspace/site-hosting/sites/www-mentivenus-com/package-lock.json
       - name: Build Development site
         working-directory: workspace/site-hosting/sites/www-bloggenius-kr
         env:
@@ -354,6 +356,21 @@ jobs:
             echo '::error::Production canonical metadata was found in the Development site artifact.'
             exit 1
           fi
+      - name: Build Development MentiVenus site
+        working-directory: workspace/site-hosting/sites/www-mentivenus-com
+        env:
+          MENTIVENUS_ENV: development
+          MENTIVENUS_SITE_URL: https://www-dev.mentivenus.com
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          grep -F -q 'rel="canonical" href="https://www-dev.mentivenus.com/' dist/index.html
+          grep -F -q 'https://www.bloggenius.kr/' dist/index.html
+          if grep -R -n -F --include='*.html' 'rel="canonical" href="https://www.mentivenus.com/' dist; then
+            echo '::error::Production canonical metadata was found in the Development MentiVenus site artifact.'
+            exit 1
+          fi
 
   build-development-site:
     name: Build Development Site
@@ -368,7 +385,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+          cache-dependency-path: |
+            workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+            workspace/site-hosting/sites/www-mentivenus-com/package-lock.json
       - name: Build Development site
         working-directory: workspace/site-hosting/sites/www-bloggenius-kr
         env:
@@ -389,11 +408,33 @@ jobs:
             echo '::error::Production canonical metadata was found in the Development site artifact.'
             exit 1
           fi
+      - name: Build Development MentiVenus site
+        working-directory: workspace/site-hosting/sites/www-mentivenus-com
+        env:
+          MENTIVENUS_ENV: development
+          MENTIVENUS_SITE_URL: https://www-dev.mentivenus.com
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          grep -F -q 'rel="canonical" href="https://www-dev.mentivenus.com/' dist/index.html
+          grep -F -q 'https://www.bloggenius.kr/' dist/index.html
+          if grep -R -n -F --include='*.html' 'rel="canonical" href="https://www.mentivenus.com/' dist; then
+            echo '::error::Production canonical metadata was found in the Development MentiVenus site artifact.'
+            exit 1
+          fi
       - uses: actions/upload-artifact@v6
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         with:
           name: development-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        with:
+          name: development-mentivenus-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-mentivenus-com/dist/
           if-no-files-found: error
           retention-days: 7
 
@@ -495,6 +536,14 @@ jobs:
         run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Deploy the Development site Worker and ensure its domain
         run: node scripts/deploy-development-site.js
+      - uses: actions/download-artifact@v7
+        with:
+          name: development-mentivenus-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-mentivenus-com/dist/
+      - name: Deploy the Development MentiVenus site Worker and ensure its domain
+        env:
+          MENTIVENUS_ENV: development
+        run: node scripts/deploy-mentivenus-site.js
 
   send-development-newsletter-canary:
     name: Development | Send administrator canary

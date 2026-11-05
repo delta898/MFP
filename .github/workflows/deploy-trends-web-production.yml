@@ -63,6 +63,7 @@ jobs:
             apps/trends/trends-api/workers/package-lock.json
             apps/trends/trends-newsletter/worker/package-lock.json
             workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+            workspace/site-hosting/sites/www-mentivenus-com/package-lock.json
       - uses: denoland/setup-deno@v2
       - name: Validate and dry-run the Production Trends API
         working-directory: apps/trends/trends-api/workers
@@ -102,10 +103,31 @@ jobs:
             echo '::error::Development canonical metadata was found in the Production site artifact.'
             exit 1
           fi
+      - name: Build the Production MentiVenus site artifact
+        working-directory: workspace/site-hosting/sites/www-mentivenus-com
+        env:
+          MENTIVENUS_ENV: production
+          MENTIVENUS_SITE_URL: https://www.mentivenus.com
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          grep -F -q 'rel="canonical" href="https://www.mentivenus.com/' dist/index.html
+          grep -F -q 'https://www.bloggenius.kr/' dist/index.html
+          if grep -R -n -F --include='*.html' 'rel="canonical" href="https://www-dev.mentivenus.com/' dist; then
+            echo '::error::Development canonical metadata was found in the Production MentiVenus site artifact.'
+            exit 1
+          fi
       - uses: actions/upload-artifact@v6
         with:
           name: production-trends-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        with:
+          name: production-mentivenus-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-mentivenus-com/dist/
           if-no-files-found: error
           retention-days: 7
 
@@ -246,6 +268,14 @@ jobs:
         env:
           BLOGGENIUS_ENV: production
         run: node scripts/deploy-production-trends-site.js
+      - uses: actions/download-artifact@v7
+        with:
+          name: production-mentivenus-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-mentivenus-com/dist/
+      - name: Deploy Production MentiVenus site Worker and ensure its domain
+        env:
+          MENTIVENUS_ENV: production
+        run: node scripts/deploy-mentivenus-site.js
       - name: Send fixed-recipient canary and wait for Telegram-backed summary
         run: node scripts/newsletter/send-canary.js
       - name: Enable Production live delivery after canary success
