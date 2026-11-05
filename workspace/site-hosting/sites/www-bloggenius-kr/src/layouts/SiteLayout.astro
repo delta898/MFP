@@ -35,15 +35,7 @@ const robots = siteData.searchEngineIndexing ? 'index,follow' : 'noindex,nofollo
           <span>{siteData.displayName}</span>
         </a>
         <nav class="main-nav" aria-label="주 메뉴">
-          {navigationItems.map((item) => item.id === 'trends' ? (
-            <div class="nav-group">
-              <a href={item.path} aria-current={['trends', 'trends-subscribe'].includes(activeId) ? 'page' : undefined} aria-haspopup="true">{item.label}<span class="nav-caret" aria-hidden="true">⌄</span></a>
-              <div class="nav-submenu" aria-label="트렌드 메뉴">
-                <a href="/trends/" aria-current={activeId === 'trends' ? 'page' : undefined}>트렌드 조회</a>
-                <a href="/trends/subscribe/" aria-current={activeId === 'trends-subscribe' ? 'page' : undefined}>트렌드 구독</a>
-              </div>
-            </div>
-          ) : <a href={item.path} aria-current={item.id === activeId ? 'page' : undefined}>{item.label}</a>)}
+          {navigationItems.map((item) => <a href={item.path} aria-current={(item.id === 'trends' && activeId.startsWith('trends')) || item.id === activeId ? 'page' : undefined}>{item.label}</a>)}
         </nav>
         <a class="header-cta" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
       </div>
