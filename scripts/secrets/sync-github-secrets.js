@@ -319,7 +319,7 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
   let reviewerId = '';
   output.write(`Target GitHub Environment: ${environment}\nSecrets to update (${names.length}): ${names.join(', ')}\nVariables to update (${variableNames.length}): ${variableNames.join(', ')}\n`);
   output.write(environment === 'production'
-    ? 'Environment guard: require release/* only and the current GitHub account to approve.\n'
+    ? 'Environment guard: allow release/* branches and v* tags; require the current GitHub account to approve.\n'
     : 'Environment guard: allow deployment from dev only.\n');
   if (environment === 'production') {
     reviewerId = runCommand(['api', 'user', '--jq', '.id']);
