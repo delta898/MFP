@@ -447,6 +447,10 @@
       "classification": "license_operator_action"
     },
     {
+      "path": "supabase/operations/licenses/2026-11-05_license_alignment.sql",
+      "classification": "license_operator_action"
+    },
+    {
       "path": "supabase/operations/licenses/supabase_license_operations.sql",
       "classification": "license_operator_action"
     },
