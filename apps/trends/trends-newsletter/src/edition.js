@@ -60,7 +60,7 @@ export function validateSharedCopy(copy) {
     return { greeting, introduction };
 }
 
-export function buildSharedEdition({ environment = 'development', trendDate, post, copy = buildSharedCopy(trendDate), downloadUrl, downloadBannerUrl }) {
+export function buildSharedEdition({ environment, trendDate, post, copy = buildSharedCopy(trendDate), downloadUrl, downloadBannerUrl }) {
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(trendDate || ''));
     const parsedDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])));
     if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== trendDate) {

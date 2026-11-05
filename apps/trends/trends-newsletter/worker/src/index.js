@@ -204,6 +204,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                     timeout: '2 minutes'
                 }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
                 const edition = buildSharedEdition({
+                    environment: target.environment,
                     trendDate,
                     post,
                     downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,
