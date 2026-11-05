@@ -236,7 +236,7 @@ jobs:
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/trends-api-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'const fs=require("node:fs"); const names=["SUPABASE_SECRET_KEY","TRENDS_API_TOKEN","TRENDS_READ_TOKEN_SECRET","TRENDS_NEWSLETTER_CANARY_TOKEN"]; fs.writeFileSync(process.argv[1],JSON.stringify(Object.fromEntries(names.map((n)=>[n,process.env[n]]))),{mode:0o600});' "$secrets_file"
+          node -e 'const fs=require("node:fs"); const names=["SUPABASE_SECRET_KEY","TRENDS_API_TOKEN","TRENDS_READ_TOKEN_SECRET","TRENDS_NEWSLETTER_WORKER_TOKEN","TRENDS_NEWSLETTER_CANARY_TOKEN"]; fs.writeFileSync(process.argv[1],JSON.stringify(Object.fromEntries(names.map((n)=>[n,process.env[n]]))),{mode:0o600});' "$secrets_file"
           npx wrangler deploy --env production --secrets-file "$secrets_file"
       - uses: actions/download-artifact@v7
         with:

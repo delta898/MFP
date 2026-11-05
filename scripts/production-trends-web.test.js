@@ -183,6 +183,12 @@ test('Production migration preview must finish before the separately gated deplo
     assert.doesNotMatch(deploy, /supabase link/);
 });
 
+test('Production API Worker deployment includes the newsletter forwarding token', () => {
+    const apiDeploy = productionWorkflow.match(/      - name: Deploy Production Trends API Worker[\s\S]*?(?=\n      - uses: actions\/download-artifact@v7)/)?.[0] || '';
+    assert.match(apiDeploy, /names=\[[^\]]*"TRENDS_NEWSLETTER_WORKER_TOKEN"/);
+    assert.match(apiDeploy, /npx wrangler deploy --env production --secrets-file/);
+});
+
 test('Production deploy is push-driven, ensures an unbound site hostname, and keeps legacy cutover manual', () => {
     assert.match(productionWorkflow, /- deploy-workers[\s\S]*- cutover-site-domain[\s\S]*- rollback-site-domain/);
     const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
