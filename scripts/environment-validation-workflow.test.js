@@ -47,6 +47,10 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /npm run env:development:smoke/);
     assert.match(workflow, /https:\/\/www-dev\.bloggenius\.kr/);
     assert.match(workflow, /Production canonical metadata was found in the Development site artifact/);
+    const siteBuild = workflow.match(/  build-development-site:[\s\S]*?(?=\n  validate-development-workers:|\n  deploy-development-workers:)/)?.[0] || '';
+    assert.match(siteBuild, /environment: development/);
+    assert.match(siteBuild, /PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
+    assert.match(siteBuild, /https:\/\/trendapi-dev\.bloggenius\.kr/);
     assert.match(workflow, /development-promotion-/);
     assert.match(workflow, /Deploy the Development site Worker and ensure its domain[\s\S]*node scripts\/deploy-development-site\.js/);
 

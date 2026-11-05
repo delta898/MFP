@@ -31,8 +31,13 @@ const REQUIRED = Object.freeze({
 });
 
 const REQUIRED_VARIABLES = Object.freeze({
-  development: ['CLOUDFLARE_ACCOUNT_ID'],
-  production: ['CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL']
+  development: ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID'],
+  production: ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL']
+});
+
+const CANONICAL_TRENDS_API_URL = Object.freeze({
+  development: 'https://trendapi-dev.bloggenius.kr',
+  production: 'https://trendapi.bloggenius.kr'
 });
 
 const ALLOWED = new Set([...Object.values(REQUIRED).flat(), ...Object.values(REQUIRED_VARIABLES).flat()]);
@@ -78,6 +83,10 @@ function readSecretFile(filePath, environment) {
   for (const name of REQUIRED_VARIABLES[environment]) {
     if (name === 'CLOUDFLARE_ACCOUNT_ID' && !/^[a-f\d]{32}$/i.test(String(values[name]).trim())) {
       throw new Error(`${name} must be a 32-character hexadecimal Cloudflare account ID.`);
+    }
+    if (name === 'BLOGGENIUS_TRENDS_API_URL'
+      && String(values[name]).trim() !== CANONICAL_TRENDS_API_URL[environment]) {
+      throw new Error(`${name} must be ${CANONICAL_TRENDS_API_URL[environment]} for ${environment}.`);
     }
   }
   if (environment === 'production' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
@@ -147,7 +156,15 @@ function hasProductionProtection(environment, reviewerId, branchPolicies) {
       && String(entry?.reviewer?.id || '') === String(reviewerId)));
   return hasReviewer
     && environment?.deployment_branch_policy?.custom_branch_policies === true
-    && branchPolicies.includes('release/*');
+    && branchPolicies.some((policy) => policy?.name === 'release/*' && policy?.type === 'branch')
+    && branchPolicies.some((policy) => policy?.name === 'v*' && policy?.type === 'tag');
+}
+
+function readProductionBranchPolicies(runCommand, policyEndpoint) {
+  const raw = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies']);
+  const policies = raw ? parseJsonResult(raw, 'inspect the Production Environment branch and tag policies') : [];
+  if (!Array.isArray(policies)) throw new Error('GitHub returned invalid Production Environment branch policies.');
+  return policies;
 }
 
 function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
@@ -175,11 +192,13 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
 
   let branchPolicies = [];
   if (current?.deployment_branch_policy?.custom_branch_policies === true) {
-    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
-      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-    const unexpectedPolicies = branchPolicies.filter((name) => name !== 'release/*');
+    branchPolicies = readProductionBranchPolicies(runCommand, policyEndpoint);
+    const unexpectedPolicies = branchPolicies.filter((policy) => !(
+      (policy?.name === 'release/*' && policy?.type === 'branch')
+      || (policy?.name === 'v*' && policy?.type === 'tag')
+    ));
     if (unexpectedPolicies.length) {
-      throw new Error('The existing Production Environment has unexpected deployment branch policies; review them before syncing. No secrets or variables were changed.');
+      throw new Error('The existing Production Environment has unexpected deployment branch or tag policies; review them before syncing. No secrets or variables were changed.');
     }
   }
 
@@ -196,16 +215,16 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
 
   let environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
   if (environment?.deployment_branch_policy?.custom_branch_policies === true) {
-    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
-      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    branchPolicies = readProductionBranchPolicies(runCommand, policyEndpoint);
   } else {
     branchPolicies = [];
   }
-  if (!branchPolicies.includes('release/*')) {
-    runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify({ name: 'release/*', type: 'branch' }));
-    branchPolicies = runCommand(['api', policyEndpoint, '--paginate', '--jq', '.branch_policies[].name'])
-      .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-    environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
+  for (const required of [{ name: 'release/*', type: 'branch' }, { name: 'v*', type: 'tag' }]) {
+    if (!branchPolicies.some((policy) => policy?.name === required.name && policy?.type === required.type)) {
+      runCommand(['api', '--method', 'POST', policyEndpoint, '--input', '-'], JSON.stringify(required));
+      branchPolicies = readProductionBranchPolicies(runCommand, policyEndpoint);
+      environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
+    }
   }
   if (!hasProductionProtection(environment, reviewerId, branchPolicies)) {
     throw new Error('The Production Environment protection policy could not be verified; no secrets or variables were changed.');
@@ -342,4 +361,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { ALLOWED, FILES, REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProductionEnvironment, hasProductionProtection, listEnvironmentNames, parseArguments, promptForConfirmation, readSecretFile, runGh, syncGitHubSecrets };
+module.exports = { ALLOWED, CANONICAL_TRENDS_API_URL, FILES, REQUIRED, REQUIRED_VARIABLES, ensureDevelopmentEnvironment, ensureProductionEnvironment, hasProductionProtection, listEnvironmentNames, parseArguments, promptForConfirmation, readSecretFile, runGh, syncGitHubSecrets };

@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const EXPECTED = Object.freeze({
     api: [
         'https://trendapi.hangadac.com',
@@ -37,9 +39,48 @@ async function checkWithRetry(check) {
     throw lastError;
 }
 
-async function runSmoke(kind, fetchImpl = fetch) {
+function createProductionReadSmokeToken(secret, nowSeconds = Math.floor(Date.now() / 1000)) {
+    const signingSecret = String(secret || '').trim();
+    if (!signingSecret) throw new Error('TRENDS_READ_TOKEN_SECRET is required for authenticated API smoke.');
+    const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const signingInput = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
+        iss: 'bloggenius-license',
+        aud: 'trends-api',
+        sub: crypto.randomUUID(),
+        scope: 'trends:read',
+        iat: nowSeconds,
+        exp: nowSeconds + 300
+    })}`;
+    const signature = crypto.createHmac('sha256', signingSecret).update(signingInput).digest('base64url');
+    return `${signingInput}.${signature}`;
+}
+
+async function runAuthenticatedApiSmoke(fetchImpl = fetch, env = process.env) {
+    const token = createProductionReadSmokeToken(env.TRENDS_READ_TOKEN_SECRET);
+    const results = [];
+    for (const host of EXPECTED.api) {
+        const url = `${host}/api/v1/trends/meta`;
+        results.push(await checkWithRetry(async () => {
+            const response = await fetchImpl(url, {
+                headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+                redirect: 'manual',
+                signal: AbortSignal.timeout(15000)
+            });
+            if (!response.ok) throw new Error(`${url} returned HTTP ${response.status} for a Production read token.`);
+            const body = await response.json();
+            if (body?.success !== true || !Array.isArray(body?.categories) || !Array.isArray(body?.availableDates)) {
+                throw new Error(`${url} rejected or could not use the Production read-token contract.`);
+            }
+            return { url, status: response.status };
+        }));
+    }
+    return results;
+}
+
+async function runSmoke(kind, fetchImpl = fetch, env = process.env) {
+    if (kind === 'api-auth') return runAuthenticatedApiSmoke(fetchImpl, env);
     const urls = EXPECTED[kind];
-    if (!urls) throw new Error('Usage: node scripts/production-trends-web-smoke.js api|site');
+    if (!urls) throw new Error('Usage: node scripts/production-trends-web-smoke.js api|api-auth|site');
     const results = [];
     for (const url of urls) {
         if (kind === 'api') {
@@ -66,8 +107,8 @@ async function runSmoke(kind, fetchImpl = fetch) {
 }
 
 if (require.main === module) {
-    runSmoke(process.argv[2]).then((results) => console.info(JSON.stringify({ environment: 'production', checks: results })))
+    runSmoke(process.argv[2], fetch, process.env).then((results) => console.info(JSON.stringify({ environment: 'production', checks: results })))
         .catch((error) => { console.error(`[Production web smoke] ${error.message}`); process.exitCode = 1; });
 }
 
-module.exports = { EXPECTED, checkUrl, checkWithRetry, runSmoke };
+module.exports = { EXPECTED, checkUrl, checkWithRetry, createProductionReadSmokeToken, runAuthenticatedApiSmoke, runSmoke };

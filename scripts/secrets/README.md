@@ -13,10 +13,11 @@ cp .secrets/.secret.dev.env.example .secrets/.secret.dev.env
 chmod 600 .secrets/.secret.dev.env
 ```
 
-Both files also contain `CLOUDFLARE_ACCOUNT_ID`. The sync utility writes that
-nonsecret value to the matching GitHub Environment variable; every other
-supported entry is written as a GitHub Environment secret. This means the
-Cloudflare account target can be initialized from the local file without
+Both files contain `BLOGGENIUS_TRENDS_API_URL` and `CLOUDFLARE_ACCOUNT_ID`.
+The sync utility writes these nonsecret values to the matching GitHub
+Environment variables; every other supported entry is written as a GitHub
+Environment secret. Production also writes `NEWSLETTER_CANARY_EMAIL` as an
+Environment variable. This initializes the workflow configuration without
 opening GitHub Settings.
 
 The Development file contains the GitHub Environment secret names used by the
@@ -69,9 +70,11 @@ refs, with Environment credentials available only after the workflow's `dev`
 branch guard.
 
 Production sync creates the `production` Environment when it is missing,
-restricts it to `release/*`, and requires the currently authenticated GitHub
-account to approve. It then syncs its secrets and account variable; it does not
-deploy Production. Creating either Environment requires permission to
+restricts it to the `release/*` branch pattern and the `v*` tag pattern, and
+requires the currently authenticated GitHub account to approve. The branch
+pattern permits Production Worker releases; the tag pattern permits protected
+app release builds to read the same Production API URL. It then syncs its
+secrets and variables; it does not deploy Production. Creating either Environment requires permission to
 administer repository environments. Production also requires GitHub to support
 required reviewers for this repository. If the requested protections cannot
 be configured and verified, sync stops before writing secrets or variables.

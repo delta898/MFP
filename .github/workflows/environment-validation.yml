@@ -75,7 +75,7 @@ jobs:
       github.ref == 'refs/heads/dev' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift'))
-    needs: [release-artifact, validate-development-site, validate-development-workers]
+    needs: [release-artifact, build-development-site, validate-development-workers]
     runs-on: ubuntu-latest
     environment: development
     env:
@@ -311,11 +311,9 @@ jobs:
           npx wrangler deploy --env='' --dry-run
 
   validate-development-site:
-    name: Build Development Site
+    name: Validate Development Site for pull requests
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'dev') ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
+      github.event_name == 'pull_request' && github.base_ref == 'dev'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -335,6 +333,41 @@ jobs:
           npm run build
           test -s dist/index.html
           grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi-dev.bloggenius.kr' dist
+          grep -R -l --include='*.html' 'rel="canonical" href="https://www-dev.bloggenius.kr/' dist
+          if grep -R -n -E --include='*.html' 'rel="canonical" href="https://www\.bloggenius\.kr/|property="og:url" content="https://www\.bloggenius\.kr/|property="og:image" content="https://www\.bloggenius\.kr/' dist; then
+            echo '::error::Production canonical metadata was found in the Development site artifact.'
+            exit 1
+          fi
+
+  build-development-site:
+    name: Build Development Site
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
+      - name: Build Development site
+        working-directory: workspace/site-hosting/sites/www-bloggenius-kr
+        env:
+          BLOGGENIUS_ENV: development
+          BLOGGENIUS_SITE_URL: https://www-dev.bloggenius.kr
+          PUBLIC_TRENDS_API_BASE_URL: ${{ vars.BLOGGENIUS_TRENDS_API_URL }}
+        run: |
+          if [[ "$PUBLIC_TRENDS_API_BASE_URL" != "https://trendapi-dev.bloggenius.kr" ]]; then
+            echo '::error::Set development BLOGGENIUS_TRENDS_API_URL to https://trendapi-dev.bloggenius.kr.'
+            exit 1
+          fi
+          npm ci
+          npm run build
+          test -s dist/index.html
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' "$PUBLIC_TRENDS_API_BASE_URL" dist
           grep -R -l --include='*.html' 'rel="canonical" href="https://www-dev.bloggenius.kr/' dist
           if grep -R -n -E --include='*.html' 'rel="canonical" href="https://www\.bloggenius\.kr/|property="og:url" content="https://www\.bloggenius\.kr/|property="og:image" content="https://www\.bloggenius\.kr/' dist; then
             echo '::error::Production canonical metadata was found in the Development site artifact.'
@@ -422,7 +455,7 @@ jobs:
   deploy-development-site:
     name: Deploy Development Site
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: [deploy-development-workers, validate-development-site]
+    needs: [deploy-development-workers, build-development-site]
     runs-on: ubuntu-latest
     environment: development
     env:

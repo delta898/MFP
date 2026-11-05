@@ -27,6 +27,7 @@ jobs:
     outputs:
       newsletter_changed: ${{ steps.scope.outputs.newsletter_changed }}
       api_changed: ${{ steps.scope.outputs.api_changed }}
+      access_token_changed: ${{ steps.scope.outputs.access_token_changed }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -49,10 +50,14 @@ jobs:
           files="$(git diff --name-only "$base" HEAD)"
           api_changed=false
           newsletter_changed=false
+          access_token_changed=false
           while IFS= read -r file; do
             [[ -z "$file" ]] && continue
             case "$file" in
               apps/trends/trends-api/workers/*) api_changed=true ;;
+            esac
+            case "$file" in
+              supabase/functions/issue-trends-access-token/*) access_token_changed=true ;;
             esac
             case "$file" in
               supabase/migrations/*|supabase/functions/trends-mailing-list/*|apps/trends/trends-newsletter/*|apps/trends/trends-api/workers/wrangler.toml|.github/workflows/production-newsletter-control.yml)
@@ -62,11 +67,13 @@ jobs:
           done <<< "$files"
           echo "api_changed=$api_changed" >> "$GITHUB_OUTPUT"
           echo "newsletter_changed=$newsletter_changed" >> "$GITHUB_OUTPUT"
+          echo "access_token_changed=$access_token_changed" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build Production candidates
     needs: validate-release-ref
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v6
         with:
@@ -98,17 +105,24 @@ jobs:
         run: |
           deno check supabase/functions/trends-mailing-list/index.ts
           deno test supabase/functions/trends-mailing-list/handler_test.ts
+      - name: Validate the Trends access-token Edge Function
+        if: needs.validate-release-ref.outputs.access_token_changed == 'true'
+        run: deno check supabase/functions/issue-trends-access-token/index.ts
       - name: Build the Production site artifact
         working-directory: workspace/site-hosting/sites/www-bloggenius-kr
         env:
           BLOGGENIUS_ENV: production
           BLOGGENIUS_SITE_URL: https://www.bloggenius.kr
-          PUBLIC_TRENDS_API_BASE_URL: https://trendapi.bloggenius.kr
+          PUBLIC_TRENDS_API_BASE_URL: ${{ vars.BLOGGENIUS_TRENDS_API_URL }}
         run: |
+          if [[ "$PUBLIC_TRENDS_API_BASE_URL" != "https://trendapi.bloggenius.kr" ]]; then
+            echo '::error::Set production BLOGGENIUS_TRENDS_API_URL to https://trendapi.bloggenius.kr.'
+            exit 1
+          fi
           npm ci
           npm run build
           test -s dist/index.html
-          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi.bloggenius.kr' dist
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' "$PUBLIC_TRENDS_API_BASE_URL" dist
           grep -R -l --include='*.html' 'rel="canonical" href="https://www.bloggenius.kr/' dist
           if grep -R -n -E --include='*.html' 'rel="canonical" href="https://www-dev\.bloggenius\.kr/|property="og:url" content="https://www-dev\.bloggenius\.kr/|property="og:image" content="https://www-dev\.bloggenius\.kr/' dist; then
             echo '::error::Development canonical metadata was found in the Production site artifact.'
@@ -184,6 +198,19 @@ jobs:
               exit 1
             fi
           done
+      - name: Sync Production Trends access-token Function secrets
+        shell: bash
+        env:
+          BLOGGENIUS_PRODUCTION_SUPABASE_URL: https://hocfjolcthvtgfaxjmse.supabase.co
+        run: |
+          set -euo pipefail
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/trends-access-function-secrets.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'const fs=require("node:fs"); const values={BLOGGENIUS_ENV:"production",SUPABASE_URL:process.env.BLOGGENIUS_PRODUCTION_SUPABASE_URL,SUPABASE_SECRET_KEY:process.env.SUPABASE_SECRET_KEY,TRENDS_READ_TOKEN_SECRET:process.env.TRENDS_READ_TOKEN_SECRET,TRENDS_READ_TOKEN_ISSUER:"bloggenius-license",TRENDS_READ_TOKEN_AUDIENCE:"trends-api",TRENDS_READ_TOKEN_TTL_SECONDS:"900"}; fs.writeFileSync(process.argv[1],`${Object.entries(values).map(([name,value])=>`${name}=${JSON.stringify(value)}`).join("\n")}\n`,{mode:0o600});' "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
+      - name: Deploy the Production Trends access-token Edge Function
+        run: supabase functions deploy issue-trends-access-token --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
       - name: Install Cloudflare deployment dependencies
         run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Verify exact Production Workers and hostname ownership
@@ -259,8 +286,12 @@ jobs:
             -o "$response"
           node -e 'const fs=require("node:fs"); const body=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(body.success!==true||body.environment!=="production"||body.mode!=="disabled"||body.deploymentId!==process.env.NEWSLETTER_DEPLOYMENT_ID){console.error("::error::Production newsletter mode did not remain safely disabled after deployment.");process.exit(1)}' "$response"
       - name: Verify both Production Trends API hostnames
-        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true'
+        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true' || needs.validate-release-ref.outputs.access_token_changed == 'true'
         run: node scripts/production-trends-web-smoke.js api
+      - name: Verify authenticated API compatibility for existing and new apps
+        env:
+          TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
+        run: node scripts/production-trends-web-smoke.js api-auth
       - uses: actions/download-artifact@v7
         with:
           name: production-trends-site-${{ github.sha }}

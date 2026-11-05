@@ -116,7 +116,11 @@ script independently rejects refs other than `dev`.
 ### Production Trends promotion
 
 The Production web experience shares the Development Astro source but receives
-explicit Production build values. `.github/workflows/deploy-trends-web-production.yml`
+explicit Production build values. Both site builds read the environment-scoped
+`BLOGGENIUS_TRENDS_API_URL` GitHub variable; the sync utility validates the
+Development and Production canonical hostnames before writing them. The
+tag-triggered app release build reads the same Production Environment
+variable. `.github/workflows/deploy-trends-web-production.yml`
 can be manually dispatched from a `release/*` branch only. Its `production`
 GitHub Environment provides the approval gate and scoped Cloudflare/API
 secrets. The workflow builds the site artifact from the exact dispatch SHA and detects
@@ -141,8 +145,9 @@ known legacy Production Worker. Site-only releases do not deploy the newsletter
 stack or reset its send mode.
 
 Production sync creates the `production` Environment if it is missing,
-restricts it to `release/*`, and requires the current GitHub account as a
-reviewer. This requires permission to administer repository environments and a
+restricts it to `release/*` branches and `v*` tags, and requires the current
+GitHub account as a reviewer. The `v*` tag policy lets the app release workflow
+read Production-scoped build configuration. This requires permission to administer repository environments and a
 GitHub plan that supports required reviewers. If protection cannot be
 configured and verified, sync stops before writing credentials. Create the
 release branch using the normal release process, ensure the GitHub
@@ -162,6 +167,15 @@ same dispatch SHA. If deployment or smoke verification fails, stop promotion;
 the prior static Worker deployment remains available for rollback, and the
 prior API deployment can be selected using the established Wrangler rollback
 process. Site-only changes leave the current newsletter delivery mode intact.
+
+Every `deploy-workers` Production operation also synchronizes and deploys the
+`issue-trends-access-token` Edge Function. It writes the Production Supabase
+URL, `TRENDS_SUPABASE_SECRET_KEY`, and the matching `TRENDS_READ_TOKEN_SECRET`
+from the protected Production Environment, with issuer `bloggenius-license`,
+audience `trends-api`, and a 900-second TTL. The Production API Worker uses the
+same signing secret and issuer/audience contract. Keep these GitHub Environment
+values as the source of truth; this step does not run for site-domain cutover or
+rollback operations.
 
 ### Development reference procedure
 
@@ -565,15 +579,17 @@ Using an absolute path is preferred in production, even though relative paths ar
 The desktop app must not receive `TRENDS_API_TOKEN`, `SUPABASE_SECRET_KEY`, or
 any other long-lived backend secret.
 
-Deploy the `issue-trends-access-token` Supabase Edge Function in the license
-project. Configure these function secrets:
+The `Production | Deploy Trends Release` workflow synchronizes and deploys the
+`issue-trends-access-token` Supabase Edge Function for every Production Worker
+release. It configures these function secrets from the protected Production
+Environment:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`
 - `TRENDS_READ_TOKEN_SECRET`
-- optional `TRENDS_READ_TOKEN_ISSUER=bloggenius-license`
-- optional `TRENDS_READ_TOKEN_AUDIENCE=trends-api`
-- optional `TRENDS_READ_TOKEN_TTL_SECONDS=900`
+- `TRENDS_READ_TOKEN_ISSUER=bloggenius-license`
+- `TRENDS_READ_TOKEN_AUDIENCE=trends-api`
+- `TRENDS_READ_TOKEN_TTL_SECONDS=900`
 
 Configure the matching `TRENDS_READ_TOKEN_SECRET`, issuer, and audience as
 Production Worker settings/secrets. The signing secret is shared only between

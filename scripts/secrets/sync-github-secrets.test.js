@@ -14,6 +14,7 @@ function makeEnvironmentValues(environment) {
     ...Object.fromEntries(REQUIRED_VARIABLES[environment].map((name) => [name,
       name === 'CLOUDFLARE_ACCOUNT_ID' ? 'a'.repeat(32)
         : name === 'NEWSLETTER_CANARY_EMAIL' ? 'admin@example.test'
+          : name === 'BLOGGENIUS_TRENDS_API_URL' ? environment === 'development' ? 'https://trendapi-dev.bloggenius.kr' : 'https://trendapi.bloggenius.kr'
           : `fixture-${name}`]))
   };
   if (environment === 'development') {
@@ -89,6 +90,13 @@ test('requires a single valid Production canary destination before syncing', (t)
 });
 
 for (const environment of ['development', 'production']) {
+  test(`requires the canonical ${environment} Trends API URL variable`, (t) => {
+    const values = makeEnvironmentValues(environment);
+    const wrongUrl = environment === 'development' ? 'https://trendapi.bloggenius.kr' : 'https://trendapi-dev.bloggenius.kr';
+    const filePath = makeSecretFile(t, { ...values, BLOGGENIUS_TRENDS_API_URL: wrongUrl });
+    assert.throws(() => readSecretFile(filePath, environment), new RegExp(`BLOGGENIUS_TRENDS_API_URL must be https://trendapi${environment === 'development' ? '-dev' : ''}\\.bloggenius\\.kr`));
+  });
+
   test(`requires the ${environment} Session Pooler URL and rejects direct or transaction pooler URLs`, (t) => {
     const values = makeEnvironmentValues(environment);
     const projectRef = environment === 'development' ? 'bvtlwjbmjnfphxlrkzhm' : 'hocfjolcthvtgfaxjmse';
@@ -146,8 +154,9 @@ test('syncs only names to the selected GitHub environment without printing value
   assert.equal(calls.length, Object.keys(values).length + 9);
   assert.deepEqual(result.updated, Object.keys(values).filter((name) => !REQUIRED_VARIABLES.development.includes(name)).sort());
   for (const name of REQUIRED.development) assert.ok(calls.some((call) => call.input === values[name]));
-  assert.deepEqual(result.updatedVariables, ['CLOUDFLARE_ACCOUNT_ID']);
+  assert.deepEqual(result.updatedVariables, ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID']);
   assert.ok(calls.some(({ args }) => args.join(' ') === `variable set CLOUDFLARE_ACCOUNT_ID --env development --body ${values.CLOUDFLARE_ACCOUNT_ID}`));
+  assert.ok(calls.some(({ args }) => args.join(' ') === `variable set BLOGGENIUS_TRENDS_API_URL --env development --body ${values.BLOGGENIUS_TRENDS_API_URL}`));
   assert.ok(!Object.values(values).some((value) => output.read().includes(value)));
 });
 
@@ -185,7 +194,7 @@ test('production requires an explicit production guard before reading or mutatin
   assert.equal(calls, 0);
 });
 
-test('creates a missing Production Environment with a reviewer and release-only deployment policy', () => {
+test('creates a missing Production Environment with a reviewer and release/tag deployment policies', () => {
   const calls = [];
   let policyReads = 0;
   const runCommand = (args, input) => {
@@ -199,7 +208,10 @@ test('creates a missing Production Environment with a reviewer and release-only 
     }
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production/deployment-branch-policies') {
       policyReads += 1;
-      return policyReads === 1 ? '' : 'release/*';
+      if (policyReads === 1) return '[]';
+      return JSON.stringify(policyReads === 2
+        ? [{ id: 1, name: 'release/*', type: 'branch' }]
+        : [{ id: 1, name: 'release/*', type: 'branch' }, { id: 2, name: 'v*', type: 'tag' }]);
     }
     return '';
   };
@@ -212,7 +224,9 @@ test('creates a missing Production Environment with a reviewer and release-only 
     deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
   });
   const branchPolicy = calls.find(({ args }) => args.includes('--method') && args.includes('POST'));
-  assert.deepEqual(JSON.parse(branchPolicy.input), { name: 'release/*', type: 'branch' });
+  assert.deepEqual(calls.filter(({ args }) => args.includes('--method') && args.includes('POST')).map(({ input }) => JSON.parse(input)), [
+    { name: 'release/*', type: 'branch' }, { name: 'v*', type: 'tag' }
+  ]);
 });
 
 test('repairs an existing Production Environment while preserving wait timers and reviewers', () => {
@@ -242,7 +256,10 @@ test('repairs an existing Production Environment while preserving wait timers an
     }
     if (args[0] === 'api' && args[1] === 'repos/delta898/MFP/environments/production/deployment-branch-policies') {
       policyReads += 1;
-      return policyReads === 1 ? '' : 'release/*';
+      if (policyReads === 1) return '[]';
+      return JSON.stringify(policyReads === 2
+        ? [{ id: 1, name: 'release/*', type: 'branch' }]
+        : [{ id: 1, name: 'release/*', type: 'branch' }, { id: 2, name: 'v*', type: 'tag' }]);
     }
     return '';
   };

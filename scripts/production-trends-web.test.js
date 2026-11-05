@@ -6,9 +6,10 @@ const path = require('node:path');
 const test = require('node:test');
 const { validateProductionTrendsWebTargets } = require('./production-trends-web-targets');
 const { assertWorkflowContext } = require('./deploy-production-trends-site');
-const { checkUrl, runSmoke } = require('./production-trends-web-smoke');
+const { checkUrl, createProductionReadSmokeToken, runSmoke } = require('./production-trends-web-smoke');
 const productionWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-production.yml'), 'utf8');
 const developmentWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/environment-validation.yml'), 'utf8');
+const developmentSiteWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-development.yml'), 'utf8');
 const siteSource = fs.readFileSync(path.join(__dirname, '../workspace/site-hosting/sites/www-bloggenius-kr/src/lib/site.ts'), 'utf8');
 
 const expectedWorkers = [
@@ -51,13 +52,43 @@ test('Development and Production release workflows deploy the same three Worker 
     assert.match(siteSource, /import\.meta\.env\.SITE/);
     assert.match(developmentWorkflow, /rel="canonical" href="https:\/\/www-dev\.bloggenius\.kr\//);
     assert.match(productionWorkflow, /rel="canonical" href="https:\/\/www\.bloggenius\.kr\//);
-    assert.match(developmentWorkflow, /PUBLIC_TRENDS_API_BASE_URL: https:\/\/trendapi-dev\.bloggenius\.kr/);
-    assert.match(productionWorkflow, /PUBLIC_TRENDS_API_BASE_URL: https:\/\/trendapi\.bloggenius\.kr/);
+    assert.match(developmentWorkflow, /build-development-site:[\s\S]*environment: development[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
+    assert.match(developmentSiteWorkflow, /environment: development[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
+    assert.match(productionWorkflow, /build:[\s\S]*environment: production[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
     const scopeBlocks = [...productionWorkflow.matchAll(/case "\$file" in([\s\S]*?)\n            esac/g)].map((match) => match[1]);
-    assert.equal(scopeBlocks.length, 2);
+    assert.equal(scopeBlocks.length, 3);
     assert.match(scopeBlocks[0], /apps\/trends\/trends-api\/workers\/\*/) ;
-    assert.doesNotMatch(scopeBlocks[1], /apps\/trends\/trends-api\/workers\/\*/);
-    assert.match(scopeBlocks[1], /apps\/trends\/trends-api\/workers\/wrangler\.toml/);
+    assert.match(scopeBlocks[1], /supabase\/functions\/issue-trends-access-token\/\*\) access_token_changed=true/);
+    assert.match(scopeBlocks[2], /apps\/trends\/trends-api\/workers\/wrangler\.toml/);
+    assert.doesNotMatch(scopeBlocks[2], /apps\/trends\/trends-api\/workers\/\*/);
+});
+
+test('Production Worker releases synchronize and deploy the matching access-token Function', () => {
+    const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
+    assert.match(deploy, /required=\([^\n]*TRENDS_READ_TOKEN_SECRET/);
+    assert.match(deploy, /Sync Production Trends access-token Function secrets[\s\S]*SUPABASE_URL:process\.env\.BLOGGENIUS_PRODUCTION_SUPABASE_URL[\s\S]*SUPABASE_SECRET_KEY:process\.env\.SUPABASE_SECRET_KEY[\s\S]*TRENDS_READ_TOKEN_SECRET:process\.env\.TRENDS_READ_TOKEN_SECRET[\s\S]*TRENDS_READ_TOKEN_ISSUER:"bloggenius-license"[\s\S]*TRENDS_READ_TOKEN_AUDIENCE:"trends-api"[\s\S]*supabase secrets set[\s\S]*--project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF"/);
+    assert.match(deploy, /Deploy the Production Trends access-token Edge Function[\s\S]*supabase functions deploy issue-trends-access-token --project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes/);
+    assert.match(productionWorkflow, /Validate the Trends access-token Edge Function[\s\S]*access_token_changed == 'true'[\s\S]*deno check supabase\/functions\/issue-trends-access-token\/index\.ts/);
+    assert.match(productionWorkflow, /Verify both Production Trends API hostnames[\s\S]*access_token_changed == 'true'/);
+    assert.match(deploy, /Verify authenticated API compatibility for existing and new apps[\s\S]*TRENDS_READ_TOKEN_SECRET: \$\{\{ secrets\.TRENDS_READ_TOKEN_SECRET \}\}[\s\S]*production-trends-web-smoke\.js api-auth/);
+});
+
+test('authenticated Production API smoke accepts the same token through legacy and canonical hosts', async () => {
+    const requested = [];
+    const results = await runSmoke('api-auth', async (url, options) => {
+        requested.push({ url, authorization: options.headers.Authorization });
+        return Response.json({ success: true, categories: ['IT·컴퓨터'], availableDates: ['2026-11-04'] });
+    }, { TRENDS_READ_TOKEN_SECRET: 'production-smoke-test-secret' });
+    assert.equal(results.length, 2);
+    assert.deepEqual(requested.map(({ url }) => url), [
+        'https://trendapi.hangadac.com/api/v1/trends/meta',
+        'https://trendapi.bloggenius.kr/api/v1/trends/meta'
+    ]);
+    assert.equal(requested[0].authorization, requested[1].authorization);
+    const claims = JSON.parse(Buffer.from(requested[0].authorization.split('.')[1], 'base64url').toString());
+    assert.equal(claims.iss, 'bloggenius-license');
+    assert.equal(claims.aud, 'trends-api');
+    assert.throws(() => createProductionReadSmokeToken(''), /TRENDS_READ_TOKEN_SECRET is required/);
 });
 
 test('Production targets require the API Worker and known site domain owner, while allowing a new site Worker', async () => {
