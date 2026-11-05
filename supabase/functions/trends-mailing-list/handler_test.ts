@@ -141,12 +141,12 @@ Deno.test("reports only the validated Production delivery mode", async () => {
   assertEquals(await response.json(), { success: true, environment: "production", mode: "disabled", deploymentId: null });
 });
 
-Deno.test("Production canary uses only its fixed recipient and never touches subscriber or campaign RPCs", async () => {
+Deno.test("Development disabled-mode canary uses only its fixed recipient and never touches subscriber or campaign RPCs", async () => {
   const calls: Array<{ url: string; body?: Record<string, unknown> }> = [];
   const handler = createHandler({
     env: {
-      ...baseEnv, BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "canary",
-      NEWSLETTER_CANARY_EMAIL: "admin@example.com", NEWSLETTER_CONFIRMATION_URL: "https://www.bloggenius.kr/trends/confirm/",
+      ...baseEnv, BLOGGENIUS_ENV: "development", NEWSLETTER_EMAIL_MODE: "disabled",
+      NEWSLETTER_CANARY_EMAIL: "admin@example.com", NEWSLETTER_CONFIRMATION_URL: "https://www-dev.bloggenius.kr/trends/confirm/",
     },
     fetcher: async (input, init = {}) => {
       const url = String(input);
@@ -157,7 +157,7 @@ Deno.test("Production canary uses only its fixed recipient and never touches sub
   });
   const response = await handler(request({
     action: "send_canary", trendDate: "2026-11-02", category: "IT·컴퓨터",
-    subject: "Production canary", html: "<p>Canary</p>", text: "Canary",
+    subject: "Development canary", html: "<p>Canary</p>", text: "Canary",
     email: "attacker@example.com",
   }));
   assertEquals(response.status, 200);
@@ -167,14 +167,15 @@ Deno.test("Production canary uses only its fixed recipient and never touches sub
   assertEquals(calls[0].body?.to, [{ email: "admin@example.com" }]);
 });
 
-Deno.test("Production canary fails closed when mode is live or the fixed address is missing", async () => {
+Deno.test("canary fails closed when delivery policy is unsafe or the fixed address is missing", async () => {
   for (const extraEnv of [
-    { NEWSLETTER_EMAIL_MODE: "live", NEWSLETTER_CANARY_EMAIL: "admin@example.com" },
-    { NEWSLETTER_EMAIL_MODE: "canary", NEWSLETTER_CANARY_EMAIL: "" },
+    { BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "live", NEWSLETTER_CANARY_EMAIL: "admin@example.com" },
+    { BLOGGENIUS_ENV: "development", NEWSLETTER_EMAIL_MODE: "live", NEWSLETTER_CANARY_EMAIL: "admin@example.com" },
+    { BLOGGENIUS_ENV: "development", NEWSLETTER_EMAIL_MODE: "disabled", NEWSLETTER_CANARY_EMAIL: "" },
   ]) {
     let calls = 0;
     const handler = createHandler({
-      env: { ...baseEnv, BLOGGENIUS_ENV: "production", ...extraEnv },
+      env: { ...baseEnv, ...extraEnv },
       fetcher: async () => { calls++; return Response.json({}); },
     });
     const response = await handler(request({ action: "send_canary", trendDate: "2026-11-02", category: "IT·컴퓨터", subject: "Canary", html: "x", text: "x" }));
@@ -184,7 +185,7 @@ Deno.test("Production canary fails closed when mode is live or the fixed address
 });
 
 Deno.test("email mode selects recipient policy while environment validation rejects unsafe mode combinations", async () => {
-  for (const [environment, mode] of [["production", "allowlist"], ["development", "live"]]) {
+  for (const [environment, mode] of [["production", "allowlist"], ["local", "live"]]) {
     let calls = 0;
     const handler = createHandler({
       env: { ...baseEnv, BLOGGENIUS_ENV: environment, NEWSLETTER_EMAIL_MODE: mode },
@@ -366,10 +367,10 @@ Deno.test("sends a personalized Development campaign to an allowlisted subscribe
   });
 });
 
-Deno.test("blocks campaign delivery during Production canary mode", async () => {
+Deno.test("blocks campaign delivery while newsletter delivery is disabled", async () => {
   let calls = 0;
   const handler = createHandler({
-    env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "canary" },
+    env: { ...baseEnv, NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: "x".repeat(48), BLOGGENIUS_ENV: "production", NEWSLETTER_EMAIL_MODE: "disabled" },
     fetcher: async () => { calls++; return new Response(); },
   });
   const response = await handler(request({ action: "deliver_batch", trendDate: "2026-11-02", deliveryRevision: 1 }));

@@ -17,9 +17,9 @@ const REQUIRED = Object.freeze({
   development: [
     'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD', 'SUPABASE_DB_POOLER_URL',
     'BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY', 'TRENDS_SUPABASE_SECRET_KEY',
-    'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET', 'TRENDS_NEWSLETTER_WORKER_TOKEN',
+    'TRENDS_API_TOKEN', 'TRENDS_READ_TOKEN_SECRET', 'TRENDS_NEWSLETTER_WORKER_TOKEN', 'TRENDS_NEWSLETTER_CANARY_TOKEN',
     'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'BREVO_API_KEY', 'NEWSLETTER_EMAIL_FROM',
-    'NEWSLETTER_EMAIL_MODE', 'NEWSLETTER_EMAIL_ALLOWLIST', 'NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET'
+    'NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET'
   ],
   production: [
     'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_POOLER_URL',
@@ -31,7 +31,7 @@ const REQUIRED = Object.freeze({
 });
 
 const REQUIRED_VARIABLES = Object.freeze({
-  development: ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID'],
+  development: ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL'],
   production: ['BLOGGENIUS_TRENDS_API_URL', 'CLOUDFLARE_ACCOUNT_ID', 'NEWSLETTER_CANARY_EMAIL']
 });
 
@@ -40,7 +40,10 @@ const CANONICAL_TRENDS_API_URL = Object.freeze({
   production: 'https://trendapi.bloggenius.kr'
 });
 
-const ALLOWED = new Set([...Object.values(REQUIRED).flat(), ...Object.values(REQUIRED_VARIABLES).flat()]);
+// Old local Development files may still contain these. They are deliberately
+// ignored because push workflows now control the mode transition themselves.
+const IGNORED_LEGACY_NAMES = ['NEWSLETTER_EMAIL_MODE', 'NEWSLETTER_EMAIL_ALLOWLIST'];
+const ALLOWED = new Set([...Object.values(REQUIRED).flat(), ...Object.values(REQUIRED_VARIABLES).flat(), ...IGNORED_LEGACY_NAMES]);
 
 function parseArguments(argv) {
   const options = {};
@@ -89,7 +92,7 @@ function readSecretFile(filePath, environment) {
       throw new Error(`${name} must be ${CANONICAL_TRENDS_API_URL[environment]} for ${environment}.`);
     }
   }
-  if (environment === 'production' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.NEWSLETTER_CANARY_EMAIL || '').trim())) {
     throw new Error('NEWSLETTER_CANARY_EMAIL must be a valid single administrator email address.');
   }
   if (environment === 'development' || environment === 'production') {
@@ -105,12 +108,6 @@ function readSecretFile(filePath, environment) {
       || !pooler.password) {
       throw new Error(`SUPABASE_DB_POOLER_URL must target the ${environment} Supabase Session Pooler (port 5432) and the expected project.`);
     }
-  }
-  if (environment === 'development' && values.NEWSLETTER_EMAIL_MODE.trim() !== 'allowlist') {
-    throw new Error('Development NEWSLETTER_EMAIL_MODE must be allowlist.');
-  }
-  if (environment === 'development' && !values.NEWSLETTER_EMAIL_ALLOWLIST.trim()) {
-    throw new Error('Development NEWSLETTER_EMAIL_ALLOWLIST must contain at least one test recipient.');
   }
   return values;
 }
@@ -149,12 +146,10 @@ function listEnvironmentNames({ runCommand = runGh, repo }) {
     .split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
 }
 
-function hasProductionProtection(environment, reviewerId, branchPolicies) {
-  const hasReviewer = (environment?.protection_rules || [])
-    .filter((rule) => rule?.type === 'required_reviewers' && rule.prevent_self_review === false)
-    .some((rule) => (rule.reviewers || []).some((entry) => entry?.type === 'User'
-      && String(entry?.reviewer?.id || '') === String(reviewerId)));
-  return hasReviewer
+function hasProductionProtection(environment, _reviewerId, branchPolicies) {
+  const hasNoApprovalGate = !(environment?.protection_rules || []).some((rule) =>
+    rule?.type === 'required_reviewers' || (rule?.type === 'wait_timer' && rule.wait_timer > 0));
+  return hasNoApprovalGate
     && environment?.deployment_branch_policy?.custom_branch_policies === true
     && branchPolicies.some((policy) => policy?.name === 'release/*' && policy?.type === 'branch')
     && branchPolicies.some((policy) => policy?.name === 'v*' && policy?.type === 'tag');
@@ -167,7 +162,7 @@ function readProductionBranchPolicies(runCommand, policyEndpoint) {
   return policies;
 }
 
-function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
+function ensureProductionEnvironment({ runCommand = runGh, repo, environmentNames = listEnvironmentNames({ runCommand, repo }) }) {
   const endpoint = `repos/${repo}/environments/production`;
   const policyEndpoint = `${endpoint}/deployment-branch-policies`;
   const existed = environmentNames.includes('production');
@@ -179,16 +174,6 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
   if (unsupportedRules.length) {
     throw new Error('The existing Production Environment has protection rules this utility cannot safely preserve; no secrets or variables were changed.');
   }
-  const reviewerRule = rules.find((rule) => rule?.type === 'required_reviewers');
-  const reviewersById = new Map();
-  for (const entry of reviewerRule?.reviewers || []) {
-    const id = Number(entry?.reviewer?.id);
-    if ((entry?.type === 'User' || entry?.type === 'Team') && Number.isInteger(id) && id > 0) {
-      reviewersById.set(`${entry.type}:${id}`, { type: entry.type, id });
-    }
-  }
-  reviewersById.set(`User:${reviewerId}`, { type: 'User', id: Number(reviewerId) });
-  const existingWaitTimer = rules.find((rule) => rule?.type === 'wait_timer')?.wait_timer;
 
   let branchPolicies = [];
   if (current?.deployment_branch_policy?.custom_branch_policies === true) {
@@ -202,12 +187,12 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
     }
   }
 
-  const alreadyProtected = hasProductionProtection(current, reviewerId, branchPolicies);
+  const alreadyProtected = hasProductionProtection(current, null, branchPolicies);
   if (!alreadyProtected) {
     const updateBody = {
-      wait_timer: Number.isInteger(existingWaitTimer) ? existingWaitTimer : 0,
+      wait_timer: 0,
       prevent_self_review: false,
-      reviewers: [...reviewersById.values()],
+      reviewers: [],
       deployment_branch_policy: { protected_branches: false, custom_branch_policies: true }
     };
     runCommand(['api', '--method', 'PUT', endpoint, '--input', '-'], JSON.stringify(updateBody));
@@ -226,7 +211,7 @@ function ensureProductionEnvironment({ runCommand = runGh, repo, reviewerId, env
       environment = parseJsonResult(runCommand(['api', endpoint]), 'verify the Production Environment protection');
     }
   }
-  if (!hasProductionProtection(environment, reviewerId, branchPolicies)) {
+  if (!hasProductionProtection(environment, null, branchPolicies)) {
     throw new Error('The Production Environment protection policy could not be verified; no secrets or variables were changed.');
   }
   return !existed;
@@ -316,14 +301,12 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
   const names = Object.keys(values).filter((name) => REQUIRED[environment].includes(name)).sort();
   const variableNames = Object.keys(values).filter((name) => REQUIRED_VARIABLES[environment].includes(name)).sort();
   let environmentCreated = false;
-  let reviewerId = '';
   output.write(`Target GitHub Environment: ${environment}\nSecrets to update (${names.length}): ${names.join(', ')}\nVariables to update (${variableNames.length}): ${variableNames.join(', ')}\n`);
   output.write(environment === 'production'
-    ? 'Environment guard: allow release/* branches and v* tags; require the current GitHub account to approve.\n'
+    ? 'Environment guard: allow release/* branches and v* tags; release pushes deploy without a reviewer gate.\n'
     : 'Environment guard: allow deployment from dev only.\n');
   if (environment === 'production') {
-    reviewerId = runCommand(['api', 'user', '--jq', '.id']);
-    if (!/^\d+$/.test(reviewerId)) throw new Error('Could not determine the current GitHub reviewer; no secrets or variables were changed.');
+    // No reviewer identity is needed: an authorized release/* push is the deployment approval.
   } else if (environmentExists) {
     runCommand(['secret', 'list', '--env', environment]);
     runCommand(['variable', 'list', '--env', environment]);
@@ -332,7 +315,7 @@ async function syncGitHubSecrets({ environment, confirmProduction = false, yes =
     await confirm(environment === 'production' ? 'PRODUCTION' : 'DEVELOPMENT', { output });
   }
   if (environment === 'production') {
-    environmentCreated = ensureProductionEnvironment({ runCommand, repo, reviewerId, environmentNames });
+    environmentCreated = ensureProductionEnvironment({ runCommand, repo, environmentNames });
   } else {
     environmentCreated = ensureDevelopmentEnvironment({ runCommand, repo, environmentNames });
   }

@@ -17,9 +17,9 @@ fail closed when those values point to different targets.
   recipient delivery are not started.
 - `allowlist`: subscriber delivery proceeds; the mailing Edge Function sends
   only to addresses in `NEWSLETTER_EMAIL_ALLOWLIST`.
-- `canary`: a separate Production-only Workflow path sends one message to the
-  configured administrator address. It does not use subscriber delivery or its
-  campaign ledger.
+- Canary is a separate private Workflow path in either environment. It sends
+  one message to the configured administrator address and does not use
+  subscriber delivery or its campaign ledger.
 - `live`: normal subscriber delivery proceeds.
 
 The Edge Function rejects mode/environment combinations that are not allowed.
@@ -35,13 +35,15 @@ only constrains which combinations the server accepts.
 - The base configuration is Development (`bloggenius-trends-newsletter-dev`).
 - `[env.production]` targets Production (`bloggenius-trends-newsletter-production`).
 
-The Development GitHub Actions workflow deploys on `dev` pushes. Production
+Development `dev` pushes and Production `release/*` pushes use the same
+deployment sequence: disable delivery, deploy the Workers and site, send an
+administrator canary, then enable `live` only after the canary succeeds. The
+existing Newsletter Worker sends the Telegram run summary. Production
 deployment is handled by
 [`deploy-trends-web-production.yml`](../../../../.github/workflows/deploy-trends-web-production.yml)
-from `release/*`; newsletter control (canary, live activation, and disable) is
-handled separately by
+from `release/*`; emergency disable is handled separately by
 [`production-newsletter-control.yml`](../../../../.github/workflows/production-newsletter-control.yml).
-Production deploy begins with email disabled. Review the release and
+Review the release and
 environment gates in [Trends backend deployment](../../../../docs/architecture/trends-backend-deployment.md)
 before operating these workflows.
 

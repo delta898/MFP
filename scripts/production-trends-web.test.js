@@ -17,10 +17,16 @@ const expectedWorkers = [
     { id: 'www-bloggenius-kr-production' }
 ];
 
-function makeAdapter({ apiAliasOwner = '', siteOwner = 'bg-fca282ece0e348c4baf36294d0d3f0f0', siteWorkerExists = true, oldApiOwner = 'bloggenius-trends-api-production', aliasDns = [] } = {}) {
+function makeAdapter({ apiAliasOwner = '', siteOwner = 'bg-fca282ece0e348c4baf36294d0d3f0f0', apiWorkerExists = true, siteWorkerExists = true, oldApiOwner = 'bloggenius-trends-api-production', aliasDns = [] } = {}) {
     return {
-        listWorkerScripts: async () => siteWorkerExists ? expectedWorkers : expectedWorkers.slice(0, 1),
-        listZones: async () => [{ id: 'zone-1', name: 'bloggenius.kr' }],
+        listWorkerScripts: async () => [
+            ...(apiWorkerExists ? [expectedWorkers[0]] : []),
+            ...(siteWorkerExists ? [expectedWorkers[1]] : [])
+        ],
+        listZones: async () => [
+            { id: 'zone-1', name: 'bloggenius.kr' },
+            { id: 'zone-2', name: 'hangadac.com' }
+        ],
         listDnsRecords: async ({ hostname }) => hostname === 'trendapi.bloggenius.kr' ? aliasDns : [],
         listWorkerDomains: async ({ hostname }) => {
             const service = hostname === 'trendapi.hangadac.com' ? oldApiOwner
@@ -30,7 +36,7 @@ function makeAdapter({ apiAliasOwner = '', siteOwner = 'bg-fca282ece0e348c4baf36
     };
 }
 
-test('Development and Production release workflows deploy the same three Worker roles', () => {
+test('Development and Production push workflows deploy the same three Worker roles and canary', () => {
     assert.match(developmentWorkflow, /^name: Development \| Deploy Trends Release/m);
     assert.match(productionWorkflow, /^name: Production \| Deploy Trends Release/m);
     for (const role of [
@@ -45,7 +51,7 @@ test('Development and Production release workflows deploy the same three Worker 
         /Trends API Worker[\s\S]*wrangler deploy/,
         /site Worker[\s\S]*deploy-production-trends-site\.js/
     ]) {
-        assert.match(productionWorkflow, role);
+    assert.match(productionWorkflow, role);
     }
     assert.match(developmentWorkflow, /SUPABASE_DB_POOLER_URL/);
     assert.match(productionWorkflow, /SUPABASE_DB_POOLER_URL/);
@@ -54,23 +60,27 @@ test('Development and Production release workflows deploy the same three Worker 
     assert.match(productionWorkflow, /rel="canonical" href="https:\/\/www\.bloggenius\.kr\//);
     assert.match(developmentWorkflow, /build-development-site:[\s\S]*environment: development[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
     assert.match(developmentSiteWorkflow, /environment: development[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
+    assert.match(productionWorkflow, /push:[\s\S]*branches:[\s\S]*'release\/\*\*'/);
+    assert.match(productionWorkflow, /Build and validate Production candidates/);
+    assert.match(productionWorkflow, /Send fixed-recipient canary[\s\S]*scripts\/newsletter\/send-canary\.js/);
+    assert.match(productionWorkflow, /Enable Production live delivery after canary success/);
     assert.match(productionWorkflow, /build:[\s\S]*environment: production[\s\S]*PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
-    const scopeBlocks = [...productionWorkflow.matchAll(/case "\$file" in([\s\S]*?)\n            esac/g)].map((match) => match[1]);
-    assert.equal(scopeBlocks.length, 3);
-    assert.match(scopeBlocks[0], /apps\/trends\/trends-api\/workers\/\*/) ;
-    assert.match(scopeBlocks[1], /supabase\/functions\/issue-trends-access-token\/\*\) access_token_changed=true/);
-    assert.match(scopeBlocks[2], /apps\/trends\/trends-api\/workers\/wrangler\.toml/);
-    assert.doesNotMatch(scopeBlocks[2], /apps\/trends\/trends-api\/workers\/\*/);
+    assert.match(developmentWorkflow, /Development \| Send administrator canary/);
+    assert.match(developmentWorkflow, /NEWSLETTER_EMAIL_MODE=disabled/);
+    assert.match(developmentWorkflow, /Enable Development live delivery after canary success/);
+    assert.ok(developmentWorkflow.indexOf('Disable Development newsletter delivery before database changes') < developmentWorkflow.indexOf('Apply pending Development migrations'));
+    assert.ok(developmentWorkflow.indexOf('Send canary and wait for Telegram-backed Worker summary') < developmentWorkflow.indexOf('Enable Development live delivery after canary success'));
+    assert.doesNotMatch(developmentWorkflow, /api\.telegram\.org|sendMessage/);
+    assert.doesNotMatch(productionWorkflow, /api\.telegram\.org|sendMessage/);
 });
 
-test('Production Worker releases synchronize and deploy the matching access-token Function', () => {
+test('Production releases deploy matching access-token Function from a release push', () => {
     const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
     assert.match(deploy, /required=\([^\n]*TRENDS_READ_TOKEN_SECRET/);
-    assert.match(deploy, /Sync Production Trends access-token Function secrets[\s\S]*SUPABASE_URL:process\.env\.BLOGGENIUS_PRODUCTION_SUPABASE_URL[\s\S]*SUPABASE_SECRET_KEY:process\.env\.SUPABASE_SECRET_KEY[\s\S]*TRENDS_READ_TOKEN_SECRET:process\.env\.TRENDS_READ_TOKEN_SECRET[\s\S]*TRENDS_READ_TOKEN_ISSUER:"bloggenius-license"[\s\S]*TRENDS_READ_TOKEN_AUDIENCE:"trends-api"[\s\S]*supabase secrets set[\s\S]*--project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF"/);
-    assert.match(deploy, /Deploy the Production Trends access-token Edge Function[\s\S]*supabase functions deploy issue-trends-access-token --project-ref "\$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes/);
-    assert.match(productionWorkflow, /Validate the Trends access-token Edge Function[\s\S]*access_token_changed == 'true'[\s\S]*deno check supabase\/functions\/issue-trends-access-token\/index\.ts/);
-    assert.match(productionWorkflow, /Verify both Production Trends API hostnames[\s\S]*access_token_changed == 'true'/);
-    assert.match(deploy, /Verify authenticated API compatibility for existing and new apps[\s\S]*TRENDS_READ_TOKEN_SECRET: \$\{\{ secrets\.TRENDS_READ_TOKEN_SECRET \}\}[\s\S]*production-trends-web-smoke\.js api-auth/);
+    assert.match(deploy, /Sync Production access-token Function secrets[\s\S]*SUPABASE_URL:process\.env\.SUPABASE_URL[\s\S]*SUPABASE_SECRET_KEY:process\.env\.SUPABASE_SECRET_KEY[\s\S]*TRENDS_READ_TOKEN_SECRET:process\.env\.TRENDS_READ_TOKEN_SECRET[\s\S]*TRENDS_READ_TOKEN_ISSUER:"bloggenius-license"[\s\S]*TRENDS_READ_TOKEN_AUDIENCE:"trends-api"[\s\S]*supabase secrets set/);
+    assert.match(deploy, /Deploy Production access-token Edge Function[\s\S]*supabase functions deploy issue-trends-access-token/);
+    assert.match(productionWorkflow, /- 'release\/\*\*'/);
+    assert.match(deploy, /NEWSLETTER_RELEASE_SHA: \$\{\{ github\.sha \}\}/);
 });
 
 test('authenticated Production API smoke accepts the same token through legacy and canonical hosts', async () => {
@@ -91,15 +101,21 @@ test('authenticated Production API smoke accepts the same token through legacy a
     assert.throws(() => createProductionReadSmokeToken(''), /TRENDS_READ_TOKEN_SECRET is required/);
 });
 
-test('Production targets require the API Worker and known site domain owner, while allowing a new site Worker', async () => {
+test('Production targets allow first-time Workers and unbound domains while rejecting conflicts', async () => {
     const result = await validateProductionTrendsWebTargets(makeAdapter(), 'a'.repeat(32));
     assert.equal(result.apiWorker, 'bloggenius-trends-api-production');
+    assert.equal(result.apiWorkerExists, true);
     assert.equal(result.siteWorker, 'www-bloggenius-kr-production');
     assert.equal(result.siteHost, 'www.bloggenius.kr');
     assert.equal(result.siteWorkerExists, true);
     const firstDeploy = await validateProductionTrendsWebTargets(makeAdapter({ siteWorkerExists: false }), 'a'.repeat(32));
     assert.equal(firstDeploy.siteWorkerExists, false);
     assert.equal(firstDeploy.siteHostOwner, 'bg-fca282ece0e348c4baf36294d0d3f0f0');
+    const unbound = await validateProductionTrendsWebTargets(makeAdapter({ siteOwner: '' }), 'a'.repeat(32));
+    assert.equal(unbound.siteHostOwner, null);
+    const freshWorkers = await validateProductionTrendsWebTargets(makeAdapter({ apiWorkerExists: false, siteWorkerExists: false, oldApiOwner: '', siteOwner: '' }), 'a'.repeat(32));
+    assert.equal(freshWorkers.apiWorkerExists, false);
+    assert.equal(freshWorkers.siteWorkerExists, false);
     await validateProductionTrendsWebTargets(makeAdapter({ apiAliasOwner: 'bloggenius-trends-api-production' }), 'a'.repeat(32));
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ apiAliasOwner: 'unexpected-worker' }), 'a'.repeat(32)), /trendapi.bloggenius.kr must belong/);
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ siteOwner: 'unexpected-worker' }), 'a'.repeat(32)), /known legacy Worker/);
@@ -107,10 +123,10 @@ test('Production targets require the API Worker and known site domain owner, whi
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ aliasDns: [{ type: 'CNAME', name: 'trendapi.bloggenius.kr' }] }), 'a'.repeat(32)), /DNS records already exist/);
 });
 
-test('Production deploy wrapper accepts only workflow dispatch from release branches', () => {
+test('Production deploy wrapper accepts release pushes and manual release operations only', () => {
     assert.doesNotThrow(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'production' }));
     assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main', BLOGGENIUS_ENV: 'production' }), /release\/\*/);
-    assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'production' }), /release\/\*/);
+    assert.doesNotThrow(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'production' }));
     assert.throws(() => assertWorkflowContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/release/v0.7.1', BLOGGENIUS_ENV: 'development' }), /BLOGGENIUS_ENV/);
 });
 
@@ -126,16 +142,16 @@ test('Production migration preview must finish before the separately gated deplo
     assert.match(deploy, /environment: production/);
     assert.match(deploy, /SUPABASE_DB_POOLER_URL: \$\{\{ secrets\.SUPABASE_DB_POOLER_URL \}\}/);
     assert.match(deploy, /required=\([^\n]*SUPABASE_DB_POOLER_URL/);
-    assert.match(deploy, /Apply Production Supabase migrations[\s\S]*supabase db push --remote="\$SUPABASE_DB_POOLER_URL"/);
+    assert.match(deploy, /Apply Production Supabase migrations through the Session Pooler[\s\S]*supabase db push --remote="\$SUPABASE_DB_POOLER_URL"/);
     assert.doesNotMatch(deploy, /supabase link/);
 });
 
-test('Production Worker deployment and site domain cutover are separate manual operations', () => {
-    assert.match(productionWorkflow, /- deploy-workers[\s\S]*- cutover-site-domain[\s\S]*- rollback-site-domain/);
+test('Production deploy is push-driven while site domain cutover remains manual', () => {
+    assert.match(productionWorkflow, /- cutover-site-domain[\s\S]*- rollback-site-domain/);
     const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
     const cutover = productionWorkflow.match(/  site-domain-cutover:[\s\S]*$/)?.[0] || '';
-    assert.match(deploy, /inputs\.operation == 'deploy-workers'/);
-    assert.match(deploy, /Deploy or create the Production site Worker/);
+    assert.match(deploy, /github\.event_name == 'push' \|\| inputs\.operation == 'deploy-workers'/);
+    assert.match(deploy, /Deploy Production site Worker and ensure its domain/);
     assert.doesNotMatch(deploy, /production-trends-web-smoke\.js site/);
     assert.match(cutover, /environment: production/);
     assert.match(cutover, /--\$\{\{ inputs\.operation \}\}/);

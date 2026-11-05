@@ -86,7 +86,6 @@ export async function loadNewsletterDeliveryContext(env, trendDate) {
 
 export async function sendNewsletterCanary(env, { trendDate, category, subject, html, text }) {
     const { url, environment } = validateNewsletterTarget(env);
-    if (environment !== 'production') throw new Error('Newsletter canary is restricted to Production.');
     const token = String(env.TRENDS_NEWSLETTER_WORKER_TOKEN || '').trim();
     if (!token) throw new Error('Newsletter delivery token is missing.');
     const response = await fetch(new URL('/functions/v1/trends-mailing-list', url), {
@@ -94,9 +93,9 @@ export async function sendNewsletterCanary(env, { trendDate, category, subject, 
         body: JSON.stringify({ action: 'send_canary', trendDate, category, subject, html, text }),
         signal: AbortSignal.timeout(30_000)
     });
-    if (!response.ok) throw new Error(`Production newsletter canary failed with HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Newsletter canary failed with HTTP ${response.status}.`);
     const result = await response.json();
     if (result?.success !== true || result.trendDate !== trendDate || result.category !== category
-        || !['sent', 'held', 'failed'].includes(result.status)) throw new Error('Production newsletter canary returned an invalid result.');
+        || !['sent', 'held', 'failed'].includes(result.status)) throw new Error('Newsletter canary returned an invalid result.');
     return result;
 }
