@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - dev
-      - main
       - 'release/**'
     paths-ignore:
       - 'docs/**'

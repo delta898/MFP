@@ -18,6 +18,11 @@ test('documentation and convenience launchers do not trigger environment validat
     assert.equal(ignoredLaunchers.length, 2);
 });
 
+test('push validation is limited to dev and release branches', () => {
+    const push = workflow.match(/  push:\n    branches:\n((?:      - .*\n)+)/)?.[1] || '';
+    assert.deepEqual(push.trim().split('\n').map((line) => line.trim().replace(/^- /, '')), ['dev', "'release/**'"]);
+});
+
 test('environment CI relies on hosted development rather than rebuilding local Supabase', () => {
     assert.doesNotMatch(workflow, /local-validation/);
     assert.doesNotMatch(workflow, /npm run env:local:/);
