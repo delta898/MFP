@@ -40,8 +40,8 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
         }
         console.log(JSON.stringify({ event: 'collection_signal_received', environment: target.environment, projectRef: target.projectRef, trendDate, signalId, workflowId }));
 
-        const notify = async ({ status, stage, error, delivery }) => {
-            const summary = formatCollectorRunSummary({ environment: target.environment, trendDate, runId: signalId, status, stage, error, delivery });
+        const notify = async ({ status, stage, error, delivery, isCanary = false }) => {
+            const summary = formatCollectorRunSummary({ environment: target.environment, trendDate, runId: signalId, status, stage, error, delivery, isCanary });
             try {
                 await step.do('send-telegram-run-summary', async () => {
                     try {
@@ -95,16 +95,17 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                         featured_post: edition.featuredPost, download_url: edition.downloadUrl,
                         download_banner_url: edition.downloadBannerUrl },
                     trendsUrl: `${target.profile.siteOrigin}/trends/?date=${trendDate}`,
-                    includeUnsubscribe: false
+                    includeUnsubscribe: false,
+                    isCanary: true
                 });
                 const outcome = await step.do('send-newsletter-canary-email', {
                     retries: { limit: 0, delay: '1 second', backoff: 'constant' }, timeout: '45 seconds'
                 }, () => sendNewsletterCanary(this.env, { trendDate, category, ...email }));
                 const success = outcome.status === 'sent';
-                await notify({ status: success ? 'success' : 'failure', stage: success ? null : 'email_delivery', error: success ? null : `관리자 canary 메일 상태: ${outcome.status}` });
+                await notify({ status: success ? 'success' : 'failure', stage: success ? null : 'email_delivery', error: success ? null : `관리자 canary 메일 상태: ${outcome.status}`, isCanary: true });
                 return { environment: target.environment, trendDate, mode: 'canary', canaryStatus: outcome.status, category, releaseSha: payload.releaseSha, deploymentId: this.env.NEWSLETTER_DEPLOYMENT_ID };
             } catch (error) {
-                await notify({ status: 'failure', stage: 'email_delivery', error: '관리자 canary 검증 또는 발송에 실패했습니다.' });
+                await notify({ status: 'failure', stage: 'email_delivery', error: '관리자 canary 검증 또는 발송에 실패했습니다.', isCanary: true });
                 return { environment: target.environment, trendDate, mode: 'canary', canaryStatus: 'failed', releaseSha: payload.releaseSha, deploymentId: this.env.NEWSLETTER_DEPLOYMENT_ID };
             }
         }
@@ -204,6 +205,7 @@ export class DailyTrendsReadinessWorkflow extends WorkflowEntrypoint {
                     timeout: '2 minutes'
                 }, () => fetchFeaturedBlogPost(this.env.NEWSLETTER_BLOG_FEEDS));
                 const edition = buildSharedEdition({
+                    environment: target.environment,
                     trendDate,
                     post,
                     downloadUrl: this.env.NEWSLETTER_DOWNLOAD_URL,

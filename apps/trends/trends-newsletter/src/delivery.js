@@ -102,7 +102,7 @@ function categoryItems(category, trends) {
     return rows;
 }
 
-export function buildRecipientBriefing({ environment = 'development', trendDate, categories, trends, edition, trendsUrl, unsubscribeUrl, includeUnsubscribe = true }) {
+export function buildRecipientBriefing({ environment = 'development', trendDate, categories, trends, edition, trendsUrl, unsubscribeUrl, includeUnsubscribe = true, isCanary = false }) {
     if (!validTrendDate(trendDate)) throw new Error('Invalid newsletter date.');
     const selectedCategories = validateCategories(categories);
     if (!edition || edition.status !== 'ready') throw new Error('Shared newsletter edition is not ready.');
@@ -133,7 +133,7 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
     ].join('\n')).join('\n\n');
     const text = [
         `NAVER TRENDS LETTER · ${dateLabel}`,
-        '',
+        ...(isCanary ? ['🧪 관리자 확인용 CANARY 테스트 메일 · 구독자 발송 아님', ''] : []),
         greeting,
         introduction,
         '',
@@ -162,8 +162,9 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
         </section>`).join('');
 
     const html = `<!doctype html><html lang="ko"><body style="margin:0;background:#f5f6f2;color:#1e2b25;font-family:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif">
-      <div style="display:none;max-height:0;overflow:hidden">${escapeHtml(dateLabel)} 관심 카테고리별 네이버 트렌드 브리핑</div>
+      <div style="display:none;max-height:0;overflow:hidden">${isCanary ? '관리자 확인용 CANARY 테스트 메일 · 구독자 발송 아님 · ' : ''}${escapeHtml(dateLabel)} 관심 카테고리별 네이버 트렌드 브리핑</div>
       <main style="max-width:680px;margin:0 auto;padding:28px 16px 40px">
+        ${isCanary ? '<div style="margin:0 0 14px;padding:12px 16px;border:1px solid #e8c98a;border-radius:12px;background:#fff7e6;color:#765313;font-size:14px;font-weight:700">🧪 관리자 확인용 CANARY 테스트 메일 · 구독자에게 발송되지 않았습니다.</div>' : ''}
         <header style="padding:28px;border-radius:20px;background:#e9f0eb">
           <p style="margin:0 0 12px;color:#315f4c;font-size:12px;font-weight:700;letter-spacing:.18em">NAVER TRENDS LETTER</p>
           <p style="margin:0 0 8px;color:#708078;font-size:14px">${escapeHtml(dateLabel)}</p>
@@ -196,7 +197,7 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
     </body></html>`;
 
     return {
-        subject: `[네이버 트렌드] ${dateLabel} 관심 카테고리 브리핑`,
+        subject: `${isCanary ? '[CANARY 테스트] ' : ''}[네이버 트렌드] ${dateLabel} 관심 카테고리 브리핑`,
         html,
         text,
         selectedCategories
