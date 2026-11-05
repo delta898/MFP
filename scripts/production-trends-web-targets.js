@@ -26,11 +26,13 @@ function assertDomainOwner(bindings, hostname, expectedWorker, { optional = fals
 
 function assertSiteDomainOwner(bindings) {
     const matches = bindings.filter((binding) => String(binding?.hostname || '').toLowerCase() === SITE_HOST);
-    if (matches.length !== 1) throw new Error(`Domain ${SITE_HOST} must have exactly one existing Worker binding; found ${matches.length}.`);
+    if (matches.length === 0) return undefined;
+    if (matches.length !== 1) throw new Error(`Domain ${SITE_HOST} must have at most one existing Worker binding; found ${matches.length}.`);
     const owner = String(matches[0]?.service || '');
     if (![SITE_WORKER, ...LEGACY_SITE_WORKERS].includes(owner)) {
         throw new Error(`Domain ${SITE_HOST} must belong to ${SITE_WORKER} or a known legacy Worker; found ${owner || 'unknown'}.`);
     }
+    return owner;
 }
 
 async function validateProductionTrendsWebTargets(adapter, accountId) {
@@ -55,8 +57,8 @@ async function validateProductionTrendsWebTargets(adapter, accountId) {
         if (records.length) throw new Error(`DNS records already exist for ${API_HOSTS[1]}; resolve the conflict before deploying its Custom Domain.`);
     }
     const siteBindings = await adapter.listWorkerDomains({ accountId, hostname: SITE_HOST });
-    assertSiteDomainOwner(siteBindings);
-    return { apiWorker: API_WORKER, siteWorker: SITE_WORKER, siteWorkerExists: siteWorkers.length === 1, siteHostOwner: siteBindings.find((binding) => String(binding?.hostname || '').toLowerCase() === SITE_HOST)?.service, apiHosts: API_HOSTS, siteHost: SITE_HOST };
+    const siteHostOwner = assertSiteDomainOwner(siteBindings);
+    return { apiWorker: API_WORKER, siteWorker: SITE_WORKER, siteWorkerExists: siteWorkers.length === 1, siteHostOwner, apiHosts: API_HOSTS, siteHost: SITE_HOST };
 }
 
 module.exports = { API_WORKER, SITE_WORKER, LEGACY_SITE_WORKERS, API_HOSTS, SITE_HOST, validateProductionTrendsWebTargets };

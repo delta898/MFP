@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { validateProductionTrendsWebTargets } = require('./production-trends-web-targets');
-const { assertWorkflowContext } = require('./deploy-production-trends-site');
+const { assertWorkflowContext, ensureProductionSiteDomain } = require('./deploy-production-trends-site');
 const { checkUrl, createProductionReadSmokeToken, runSmoke } = require('./production-trends-web-smoke');
 const productionWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy-trends-web-production.yml'), 'utf8');
 const developmentWorkflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/environment-validation.yml'), 'utf8');
@@ -91,7 +91,7 @@ test('authenticated Production API smoke accepts the same token through legacy a
     assert.throws(() => createProductionReadSmokeToken(''), /TRENDS_READ_TOKEN_SECRET is required/);
 });
 
-test('Production targets require the API Worker and known site domain owner, while allowing a new site Worker', async () => {
+test('Production targets accept an unbound site hostname but reject unknown owners', async () => {
     const result = await validateProductionTrendsWebTargets(makeAdapter(), 'a'.repeat(32));
     assert.equal(result.apiWorker, 'bloggenius-trends-api-production');
     assert.equal(result.siteWorker, 'www-bloggenius-kr-production');
@@ -100,11 +100,50 @@ test('Production targets require the API Worker and known site domain owner, whi
     const firstDeploy = await validateProductionTrendsWebTargets(makeAdapter({ siteWorkerExists: false }), 'a'.repeat(32));
     assert.equal(firstDeploy.siteWorkerExists, false);
     assert.equal(firstDeploy.siteHostOwner, 'bg-fca282ece0e348c4baf36294d0d3f0f0');
+    const unbound = await validateProductionTrendsWebTargets(makeAdapter({ siteOwner: '' }), 'a'.repeat(32));
+    assert.equal(unbound.siteHostOwner, undefined);
     await validateProductionTrendsWebTargets(makeAdapter({ apiAliasOwner: 'bloggenius-trends-api-production' }), 'a'.repeat(32));
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ apiAliasOwner: 'unexpected-worker' }), 'a'.repeat(32)), /trendapi.bloggenius.kr must belong/);
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ siteOwner: 'unexpected-worker' }), 'a'.repeat(32)), /known legacy Worker/);
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ oldApiOwner: 'unexpected-worker' }), 'a'.repeat(32)), /trendapi.hangadac.com must belong/);
     await assert.rejects(() => validateProductionTrendsWebTargets(makeAdapter({ aliasDns: [{ type: 'CNAME', name: 'trendapi.bloggenius.kr' }] }), 'a'.repeat(32)), /DNS records already exist/);
+});
+
+test('Production site deploy attaches an unbound hostname, keeps its target binding, and preserves the known legacy owner', async () => {
+    const makeDomainAdapter = (owner) => {
+        let currentOwner = owner;
+        const attached = [];
+        return {
+            attached,
+            listWorkerScripts: async () => [{ id: 'www-bloggenius-kr-production' }],
+            listWorkerDomains: async ({ hostname }) => currentOwner ? [{ hostname, service: currentOwner }] : [],
+            attachWorkerDomain: async ({ workerName, ...details }) => {
+                attached.push({ workerName, ...details });
+                currentOwner = workerName;
+            },
+            get owner() { return currentOwner; }
+        };
+    };
+
+    const unbound = makeDomainAdapter('');
+    const attached = await ensureProductionSiteDomain(unbound, 'account-1');
+    assert.equal(attached.changed, true);
+    assert.equal(unbound.owner, 'www-bloggenius-kr-production');
+    assert.equal(unbound.attached.length, 1);
+
+    const alreadyBound = makeDomainAdapter('www-bloggenius-kr-production');
+    const kept = await ensureProductionSiteDomain(alreadyBound, 'account-1');
+    assert.equal(kept.changed, false);
+    assert.equal(alreadyBound.attached.length, 0);
+
+    const legacy = makeDomainAdapter('bg-fca282ece0e348c4baf36294d0d3f0f0');
+    const preserved = await ensureProductionSiteDomain(legacy, 'account-1');
+    assert.equal(preserved.preservedLegacyOwner, true);
+    assert.equal(legacy.owner, 'bg-fca282ece0e348c4baf36294d0d3f0f0');
+    assert.equal(legacy.attached.length, 0);
+
+    const unexpected = makeDomainAdapter('unexpected-worker');
+    await assert.rejects(() => ensureProductionSiteDomain(unexpected, 'account-1'), /unexpected Worker/);
 });
 
 test('Production deploy wrapper accepts only workflow dispatch from release branches', () => {
@@ -130,13 +169,18 @@ test('Production migration preview must finish before the separately gated deplo
     assert.doesNotMatch(deploy, /supabase link/);
 });
 
-test('Production Worker deployment and site domain cutover are separate manual operations', () => {
+test('Production deploy ensures an unbound site hostname while domain cutover remains a separate operation', () => {
     assert.match(productionWorkflow, /- deploy-workers[\s\S]*- cutover-site-domain[\s\S]*- rollback-site-domain/);
     const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
     const cutover = productionWorkflow.match(/  site-domain-cutover:[\s\S]*$/)?.[0] || '';
     assert.match(deploy, /inputs\.operation == 'deploy-workers'/);
     assert.match(deploy, /Deploy or create the Production site Worker/);
-    assert.doesNotMatch(deploy, /production-trends-web-smoke\.js site/);
+    assert.match(deploy, /Deploy or create the Production site Worker[\s\S]*deploy-production-trends-site\.js/);
+    const deployScript = fs.readFileSync(path.join(__dirname, 'deploy-production-trends-site.js'), 'utf8');
+    assert.match(deployScript, /await ensureProductionSiteDomain\(adapter, accountId\)/);
+    assert.match(deployScript, /allowUnbound: true/);
+    assert.match(deployScript, /preservedLegacyOwner: true/);
+    assert.match(deployScript, /checkUrl\(`https:\/\/\$\{SITE_HOST\}\/`, 'site'\)/);
     assert.match(cutover, /environment: production/);
     assert.match(cutover, /--\$\{\{ inputs\.operation \}\}/);
 });

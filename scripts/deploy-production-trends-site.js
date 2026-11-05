@@ -19,6 +19,27 @@ function assertWorkflowContext(env) {
     }
 }
 
+async function ensureProductionSiteDomain(adapter, accountId) {
+    const bindings = await adapter.listWorkerDomains({ accountId, hostname: SITE_HOST });
+    const matches = bindings.filter((binding) => String(binding?.hostname || '').toLowerCase() === SITE_HOST);
+    if (matches.length > 1) {
+        throw new Error(`Multiple Worker domain bindings exist for ${SITE_HOST}; refusing to change them.`);
+    }
+
+    const currentOwner = String(matches[0]?.service || '');
+    if (LEGACY_SITE_WORKERS.includes(currentOwner)) {
+        return { hostname: SITE_HOST, workerName: currentOwner, changed: false, preservedLegacyOwner: true };
+    }
+
+    return ensureWorkerDomain(adapter, {
+        accountId,
+        hostname: SITE_HOST,
+        workerName: SITE_WORKER,
+        allowedCurrentOwners: [SITE_WORKER],
+        allowUnbound: true
+    });
+}
+
 async function main(env = process.env) {
     assertWorkflowContext(env);
     const accessToken = String(env.CLOUDFLARE_API_TOKEN || '').trim();
@@ -67,7 +88,9 @@ async function main(env = process.env) {
         throw new Error(`Deployment target mismatch: expected ${SITE_WORKER}, received ${deployment.worker_name}.`);
     }
     await checkWithRetry(() => checkUrl(deployment.url, 'site'));
-    console.info(JSON.stringify({ environment: 'production', worker_name: deployment.worker_name, url: deployment.url, deployment_id: deployment.deployment_id, version_id: deployment.version_id }));
+    const domain = await ensureProductionSiteDomain(adapter, accountId);
+    await checkWithRetry(() => checkUrl(`https://${SITE_HOST}/`, 'site'));
+    console.info(JSON.stringify({ environment: 'production', worker_name: deployment.worker_name, url: deployment.url, hostname: SITE_HOST, domain_changed: domain.changed, domain_owner: domain.workerName, deployment_id: deployment.deployment_id, version_id: deployment.version_id }));
 }
 
 if (require.main === module) {
@@ -77,4 +100,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { assertWorkflowContext, main };
+module.exports = { assertWorkflowContext, ensureProductionSiteDomain, main };

@@ -134,15 +134,18 @@ approval gates every mutating deployment step.
 
 The API alias `trendapi.bloggenius.kr` is added to the existing
 `bloggenius-trends-api-production` Worker; `trendapi.hangadac.com` remains
-active. Before deployment, the workflow verifies the existing API/site
-Workers, confirms the legacy API and site custom-domain owners, and rejects a
+active. Before deployment, the workflow verifies the existing API Worker and
+validates the site hostname if it is bound. An unbound site hostname is allowed;
+an unknown owner or duplicate binding is rejected. The workflow also rejects a
 new API hostname already assigned to another Worker or carrying a conflicting
 DNS record. The site build must
 contain `https://www.bloggenius.kr` and `https://trendapi.bloggenius.kr` and
 must not contain Development hostnames. The site Worker may be absent on the
-first deploy; `www.bloggenius.kr` must still belong to the new Worker or the
-known legacy Production Worker. Site-only releases do not deploy the newsletter
-stack or reset its send mode.
+first deploy. After deploying and validating its `workers.dev` URL, the site
+deploy ensures an unbound `www.bloggenius.kr` hostname is attached to the named
+Production Worker, keeps an existing binding to that Worker, and preserves a
+known legacy owner for the separate cutover operation. Site-only releases do
+not deploy the newsletter stack or reset its send mode.
 
 Production sync creates the `production` Environment if it is missing,
 restricts it to `release/*` branches and `v*` tags, and requires the current
@@ -243,16 +246,17 @@ The static site Worker names are `www-bloggenius-kr-dev` and
 their matching `-dev` and `-production` names. Production Worker deployment
 and `www.bloggenius.kr` cutover are separate manual workflow operations. The
 deploy operation validates the new Worker through its `workers.dev` URL and
-leaves the public domain on its current Worker. The cutover operation validates
-the new Worker again, transfers the existing domain, and checks the public
-site. A rollback operation can return the domain to the preserved legacy
-Worker. Development deploys its new Worker, validates `workers.dev`, ensures
+attaches the hostname when it is unbound, while preserving a known legacy
+owner. The cutover operation validates the new Worker again, transfers a known
+legacy binding, and checks the public site. A rollback operation can return the
+domain to the preserved legacy Worker. Development deploys its new Worker,
+validates `workers.dev`, ensures
 `www-dev.bloggenius.kr` is bound to the named Worker, then checks the public
 site. An unbound hostname is attached automatically; an existing binding to
 another Worker is rejected for explicit resolution. After the one-time legacy
 binding is removed, later Development pushes reuse the same hostname binding.
-Production cutover continues to require its separate manual operation and a
-known existing owner.
+Production rejects any site hostname owner outside the target and known legacy
+Worker set.
 
 Production deployment is handled by
 `.github/workflows/deploy-trends-web-production.yml` from `release/*`, using a
