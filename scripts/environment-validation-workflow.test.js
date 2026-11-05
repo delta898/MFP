@@ -50,6 +50,8 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(workflow, /Production canonical metadata was found in the Development site artifact/);
     const siteBuild = workflow.match(/  build-development-site:[\s\S]*?(?=\n  validate-development-workers:|\n  deploy-development-workers:)/)?.[0] || '';
     assert.match(siteBuild, /environment: development/);
+    assert.match(siteBuild, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*needs\.deployment-changes\.outputs\.any == 'true'/);
+    assert.match(siteBuild, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/dev'[\s\S]*inputs\.mode == 'development-drift'/);
     assert.match(siteBuild, /PUBLIC_TRENDS_API_BASE_URL: \$\{\{ vars\.BLOGGENIUS_TRENDS_API_URL \}\}/);
     assert.match(siteBuild, /https:\/\/trendapi-dev\.bloggenius\.kr/);
     assert.match(workflow, /development-promotion-/);

@@ -90,6 +90,13 @@ test('builds an unsubscribe-free Production canary with Production first-party l
     assert.doesNotMatch(briefing.text, /구독 취소/);
 });
 
+test('clearly labels canary email as an administrator test in the subject and body', () => {
+    const briefing = makeBriefing({ isCanary: true, includeUnsubscribe: false, unsubscribeUrl: undefined });
+    assert.match(briefing.subject, /^\[CANARY 테스트\]/);
+    assert.match(briefing.text, /관리자 확인용 CANARY 테스트 메일 · 구독자 발송 아님/);
+    assert.match(briefing.html, /관리자 확인용 CANARY 테스트 메일 · 구독자에게 발송되지 않았습니다\./);
+});
+
 test('orders increases by largest amount, then NEW, decreases closest to zero, then steady', () => {
     const rows = [
         { category: 'IT·컴퓨터', keyword: 'up-5', change_type: 'up', change_amount: 5, display_order: 1 },

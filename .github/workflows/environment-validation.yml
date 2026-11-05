@@ -406,8 +406,10 @@ jobs:
   build-development-site:
     name: Build Development Site
     if: >-
-      needs.deployment-changes.outputs.any == 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.any == 'true') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev' &&
+      inputs.mode == 'development-drift')
     needs: deployment-changes
     runs-on: ubuntu-latest
     environment: development

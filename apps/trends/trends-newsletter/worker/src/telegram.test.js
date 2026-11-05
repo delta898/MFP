@@ -14,6 +14,15 @@ test('formats a clean success summary with visual hierarchy and aggregate email 
     assert.match(summary, /<code>run-1<\/code>/);
 });
 
+test('clearly distinguishes canary test summaries from subscriber delivery', () => {
+    const summary = formatCollectorRunSummary({
+        environment: 'production', trendDate: '2026-11-06', runId: 'canary-1', status: 'success', isCanary: true
+    });
+    assert.match(summary, /CANARY 테스트/);
+    assert.match(summary, /관리자 시험 발송 성공/);
+    assert.match(summary, /구독자에게는 발송되지 않았어요/);
+});
+
 test('formats a failed collector report and escapes dynamic HTML', () => {
     const summary = formatCollectorRunSummary({
         environment: 'development', trendDate: '2026-10-18', runId: 'run-2', status: 'failure',

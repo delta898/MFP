@@ -23,14 +23,16 @@ const STAGE_LABELS = {
     email_delivery: '메일 발송'
 };
 
-export function formatCollectorRunSummary({ environment, trendDate, runId, status, stage, error, delivery }) {
+export function formatCollectorRunSummary({ environment, trendDate, runId, status, stage, error, delivery, isCanary = false }) {
     const succeeded = status === 'success';
     const deliveryPaused = delivery?.status === 'disabled';
     const lines = [
-        `${succeeded ? '🟢' : '🔴'} <b>네이버 트렌드 뉴스레터</b>`,
-        `<b>${deliveryPaused ? '수집 완료 · 메일 발송 대기' : succeeded ? '발송 완료' : '실행 실패'}</b>`,
+        isCanary ? '🧪 <b>네이버 트렌드 뉴스레터 · CANARY 테스트</b>' : `${succeeded ? '🟢' : '🔴'} <b>네이버 트렌드 뉴스레터</b>`,
+        `<b>${isCanary ? succeeded ? '관리자 시험 발송 성공' : '관리자 시험 발송 실패' : deliveryPaused ? '수집 완료 · 메일 발송 대기' : succeeded ? '발송 완료' : '실행 실패'}</b>`,
         `🗓 ${formatDate(trendDate)}  ·  ${environment === 'development' ? '개발' : escapeHtml(environment)}`
     ];
+
+    if (isCanary) lines.push('', '📭 관리자 확인용 메일이며 구독자에게는 발송되지 않았어요.');
 
     if (delivery?.status === 'already_processed') {
         lines.push('', '📨 이전 발송이 완료되어 이번 실행에서는 메일을 보내지 않았어요.');
