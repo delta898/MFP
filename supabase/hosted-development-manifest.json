@@ -26,7 +26,8 @@
     { "name": "issue-trends-access-token", "verify_jwt": false },
     { "name": "keyword-research", "verify_jwt": false },
     { "name": "knowledge-gateway", "verify_jwt": true },
-    { "name": "serpapi-news-collector", "verify_jwt": false }
+    { "name": "serpapi-news-collector", "verify_jwt": false },
+    { "name": "trends-mailing-list", "verify_jwt": false }
   ],
   "edge_function_environment": [
     { "name": "BLOGGENIUS_ENV", "required_for_core": true, "development_value": "development" },
@@ -43,7 +44,12 @@
     { "name": "NAVER_CLIENT_SECRET", "required_for_core": false, "required_for_features": ["blog_reference", "shopping_product", "news"] },
     { "name": "SERPAPI_API_KEY", "required_for_core": false },
     { "name": "SERPAPI_COLLECTOR_SECRET", "required_for_core": false },
-    { "name": "BREVO_API_KEY", "required_for_core": false },
+    { "name": "BREVO_API_KEY", "required_for_core": false, "required_for_features": ["trends_mailing_list"] },
+    { "name": "TRENDS_NEWSLETTER_WORKER_TOKEN", "required_for_core": false, "required_for_features": ["trends_mailing_list"] },
+    { "name": "NEWSLETTER_EMAIL_MODE", "required_for_core": false, "required_for_features": ["trends_mailing_list"], "development_value": "allowlist" },
+    { "name": "NEWSLETTER_EMAIL_ALLOWLIST", "required_for_core": false, "required_for_features": ["trends_mailing_list"] },
+    { "name": "NEWSLETTER_EMAIL_FROM", "required_for_core": false, "required_for_features": ["trends_mailing_list"] },
+    { "name": "NEWSLETTER_CONFIRMATION_URL", "required_for_core": false, "required_for_features": ["trends_mailing_list"], "development_value": "https://www-dev.bloggenius.kr/trends/confirm/" },
     { "name": "LICENSE_EMAIL_FROM", "required_for_core": false },
     { "name": "LICENSE_EMAIL_ALLOWLIST", "required_for_core": false }
   ],

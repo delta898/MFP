@@ -1,10 +1,10 @@
-name = "bloggenius-trends-api"
+name = "bloggenius-trends-api-dev"
 main = "src/index.js"
 compatibility_date = "2026-09-30"
 workers_dev = true
 
 [[routes]]
-pattern = "trendapi-dev.hangadac.com"
+pattern = "trendapi-dev.bloggenius.kr"
 custom_domain = true
 
 [vars]
@@ -18,6 +18,21 @@ TRENDS_API_MAX_BODY_BYTES = "1048576"
 TRENDS_META_CACHE_TTL_MS = "300000"
 TRENDS_READ_TOKEN_ISSUER = "bloggenius-development"
 TRENDS_READ_TOKEN_AUDIENCE = "trends-api-development"
+TRENDS_PUBLIC_ALLOWED_ORIGINS = "https://www-dev.bloggenius.kr,https://www.bloggenius.kr"
+TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE = "60"
+TRENDS_PUBLIC_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
+TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
+TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "true"
+SUPABASE_URL = "https://bvtlwjbmjnfphxlrkzhm.supabase.co"
+TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
+TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+TRENDS_NEWSLETTER_FUNCTION_URL = "https://bvtlwjbmjnfphxlrkzhm.supabase.co/functions/v1/trends-mailing-list"
+
+[[workflows]]
+name = "bloggenius-trends-readiness-dev"
+binding = "TRENDS_NEWSLETTER_COLLECTION_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"
+script_name = "bloggenius-trends-newsletter-dev"
 
 [env.production]
 name = "bloggenius-trends-api-production"
@@ -27,8 +42,13 @@ workers_dev = true
 pattern = "trendapi.hangadac.com"
 custom_domain = true
 
+[[env.production.routes]]
+pattern = "trendapi.bloggenius.kr"
+custom_domain = true
+
 [env.production.vars]
 TRENDS_ENV = "production"
+SUPABASE_URL = "https://hocfjolcthvtgfaxjmse.supabase.co"
 TRENDS_SUPABASE_SCHEMA = "trends"
 TRENDS_SUPABASE_TABLE = "items"
 TRENDS_SUPABASE_META_FUNCTION = "get_items_meta"
@@ -38,3 +58,17 @@ TRENDS_API_MAX_BODY_BYTES = "1048576"
 TRENDS_META_CACHE_TTL_MS = "300000"
 TRENDS_READ_TOKEN_ISSUER = "bloggenius-license"
 TRENDS_READ_TOKEN_AUDIENCE = "trends-api"
+TRENDS_PUBLIC_ALLOWED_ORIGINS = "https://www.bloggenius.kr"
+TRENDS_PUBLIC_RATE_LIMIT_PER_MINUTE = "60"
+TRENDS_PUBLIC_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
+TRENDS_SUBSCRIBE_RATE_LIMIT_PER_MINUTE = "5"
+TRENDS_PUBLIC_ALLOW_LOCAL_PREVIEW = "false"
+TRENDS_NEWSLETTER_EXPECTED_CATEGORIES = "32"
+TRENDS_NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+TRENDS_NEWSLETTER_FUNCTION_URL = "https://hocfjolcthvtgfaxjmse.supabase.co/functions/v1/trends-mailing-list"
+
+[[env.production.workflows]]
+name = "bloggenius-trends-readiness-production"
+binding = "TRENDS_NEWSLETTER_COLLECTION_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"
+script_name = "bloggenius-trends-newsletter-production"

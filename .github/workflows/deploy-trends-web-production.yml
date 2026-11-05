@@ -1,7 +1,20 @@
 name: Production | Deploy Trends Release
 
 on:
+  push:
+    branches:
+      - 'release/**'
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Production operation
+        type: choice
+        required: true
+        default: deploy-workers
+        options:
+          - deploy-workers
+          - cutover-site-domain
+          - rollback-site-domain
 
 permissions:
   contents: read
@@ -12,51 +25,32 @@ concurrency:
 
 jobs:
   validate-release-ref:
-    name: Require a release branch
+    name: Validate Production release ref
     runs-on: ubuntu-latest
     outputs:
-      newsletter_changed: ${{ steps.scope.outputs.newsletter_changed }}
-      api_changed: ${{ steps.scope.outputs.api_changed }}
+      newsletter_deployment_id: ${{ steps.newsletter-deployment.outputs.id }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Validate selected branch
+      - name: Require a release branch
         shell: bash
         run: |
           if [[ ! "$GITHUB_REF" =~ ^refs/heads/release/.+ ]]; then
-            echo "::error::Select a release/* branch to deploy Production."
+            echo '::error::Production operations require a release/* branch.'
             exit 1
           fi
-      - name: Detect Production component changes since main
-        id: scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin main
-          base="$(git merge-base origin/main HEAD)"
-          files="$(git diff --name-only "$base" HEAD)"
-          api_changed=false
-          newsletter_changed=false
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            case "$file" in
-              apps/trends/trends-api/workers/*) api_changed=true ;;
-            esac
-            case "$file" in
-              supabase/migrations/*|supabase/functions/trends-mailing-list/*|apps/trends/trends-newsletter/*|apps/trends/trends-api/workers/*|.github/workflows/production-newsletter-control.yml)
-                newsletter_changed=true
-                ;;
-            esac
-          done <<< "$files"
-          echo "api_changed=$api_changed" >> "$GITHUB_OUTPUT"
-          echo "newsletter_changed=$newsletter_changed" >> "$GITHUB_OUTPUT"
+      - name: Create Production newsletter deployment identity
+        id: newsletter-deployment
+        if: github.event_name == 'push' || inputs.operation == 'deploy-workers'
+        run: echo "id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build Production candidates
+    name: Build and validate Production candidates
     needs: validate-release-ref
+    if: github.event_name == 'push' || inputs.operation == 'deploy-workers'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v6
         with:
@@ -67,41 +61,45 @@ jobs:
           cache: npm
           cache-dependency-path: |
             apps/trends/trends-api/workers/package-lock.json
+            apps/trends/trends-newsletter/worker/package-lock.json
             workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
       - uses: denoland/setup-deno@v2
       - name: Validate and dry-run the Production Trends API
-        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true'
         working-directory: apps/trends/trends-api/workers
         run: |
           npm ci
           npm test
           npx wrangler deploy --env production --dry-run
       - name: Validate and dry-run the Production newsletter Workflow
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         working-directory: apps/trends/trends-newsletter/worker
         run: |
           npm ci
           npm test
           npx wrangler deploy --env production --dry-run
       - name: Validate the mailing Edge Function
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         run: |
           deno check supabase/functions/trends-mailing-list/index.ts
           deno test supabase/functions/trends-mailing-list/handler_test.ts
+      - name: Validate the Trends access-token Edge Function
+        run: deno check supabase/functions/issue-trends-access-token/index.ts
       - name: Build the Production site artifact
         working-directory: workspace/site-hosting/sites/www-bloggenius-kr
         env:
           BLOGGENIUS_ENV: production
           BLOGGENIUS_SITE_URL: https://www.bloggenius.kr
-          PUBLIC_TRENDS_API_BASE_URL: https://trendapi.bloggenius.kr
+          PUBLIC_TRENDS_API_BASE_URL: ${{ vars.BLOGGENIUS_TRENDS_API_URL }}
         run: |
+          if [[ "$PUBLIC_TRENDS_API_BASE_URL" != "https://trendapi.bloggenius.kr" ]]; then
+            echo '::error::Set production BLOGGENIUS_TRENDS_API_URL to https://trendapi.bloggenius.kr.'
+            exit 1
+          fi
           npm ci
           npm run build
           test -s dist/index.html
-          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://trendapi.bloggenius.kr' dist
-          grep -R -l --include='*.html' --include='*.js' --include='*.css' 'https://www.bloggenius.kr' dist
-          if grep -R -n -E --include='*.html' --include='*.js' --include='*.css' 'www-dev\.bloggenius\.kr|trendapi-dev\.bloggenius\.kr' dist; then
-            echo '::error::Development hostnames were found in the Production site artifact.'
+          grep -R -l --include='*.html' --include='*.js' --include='*.css' "$PUBLIC_TRENDS_API_BASE_URL" dist
+          grep -R -l --include='*.html' 'rel="canonical" href="https://www.bloggenius.kr/' dist
+          if grep -R -n -E --include='*.html' 'rel="canonical" href="https://www-dev\.bloggenius\.kr/|property="og:url" content="https://www-dev\.bloggenius\.kr/|property="og:image" content="https://www-dev\.bloggenius\.kr/' dist; then
+            echo '::error::Development canonical metadata was found in the Production site artifact.'
             exit 1
           fi
       - uses: actions/upload-artifact@v6
@@ -114,13 +112,12 @@ jobs:
   production-migration-preview:
     name: Preview Production migration changes
     needs: [validate-release-ref, build]
-    if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
+    if: github.event_name == 'push' || inputs.operation == 'deploy-workers'
     runs-on: ubuntu-latest
     environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF: hocfjolcthvtgfaxjmse
+      SUPABASE_DB_POOLER_URL: ${{ secrets.SUPABASE_DB_POOLER_URL }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -128,27 +125,29 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.0.0-beta.17
-      - name: Preview pending Production migrations without applying them
-        run: supabase db push --dry-run --remote="$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF"
+      - name: Preview pending Production migrations through the Session Pooler
+        run: supabase db push --dry-run --remote="$SUPABASE_DB_POOLER_URL"
 
   deploy:
-    name: Deploy approved Production candidates
+    name: Deploy Production stack, canary, then enable live delivery
     needs: [validate-release-ref, build, production-migration-preview]
     if: >-
-      always() && needs.validate-release-ref.result == 'success'
-      && needs.build.result == 'success'
-      && (needs.production-migration-preview.result == 'success'
-        || needs.production-migration-preview.result == 'skipped')
+      always() && needs.validate-release-ref.result == 'success' &&
+      needs.build.result == 'success' && needs.production-migration-preview.result == 'success' &&
+      (github.event_name == 'push' || inputs.operation == 'deploy-workers')
     runs-on: ubuntu-latest
     environment: production
     env:
       BLOGGENIUS_ENV: production
+      BLOGGENIUS_TRENDS_API_URL: https://trendapi.bloggenius.kr
+      SUPABASE_URL: https://hocfjolcthvtgfaxjmse.supabase.co
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_DB_POOLER_URL: ${{ secrets.SUPABASE_DB_POOLER_URL }}
       BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF: hocfjolcthvtgfaxjmse
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+      TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
       TRENDS_API_TOKEN: ${{ secrets.TRENDS_API_TOKEN }}
       TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
       TRENDS_NEWSLETTER_CANARY_TOKEN: ${{ secrets.TRENDS_NEWSLETTER_CANARY_TOKEN }}
@@ -159,39 +158,38 @@ jobs:
       NEWSLETTER_EMAIL_FROM: ${{ secrets.NEWSLETTER_EMAIL_FROM }}
       NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET }}
       NEWSLETTER_CANARY_EMAIL: ${{ vars.NEWSLETTER_CANARY_EMAIL }}
+      NEWSLETTER_RELEASE_SHA: ${{ github.sha }}
+      NEWSLETTER_DEPLOYMENT_ID: ${{ needs.validate-release-ref.outputs.newsletter_deployment_id }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/trends/trends-api/workers/package-lock.json
+            apps/trends/trends-newsletter/worker/package-lock.json
       - uses: supabase/setup-cli@v3
         with:
           version: 3.0.0-beta.17
       - uses: denoland/setup-deno@v2
-      - name: Verify Production deployment secrets
+      - name: Verify Production deployment configuration
         shell: bash
         run: |
           set -euo pipefail
-          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD TRENDS_NEWSLETTER_CANARY_TOKEN TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET NEWSLETTER_CANARY_EMAIL)
+          required=(CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_SECRET_KEY TRENDS_API_TOKEN TRENDS_READ_TOKEN_SECRET SUPABASE_ACCESS_TOKEN SUPABASE_DB_POOLER_URL TRENDS_NEWSLETTER_CANARY_TOKEN TRENDS_NEWSLETTER_WORKER_TOKEN TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID BREVO_API_KEY NEWSLETTER_EMAIL_FROM NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET NEWSLETTER_CANARY_EMAIL NEWSLETTER_DEPLOYMENT_ID)
           for name in "${required[@]}"; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::Configure ${name} in the GitHub production Environment."
-              exit 1
-            fi
+            if [[ -z "${!name}" ]]; then echo "::error::Configure ${name} in the GitHub production Environment."; exit 1; fi
           done
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || { echo '::error::CLOUDFLARE_ACCOUNT_ID is invalid.'; exit 1; }
       - name: Install Cloudflare deployment dependencies
         run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
-      - name: Verify exact Production Workers and hostname ownership
+      - name: Verify Production Workers and hostname ownership
         run: node scripts/deploy-production-trends-site.js --preflight
-      - name: Create Production newsletter deployment identity
-        id: newsletter-deployment
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
-        shell: bash
-        run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
       - name: Set Production mailing Function secrets with delivery disabled
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         shell: bash
-        env:
-          NEWSLETTER_DEPLOYMENT_ID: ${{ steps.newsletter-deployment.outputs.id }}
         run: |
           set -euo pipefail
           umask 077
@@ -199,23 +197,27 @@ jobs:
           trap 'rm -f "$secrets_file"' EXIT
           node -e 'const fs=require("node:fs"); const names=["TRENDS_NEWSLETTER_WORKER_TOKEN","BREVO_API_KEY","NEWSLETTER_EMAIL_FROM","NEWSLETTER_UNSUBSCRIBE_TOKEN_SECRET","NEWSLETTER_CANARY_EMAIL","NEWSLETTER_DEPLOYMENT_ID"]; const lines=["BLOGGENIUS_ENV=production","NEWSLETTER_EMAIL_MODE=disabled",...names.map((n)=>`${n}=${JSON.stringify(process.env[n])}`)]; fs.writeFileSync(process.argv[1],`${lines.join("\n")}\n`,{mode:0o600});' "$secrets_file"
           supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
-      - name: Apply Production Supabase migrations
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
-        run: supabase db push --remote="$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
+      - name: Apply Production Supabase migrations through the Session Pooler
+        run: supabase db push --remote="$SUPABASE_DB_POOLER_URL" --yes
+      - name: Sync Production access-token Function secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/trends-access-function-secrets.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'const fs=require("node:fs"); const values={BLOGGENIUS_ENV:"production",SUPABASE_URL:process.env.SUPABASE_URL,SUPABASE_SECRET_KEY:process.env.SUPABASE_SECRET_KEY,TRENDS_READ_TOKEN_SECRET:process.env.TRENDS_READ_TOKEN_SECRET,TRENDS_READ_TOKEN_ISSUER:"bloggenius-license",TRENDS_READ_TOKEN_AUDIENCE:"trends-api",TRENDS_READ_TOKEN_TTL_SECONDS:"900"}; fs.writeFileSync(process.argv[1],`${Object.entries(values).map(([n,v])=>`${n}=${JSON.stringify(v)}`).join("\n")}\n`,{mode:0o600});' "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
+      - name: Deploy Production access-token Edge Function
+        run: supabase functions deploy issue-trends-access-token --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
       - name: Deploy Production mailing Edge Function
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         run: supabase functions deploy trends-mailing-list --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
       - name: Install newsletter Workflow Worker dependencies
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
         working-directory: apps/trends/trends-newsletter/worker
         run: npm ci
-      - name: Deploy the Production newsletter Workflow Worker
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
+      - name: Deploy Production newsletter Workflow Worker
         working-directory: apps/trends/trends-newsletter/worker
         shell: bash
-        env:
-          NEWSLETTER_RELEASE_SHA: ${{ github.sha }}
-          NEWSLETTER_DEPLOYMENT_ID: ${{ steps.newsletter-deployment.outputs.id }}
         run: |
           set -euo pipefail
           umask 077
@@ -224,11 +226,9 @@ jobs:
           node -e 'const fs=require("node:fs"); const names=["SUPABASE_SECRET_KEY","TRENDS_NEWSLETTER_WORKER_TOKEN","TELEGRAM_BOT_TOKEN","TELEGRAM_CHAT_ID"]; fs.writeFileSync(process.argv[1],JSON.stringify(Object.fromEntries(names.map((n)=>[n,process.env[n]]))),{mode:0o600});' "$secrets_file"
           npx wrangler deploy --env production --var "NEWSLETTER_RELEASE_SHA:$NEWSLETTER_RELEASE_SHA" --var "NEWSLETTER_DEPLOYMENT_ID:$NEWSLETTER_DEPLOYMENT_ID" --secrets-file "$secrets_file"
       - name: Install Trends API Worker dependencies
-        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true'
         working-directory: apps/trends/trends-api/workers
         run: npm ci
-      - name: Deploy the Production Trends API Worker
-        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true'
+      - name: Deploy Production Trends API Worker
         working-directory: apps/trends/trends-api/workers
         shell: bash
         run: |
@@ -236,30 +236,56 @@ jobs:
           umask 077
           secrets_file="$(mktemp "$RUNNER_TEMP/trends-api-secrets.XXXXXX.json")"
           trap 'rm -f "$secrets_file"' EXIT
-          node -e 'const fs = require("node:fs"); const names = ["SUPABASE_SECRET_KEY", "TRENDS_API_TOKEN", "TRENDS_READ_TOKEN_SECRET", "TRENDS_NEWSLETTER_CANARY_TOKEN"]; fs.writeFileSync(process.argv[1], JSON.stringify(Object.fromEntries(names.map((name) => [name, process.env[name]]))), { mode: 0o600 });' "$secrets_file"
+          node -e 'const fs=require("node:fs"); const names=["SUPABASE_SECRET_KEY","TRENDS_API_TOKEN","TRENDS_READ_TOKEN_SECRET","TRENDS_NEWSLETTER_WORKER_TOKEN","TRENDS_NEWSLETTER_CANARY_TOKEN"]; fs.writeFileSync(process.argv[1],JSON.stringify(Object.fromEntries(names.map((n)=>[n,process.env[n]]))),{mode:0o600});' "$secrets_file"
           npx wrangler deploy --env production --secrets-file "$secrets_file"
-      - name: Verify Production newsletter delivery remains disabled
-        if: needs.validate-release-ref.outputs.newsletter_changed == 'true'
-        shell: bash
+      - uses: actions/download-artifact@v7
+        with:
+          name: production-trends-site-${{ github.sha }}
+          path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
+      - name: Deploy Production site Worker and ensure its domain
         env:
-          NEWSLETTER_DEPLOYMENT_ID: ${{ steps.newsletter-deployment.outputs.id }}
+          BLOGGENIUS_ENV: production
+        run: node scripts/deploy-production-trends-site.js
+      - name: Send fixed-recipient canary and wait for Telegram-backed summary
+        run: node scripts/newsletter/send-canary.js
+      - name: Enable Production live delivery after canary success
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          printf 'BLOGGENIUS_ENV=production\nNEWSLETTER_EMAIL_MODE=live\n' > "$secrets_file"
+          supabase secrets set --env-file "$secrets_file" --project-ref "$BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF" --yes
+      - name: Verify Production live delivery mode and deployment identity
+        shell: bash
         run: |
           set -euo pipefail
           response="$(mktemp "$RUNNER_TEMP/newsletter-mode.XXXXXX.json")"
           trap 'rm -f "$response"' EXIT
           curl --silent --show-error --fail -X POST \
             -H "Authorization: Bearer $TRENDS_NEWSLETTER_WORKER_TOKEN" -H 'content-type: application/json' \
-            --data '{"action":"delivery_mode"}' "https://hocfjolcthvtgfaxjmse.supabase.co/functions/v1/trends-mailing-list" \
-            -o "$response"
-          node -e 'const fs=require("node:fs"); const body=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(body.success!==true||body.environment!=="production"||body.mode!=="disabled"||body.deploymentId!==process.env.NEWSLETTER_DEPLOYMENT_ID){console.error("::error::Production newsletter mode did not remain safely disabled after deployment.");process.exit(1)}' "$response"
-      - name: Verify both Production Trends API hostnames
-        if: needs.validate-release-ref.outputs.api_changed == 'true' || needs.validate-release-ref.outputs.newsletter_changed == 'true'
-        run: node scripts/production-trends-web-smoke.js api
-      - uses: actions/download-artifact@v7
+            --data '{"action":"delivery_mode"}' "$SUPABASE_URL/functions/v1/trends-mailing-list" -o "$response"
+          node -e 'const fs=require("node:fs"); const b=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(b.success!==true||b.environment!=="production"||b.mode!=="live"||b.deploymentId!==process.env.NEWSLETTER_DEPLOYMENT_ID){console.error("::error::Production live mode or deployment identity verification failed.");process.exit(1)}' "$response"
+
+  site-domain-cutover:
+    name: Manually cut over or roll back the Production site domain
+    needs: validate-release-ref
+    if: github.event_name == 'workflow_dispatch' && (inputs.operation == 'cutover-site-domain' || inputs.operation == 'rollback-site-domain')
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      BLOGGENIUS_ENV: production
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
         with:
-          name: production-trends-site-${{ github.sha }}
-          path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
-      - name: Deploy the existing Production site Worker
-        run: node scripts/deploy-production-trends-site.js
-      - name: Verify the Production site
-        run: node scripts/production-trends-web-smoke.js site
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Transfer the Production site domain after workers.dev validation
+        run: node scripts/deploy-production-trends-site.js --${{ inputs.operation }}

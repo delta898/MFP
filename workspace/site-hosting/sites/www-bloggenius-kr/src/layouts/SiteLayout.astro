@@ -1,0 +1,66 @@
+---
+import { siteData, navigationItems, legalNavigation, publicOrigin } from '../lib/site.ts';
+import '../styles/site.css';
+const { title = siteData.displayName, description = siteData.seoDescription, activeId = '' } = Astro.props;
+const canonical = new URL(Astro.url.pathname, publicOrigin).toString();
+const favicon = siteData.favicon || '/favicon.svg';
+const shareImage = siteData.shareImage || '/assets/share-card.svg';
+const robots = siteData.searchEngineIndexing ? 'index,follow' : 'noindex,nofollow';
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <meta name="theme-color" content="#f6f5f0" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={favicon} type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteData.displayName} />
+    <meta property="og:title" content={`${title} | ${siteData.displayName}`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(shareImage, publicOrigin).toString()} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>{title} | {siteData.displayName}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문 바로가기</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label={`${siteData.displayName} 홈`}>
+          {siteData.logo ? <img src={siteData.logo} alt={siteData.displayName} /> : <span class="brand-mark" aria-hidden="true">B</span>}
+          <span>{siteData.displayName}</span>
+        </a>
+        <nav class="main-nav" aria-label="주 메뉴">
+          {navigationItems.map((item) => <a href={item.path} aria-current={(item.id === 'trends' && activeId.startsWith('trends')) || item.id === activeId ? 'page' : undefined}>{item.label}</a>)}
+        </nav>
+        <a class="header-cta" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+    <div id="main" class="site-content"><slot /></div>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand-block">
+          <a class="brand footer-brand" href="/" aria-label={`${siteData.displayName} 홈`}>
+            <span class="brand-mark" aria-hidden="true">B</span><span>{siteData.displayName}</span>
+          </a>
+          <p>{siteData.project.tagline}</p>
+          <small>© 2026 도전인생. All rights reserved.</small>
+        </div>
+        <div class="footer-links-group">
+          <strong>둘러보기</strong>
+          {navigationItems.filter((item) => item.id !== 'home').map((item) => <a href={item.path}>{item.label}</a>)}
+        </div>
+        <div class="footer-links-group">
+          <strong>법률 및 지원</strong>
+          {legalNavigation.map((item) => <a href={item.path}>{item.label}</a>)}
+          <a href="/support/">지원 안내</a>
+          <a href="mailto:amadejjs@naver.com">이메일 문의</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

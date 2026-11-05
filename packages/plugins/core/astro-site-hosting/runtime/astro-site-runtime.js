@@ -96,9 +96,17 @@ function createAstroSiteRuntime(options = {}) {
         return fileSystem.existsSync(pathApi.join(nestedRoot, 'package.json')) ? nestedRoot : siteRoot;
     }
 
-    function getPublicSiteUrl(site) {
-        const bindingHost = String(site?.custom_domain_binding?.hostname || '').trim();
-        const raw = bindingHost ? `https://${bindingHost}` : String(site?.deployment?.url || '').trim();
+    function getPublicSiteUrl(site, environment = 'production') {
+        const selected = environment === 'production' ? 'production' : 'development';
+        let bindingHost = String(site?.custom_domain_bindings?.[selected]?.hostname
+            || (selected === 'production' ? site?.custom_domain_binding?.hostname : '') || '').trim();
+        if (selected === 'development' && !bindingHost && site?.domain) {
+            const labels = String(site.hostname || '').trim().split('.');
+            if (labels[0] && !labels[0].endsWith('-dev')) labels[0] = `${labels[0]}-dev`;
+            bindingHost = labels.filter(Boolean).length ? `${labels.join('.')}.${String(site.domain).trim()}` : String(site.domain).trim();
+        }
+        const deployment = site?.deployments?.[selected] || (selected === 'production' ? site?.deployment : null);
+        const raw = bindingHost ? `https://${bindingHost}` : String(deployment?.url || '').trim();
         try {
             const url = new URL(raw);
             if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return '';
@@ -126,9 +134,15 @@ function createAstroSiteRuntime(options = {}) {
         });
     }
 
-    async function buildAstroProject(site) {
+    async function buildAstroProject(site, environment = 'production') {
         const projectRoot = getAstroProjectRoot(site);
-        const buildEnvironment = { BLOGGENIUS_SITE_URL: getPublicSiteUrl(site) };
+        const buildEnvironment = {
+            BLOGGENIUS_ENV: environment,
+            BLOGGENIUS_SITE_URL: getPublicSiteUrl(site, environment),
+            PUBLIC_TRENDS_API_BASE_URL: environment === 'local'
+                ? (process.env.BLOGGENIUS_LOCAL_TRENDS_API_URL || 'http://127.0.0.1:4581')
+                : environment === 'development' ? 'https://trendapi-dev.bloggenius.kr' : 'https://trendapi.hangadac.com'
+        };
         const knowledgeCollection = buildKnowledgeCollection(site);
         await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund'], buildEnvironment);
         await runNpm(projectRoot, ['run', 'build'], buildEnvironment);
@@ -336,7 +350,7 @@ function createAstroSiteRuntime(options = {}) {
         }
     }
 
-    async function build(projectId, siteId) {
+    async function build(projectId, siteId, environment = 'production') {
         const site = getSite(projectId, siteId);
         const key = `${projectId}/${siteId}`;
         if (buildJobs.get(key)?.status === 'running') {
@@ -373,7 +387,7 @@ function createAstroSiteRuntime(options = {}) {
         const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '' };
         buildJobs.set(key, job);
         try {
-            const knowledgeCollection = await buildAstroProject(site);
+            const knowledgeCollection = await buildAstroProject(site, environment);
             try { applyPublishingRoute(site); }
             catch (error) {
                 console.warn('[Site Hosting] post-list route adjustment skipped', {
@@ -513,9 +527,9 @@ function createAstroSiteRuntime(options = {}) {
         return { url: preview.url };
     }
 
-    async function startPreview(projectId, siteId) {
+    async function startPreview(projectId, siteId, environment = 'production') {
         const site = getSite(projectId, siteId);
-        const buildResult = await build(projectId, siteId);
+        const buildResult = await build(projectId, siteId, environment);
         const preview = await ensurePreviewServer(site);
         return {
             ...preview,

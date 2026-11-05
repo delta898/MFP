@@ -17,7 +17,7 @@ const BRANCH_TARGET_POLICIES = Object.freeze([
     Object.freeze({
         id: 'feature',
         matches: (branch) => branch.startsWith('feature/'),
-        allowedTargets: Object.freeze([ENVIRONMENTS.LOCAL])
+        allowedTargets: Object.freeze([ENVIRONMENTS.LOCAL, ENVIRONMENTS.DEVELOPMENT])
     })
 ]);
 

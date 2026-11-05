@@ -1,0 +1,9 @@
+# Build and local development artifacts
+.astro/
+dist/
+node_modules/
+.DS_Store
+
+# Site Hosting machine-local deployment state and generated preview image
+.bloggenius/site.json
+.bloggenius/build-preview.jpg

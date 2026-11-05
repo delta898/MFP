@@ -215,5 +215,6 @@ test('Production launcher help and repository contract remain safe without confi
     assert.match(gitignore, /^\.env\.production$/m);
     assert.match(shell, /run-with-oauth-env[.]js production/);
     assert.match(shell, /\.env[.]oauth[.]prod/);
+    assert.match(sample, /BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https:\/\/trendapi\.bloggenius\.kr"/);
     assert.doesNotMatch(sample, /SUPABASE_(?:SECRET|SERVICE_ROLE)|TRENDS_(?:API_TOKEN|READ_TOKEN_SECRET)=/);
 });

@@ -139,11 +139,12 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
             const items = await listItems(page);
             return items.flatMap((item) => Array.isArray(item?.deployments) ? item.deployments : [item]);
         },
-        attachWorkerDomain: ({ accountId, hostname, workerName, zoneId }) => client.workers.domains.update({
+        attachWorkerDomain: ({ accountId, hostname, workerName, zoneId, zoneName }) => client.workers.domains.update({
             account_id: accountId,
             hostname,
             service: workerName,
-            zone_id: zoneId
+            ...(zoneId ? { zone_id: zoneId } : {}),
+            ...(zoneName ? { zone_name: zoneName } : {})
         })
     };
 }
@@ -210,8 +211,10 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
         if (!accessToken || !account?.id) throw new Error('Cloudflare 배포 인증 정보를 확인하지 못했습니다.');
         const accountId = String(account.id);
         if (!/^[a-f\d]{32}$/i.test(accountId)) throw new Error('Cloudflare 계정 정보를 확인하지 못했습니다.');
-        const workerName = `bg-${String(site.id).toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
-        if (workerName.length > 63 || !/^bg-[a-z0-9][a-z0-9-]*$/.test(workerName)) throw new Error('사이트 배포 이름을 만들 수 없습니다.');
+        const environment = context.environment === 'development' ? 'development' : 'production';
+        const workerBaseName = `bg-${String(site.id).toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+        const workerName = String(context.workerName || (environment === 'development' ? `${workerBaseName}-dev` : workerBaseName));
+        if (workerName.length > 63 || !/^[a-z0-9][a-z0-9-]*$/.test(workerName)) throw new Error('사이트 배포 이름을 만들 수 없습니다.');
         let activeStep = 'workers.dev 주소 확인';
         try {
             const adapter = createAdapter({ client: createClient(accessToken), fetchImpl: options.fetchImpl });
@@ -263,11 +266,14 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
             // Cloudflare control plane confirms the deployment is active. Avoid treating
             // a transient workers.dev propagation 404 as a failed deployment.
             console.info('[Site Hosting] 배포 주소:', url);
-            const previouslyManaged = site.deployment?.managed_by_app === true
-                && String(site.deployment?.worker_account_id || '') === accountId
-                && String(site.deployment?.worker_created_on || '')
-                && String(site.deployment.worker_created_on) === workerCreatedOn;
+            const previousDeployment = site.deployments?.[environment]
+                || (environment === 'production' ? site.deployment : null);
+            const previouslyManaged = previousDeployment?.managed_by_app === true
+                && String(previousDeployment?.worker_account_id || '') === accountId
+                && String(previousDeployment?.worker_created_on || '')
+                && String(previousDeployment.worker_created_on) === workerCreatedOn;
             return {
+                environment,
                 worker_name: workerName,
                 url,
                 deployment_id: deploymentId,

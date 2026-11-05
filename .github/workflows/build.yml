@@ -14,6 +14,7 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    environment: production
     outputs:
       mirror_repo: ${{ steps.check_mirror.outputs.mirror_repo }}
       mirror_repo_pat: ${{ steps.check_mirror.outputs.has_pat }}
@@ -22,8 +23,20 @@ jobs:
       prerelease: ${{ steps.release_meta.outputs.prerelease }}
       release_body: ${{ steps.release_meta.outputs.release_body }}
       release_details_json: ${{ steps.release_meta.outputs.release_details_json }}
+      trends_api_url: ${{ steps.production_config.outputs.trends_api_url }}
     steps:
       - uses: actions/checkout@v6
+      - id: production_config
+        name: Validate Production Trends API URL
+        shell: bash
+        env:
+          BLOGGENIUS_TRENDS_API_URL: ${{ vars.BLOGGENIUS_TRENDS_API_URL }}
+        run: |
+          if [[ "$BLOGGENIUS_TRENDS_API_URL" != "https://trendapi.bloggenius.kr" ]]; then
+            echo '::error::Set the Production Environment variable BLOGGENIUS_TRENDS_API_URL to https://trendapi.bloggenius.kr.'
+            exit 1
+          fi
+          echo "trends_api_url=$BLOGGENIUS_TRENDS_API_URL" >> "$GITHUB_OUTPUT"
       - id: release_meta
         shell: bash
         run: |
@@ -136,11 +149,15 @@ jobs:
         env:
           BLOGGENIUS_BUILD_SUPABASE_URL: ${{ secrets.LICENSE_CHK_URL }}
           BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.LICENSE_CHK_KEY }}
-          BLOGGENIUS_BUILD_TRENDS_API_URL: ${{ vars.BLOGGENIUS_PRODUCTION_TRENDS_API_URL }}
+          BLOGGENIUS_BUILD_TRENDS_API_URL: ${{ needs.setup.outputs.trends_api_url }}
           BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_CLIENT_ID: ${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}
         run: |
+          if [[ "$BLOGGENIUS_BUILD_TRENDS_API_URL" != "https://trendapi.bloggenius.kr" ]]; then
+            echo "::error::Production app releases must use https://trendapi.bloggenius.kr."
+            exit 1
+          fi
           node scripts/environment/build-config.js write \
             --target production \
             --output src/host/configuration/environment/secret.js

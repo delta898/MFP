@@ -1,0 +1,44 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { navigationItems, pageTitle } from '../lib/site.ts';
+import FeaturesPage from '../components/pages/FeaturesPage.astro';
+import DownloadPage from '../components/pages/DownloadPage.astro';
+import GuidesPage from '../components/pages/GuidesPage.astro';
+import ChangelogPage from '../components/pages/ChangelogPage.astro';
+import SupportPage from '../components/pages/SupportPage.astro';
+import PrivacyPage from '../components/pages/PrivacyPage.astro';
+import TermsPage from '../components/pages/TermsPage.astro';
+import GenericPage from '../components/pages/GenericPage.astro';
+import TrendsPage from '../components/pages/TrendsPage.astro';
+import TrendsSubscribePage from '../components/pages/TrendsSubscribePage.astro';
+import TrendsSubscriptionActionPage from '../components/pages/TrendsSubscriptionActionPage.astro';
+const renderers = {
+  features: FeaturesPage, download: DownloadPage, guides: GuidesPage,
+  trends: TrendsPage, 'trends-subscribe': TrendsSubscribePage,
+  'trends-confirm': TrendsSubscriptionActionPage, 'trends-unsubscribe': TrendsSubscriptionActionPage,
+  changelog: ChangelogPage, support: SupportPage,
+  'privacy-policy': PrivacyPage, terms: TermsPage,
+};
+export function getStaticPaths() {
+  const pages = [
+    ...navigationItems.filter((item) => item.id !== 'home'),
+    { id: 'trends-subscribe', label: '트렌드 구독', path: '/trends/subscribe/' },
+    { id: 'trends-confirm', label: '구독 확인', path: '/trends/confirm/' },
+    { id: 'trends-unsubscribe', label: '구독 취소', path: '/trends/unsubscribe/' },
+    { id: 'privacy-policy', path: '/privacy-policy/' },
+    { id: 'terms', path: '/terms/' },
+  ];
+  return pages.map((item) => ({
+    params: { slug: item.path.replace(/^\/+|\/+$/g, '') },
+    props: { item },
+  }));
+}
+const { item } = Astro.props;
+const Page = renderers[item.id] || GenericPage;
+const title = pageTitle(item.id) === 'BlogGenius' ? item.label : pageTitle(item.id);
+const isTrendsPage = ['trends', 'trends-subscribe', 'trends-confirm', 'trends-unsubscribe'].includes(item.id);
+const action = item.id === 'trends-confirm' ? 'confirm' : item.id === 'trends-unsubscribe' ? 'unsubscribe' : '';
+---
+<SiteLayout title={title} activeId={item.id}>
+  {action ? <Page action={action} /> : isTrendsPage ? <Page label={item.label} /> : <main class="page-main wrap"><Page label={item.label} /></main>}
+</SiteLayout>

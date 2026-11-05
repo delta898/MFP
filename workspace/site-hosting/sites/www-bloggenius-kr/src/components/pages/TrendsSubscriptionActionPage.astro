@@ -1,0 +1,113 @@
+---
+const { action } = Astro.props;
+const isConfirmation = action === 'confirm';
+import { TRENDS_CATEGORIES as categories } from '../../lib/trends-categories.js';
+const trendsApiBaseUrl = String(import.meta.env.PUBLIC_TRENDS_API_BASE_URL || 'https://trendapi.hangadac.com').replace(/\/+$/, '');
+---
+<main class="page-main wrap trends-page trends-page-content subscribe-action-page" data-subscription-action={action} data-api-base={trendsApiBaseUrl}>
+  <nav class="trends-section-nav" aria-label="트렌드 하위 메뉴"><a href="/trends/">트렌드 조회</a><a href="/trends/subscribe/">트렌드 구독</a></nav>
+  <section class="subscribe-action-card" aria-labelledby="subscription-action-title">
+    <div data-action-interaction>
+      <p class="eyebrow">NAVER TRENDS LETTER</p>
+      <h1 id="subscription-action-title">{isConfirmation ? '카테고리를 확인해 주세요' : '구독을 취소할까요?'}</h1>
+      <p>{isConfirmation ? '받고 싶은 카테고리를 확인하거나 조정한 뒤 구독을 완료해 주세요.' : '취소하면 네이버 트렌드 뉴스레터 발송이 중단됩니다.'}</p>
+      {isConfirmation && <div class="trends-category-list subscribe-category-list confirmation-category-list" data-category-picker data-max="3" aria-label="확인할 트렌드 카테고리">{categories.map((category) => <button class="trend-chip" type="button" aria-pressed="false" disabled>{category}</button>)}</div>}
+      {isConfirmation && <p class="category-selection-status" data-selection-status aria-live="polite"></p>}
+      <button class="button button-primary" type="button" data-action-submit disabled={isConfirmation}>{isConfirmation ? '구독 확인하기' : '구독 취소하기'}</button>
+      <p class="subscribe-action-status" data-action-status aria-live="polite">링크를 확인하고 있습니다.</p>
+      <a href="/trends/subscribe/">트렌드 구독 페이지로</a>
+    </div>
+    <section class="subscribe-completion action-completion" data-action-completion hidden aria-labelledby="action-completion-title">
+      <div class="subscribe-completion-copy" role="status" aria-live="polite">
+        <h2 id="action-completion-title" data-action-completion-title tabindex="-1"></h2>
+        <p data-action-completion-message></p>
+      </div>
+      <nav class="subscribe-completion-actions" aria-label="다음으로 이동">
+        <a class="button button-primary" href="/download/">앱 다운로드 <span aria-hidden="true">↗</span></a>
+        <a class="button button-quiet" href="/trends/">트렌드 둘러보기 <span aria-hidden="true">↗</span></a>
+      </nav>
+    </section>
+  </section>
+</main>
+<script>
+  (async () => {
+  const actionPage = document.querySelector('[data-subscription-action]');
+  if (actionPage) {
+    let apiBase = actionPage.getAttribute('data-api-base') || '';
+    const action = actionPage.getAttribute('data-subscription-action') === 'confirm' ? 'confirm' : 'unsubscribe';
+    const endpoint = action === 'confirm' ? '/api/v1/public/subscriptions/confirm' : '/api/v1/public/subscriptions/unsubscribe';
+    const picker = actionPage.querySelector('[data-category-picker]');
+    const token = new URLSearchParams(window.location.search).get('token') || '';
+    const button = actionPage.querySelector('[data-action-submit]');
+    const status = actionPage.querySelector('[data-action-status]');
+    const interaction = actionPage.querySelector('[data-action-interaction]');
+    const completion = actionPage.querySelector('[data-action-completion]');
+    const completionTitle = actionPage.querySelector('[data-action-completion-title]');
+    const completionMessage = actionPage.querySelector('[data-action-completion-message]');
+    if (!token) {
+      button.disabled = true;
+      status.textContent = '링크가 올바르지 않습니다. 메일의 최신 링크를 확인해 주세요.';
+    } else {
+      if (action === 'confirm') {
+        try {
+          const response = await fetch(`${apiBase}/api/v1/public/subscriptions/confirm/preview`, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }), signal: AbortSignal.timeout(12000),
+          });
+          const payload = await response.json();
+          if (!response.ok || payload.success !== true || !Array.isArray(payload.categories) || !picker) throw new Error('preview_failed');
+          const requested = new Set(payload.categories);
+          picker.querySelectorAll('.trend-chip').forEach((chip) => {
+            const selected = requested.has(chip.textContent.trim());
+            chip.classList.toggle('is-selected', selected);
+            chip.setAttribute('aria-pressed', String(selected));
+          });
+          const selectionStatus = actionPage.querySelector('[data-selection-status]');
+          if (selectionStatus) selectionStatus.textContent = `${requested.size}개 선택 · 최대 3개`;
+          if (requested.size > 3) throw new Error('too_many_categories');
+          picker.querySelectorAll('.trend-chip').forEach((chip) => { chip.disabled = false; });
+          button.disabled = false;
+        } catch {
+          button.disabled = true;
+          status.textContent = '링크가 만료되었거나 올바르지 않습니다. 메일의 최신 링크를 확인해 주세요.';
+          return;
+        }
+      }
+      status.textContent = '카테고리를 확인하고 아래 버튼을 눌러 요청을 완료해 주세요.';
+      picker?.querySelectorAll('.trend-chip').forEach((chip) => chip.addEventListener('click', () => {
+        const selected = chip.classList.contains('is-selected');
+        const count = picker.querySelectorAll('.trend-chip.is-selected').length;
+        if (!selected && count >= 3) return;
+        chip.classList.toggle('is-selected', !selected);
+        chip.setAttribute('aria-pressed', String(!selected));
+        const selectionStatus = actionPage.querySelector('[data-selection-status]');
+        if (selectionStatus) selectionStatus.textContent = `${picker.querySelectorAll('.trend-chip.is-selected').length}개 선택 · 최대 3개`;
+      }));
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        status.textContent = action === 'confirm' ? '구독을 확인하고 있습니다.' : '구독을 취소하고 있습니다.';
+        try {
+          const categories = picker ? [...picker.querySelectorAll('.trend-chip.is-selected')].map((chip) => chip.textContent.trim()) : undefined;
+          if (action === 'confirm' && (!categories?.length || categories.length > 3)) throw new Error('invalid_categories');
+          const response = await fetch(`${apiBase}${endpoint}`, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, ...(categories ? { categories } : {}) }), signal: AbortSignal.timeout(12000),
+          });
+          const payload = await response.json();
+          if (!response.ok || payload.success !== true) throw new Error('request_failed');
+          completionTitle.textContent = action === 'confirm' ? '구독이 완료됐어요' : '구독을 취소했어요';
+          completionMessage.textContent = action === 'confirm'
+            ? '관심 카테고리를 확인했어요. 다음 브리핑은 BlogGenius가 메일로 전해드릴게요.'
+            : '요청을 처리했습니다. 이후 트렌드 메일은 발송되지 않습니다.';
+          interaction.hidden = true;
+          status.hidden = true;
+          completion.hidden = false;
+          actionPage.querySelector('.subscribe-action-card')?.setAttribute('aria-labelledby', completionTitle.id);
+          completionTitle.focus();
+        } catch {
+          status.textContent = '요청을 완료하지 못했습니다. 링크가 만료되지 않았는지 확인하고 다시 시도해 주세요.';
+          button.disabled = false;
+        }
+      });
+    }
+  }
+  })();
+</script>

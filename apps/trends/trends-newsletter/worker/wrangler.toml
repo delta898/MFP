@@ -1,0 +1,49 @@
+name = "bloggenius-trends-newsletter-dev"
+main = "src/index.js"
+compatibility_date = "2026-11-02"
+workers_dev = false
+
+[vars]
+BLOGGENIUS_ENV = "development"
+SUPABASE_PROJECT_REF = "bvtlwjbmjnfphxlrkzhm"
+NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+NEWSLETTER_EXPECTED_CATEGORIES = "IT·컴퓨터,건강·의학,게임,공연·전시,교육·학문,국내여행,드라마,만화·애니,맛집,문학·책,미술·디자인,반려동물,방송,비즈니스·경제,사진,사회·정치,상품리뷰,세계여행,스타·연예인,스포츠,어학·외국어,영화,요리·레시피,원예·재배,육아·결혼,음악,인테리어·DIY,일상·생각,자동차,좋은글·이미지,취미,패션·미용"
+NEWSLETTER_REGENERATE_ON_SIGNAL = "true"
+NEWSLETTER_RESEND_ENABLED = "true"
+NEWSLETTER_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
+NEWSLETTER_DOWNLOAD_URL = "https://www-dev.bloggenius.kr/download/"
+NEWSLETTER_DOWNLOAD_BANNER_URL = "https://www-dev.bloggenius.kr/assets/share-card.svg"
+
+[[workflows]]
+name = "bloggenius-trends-readiness-dev"
+binding = "TRENDS_READINESS_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[env.production]
+name = "bloggenius-trends-newsletter-production"
+workers_dev = false
+
+[env.production.vars]
+BLOGGENIUS_ENV = "production"
+SUPABASE_PROJECT_REF = "hocfjolcthvtgfaxjmse"
+SUPABASE_URL = "https://hocfjolcthvtgfaxjmse.supabase.co"
+NEWSLETTER_ITEMS_PER_CATEGORY = "20"
+NEWSLETTER_EXPECTED_CATEGORIES = "IT·컴퓨터,건강·의학,게임,공연·전시,교육·학문,국내여행,드라마,만화·애니,맛집,문학·책,미술·디자인,반려동물,방송,비즈니스·경제,사진,사회·정치,상품리뷰,세계여행,스타·연예인,스포츠,어학·외국어,영화,요리·레시피,원예·재배,육아·결혼,음악,인테리어·DIY,일상·생각,자동차,좋은글·이미지,취미,패션·미용"
+NEWSLETTER_REGENERATE_ON_SIGNAL = "false"
+NEWSLETTER_RESEND_ENABLED = "false"
+NEWSLETTER_BLOG_FEEDS = '[{"name":"BlogGenius","feedUrl":"https://blog.gongzza.com/feed/","siteUrl":"https://blog.gongzza.com/"},{"name":"Naver Blog","feedUrl":"https://rss.blog.naver.com/amadejjs","siteUrl":"https://blog.naver.com/amadejjs"}]'
+NEWSLETTER_DOWNLOAD_URL = "https://www.bloggenius.kr/download/"
+NEWSLETTER_DOWNLOAD_BANNER_URL = "https://www.bloggenius.kr/assets/share-card.svg"
+NEWSLETTER_CANARY_CATEGORY = "IT·컴퓨터"
+
+[[env.production.workflows]]
+name = "bloggenius-trends-readiness-production"
+binding = "TRENDS_READINESS_WORKFLOW"
+class_name = "DailyTrendsReadinessWorkflow"

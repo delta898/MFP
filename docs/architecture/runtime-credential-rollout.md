@@ -56,7 +56,7 @@ npm run credentials:development:plan
 ### 2. DB 변경 미리 확인
 
 ```bash
-supabase db push --dry-run --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
+supabase db push --dry-run --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
 ```
 
 예상한 migration 3개 외의 항목이 보이면 적용하지 않는다. DB password는 로컬 환경에 저장되어
@@ -65,7 +65,7 @@ supabase db push --dry-run --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJE
 ### 3. Development DB migration 적용
 
 ```bash
-supabase db push --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
+supabase db push --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes
 ```
 
 Development에서만 legacy Google/Naver Runtime Config credential row가 제거된다. `db reset`은
@@ -78,7 +78,7 @@ Development에서만 legacy Google/Naver Runtime Config credential row가 제거
 
 ```bash
 supabase functions deploy knowledge-gateway \
-  --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"
+  --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes
 ```
 
 BlogGenius는 Secret 값을 확인하거나 변경하지 않는다. 배포 성공은 Secret의 유효성을 보장하지

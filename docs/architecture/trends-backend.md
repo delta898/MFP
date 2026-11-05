@@ -15,6 +15,7 @@ apps/
     trends-api/             # operator-only ingest/export API
       docker/               # Oracle Node/Docker rollback runtime
       workers/              # active Cloudflare Workers runtime
+    shared/lib/            # RSS and runtime utilities shared by Trends apps
 shared/
   naver-trends-core/        # shared Playwright collection and normalization logic
 wordpress/
@@ -48,6 +49,12 @@ wordpress/
   desktop clients with short-lived user read tokens.
 - Keeps runtime implementations separate: `workers/` is the active gateway and
   `docker/` preserves the prior Oracle Node service for rollback.
+
+### `apps/trends/shared/lib`
+- Owns small transport-neutral utilities used by multiple Trends applications.
+- `rss-feed.js` parses RSS/Atom entries and enforces configured site-origin and
+  path constraints; newsletter selection and public-site recommendations use
+  this shared parser rather than maintaining separate feed parsing rules.
 
 ### `wordpress/trends-download-ui`
 - Hosts WordPress integration assets only.
@@ -147,6 +154,12 @@ Legacy compatibility:
 - `POST /internal/ingest/naver-trends`
 - `GET /api/v1/trends`
 - `GET /api/v1/trends/meta`
+- `GET /api/v1/public/trends`
+- `GET /api/v1/public/trends/meta`
+- `GET /api/v1/public/trends/recommendations`
+- `POST /api/v1/public/subscriptions`
+- `POST /api/v1/public/subscriptions/confirm`
+- `POST /api/v1/public/subscriptions/unsubscribe`
 - `GET /exports/trends.csv`
 
 `GET /exports/trends.xlsx` is a reserved compatibility route and currently
@@ -160,10 +173,112 @@ returns `501 Not Implemented`. CSV is the only implemented export contract.
 - User tokens must include `aud=trends-api`, `scope=trends:read`, a valid issuer,
   and a non-expired `exp`. They may read only `/api/v1/trends` and
   `/api/v1/trends/meta`.
-- All non-health endpoints fail closed when neither access class is valid.
+- All protected non-health endpoints fail closed when neither access class is valid.
 - User request limits are keyed by the token's anonymized license subject, not
   by the reverse proxy socket address. IP-level abuse protection belongs at the
   HTTPS reverse proxy.
+- The `/api/v1/public/trends*` routes are a separate, anonymous, read-only
+  contract for the public BlogGenius site. They require an allowed `Origin`
+  before returning browser-readable CORS responses; this is a browser boundary,
+  not authentication, and callers can still request public trend data outside
+  a browser. Production allows only `https://www.bloggenius.kr`; Development
+  additionally allows loopback origins for local Site Hosting preview.
+- Public metadata returns only categories and available dates/range. Public
+  trend reads require one date and one to three categories, accept no other
+  filters, cap rows at 150, and return no export or ingest capability. Public
+  requests have a per-IP, per-minute in-memory limit; this is best-effort
+  isolate-level throttling and does not replace Cloudflare edge rate rules if
+  traffic warrants stronger abuse controls.
+- Public recommendations read only the RSS feeds listed in the API Worker's
+  `TRENDS_PUBLIC_BLOG_FEEDS` deployment variable. They return at most two
+  randomly selected, recent posts with links constrained to each configured
+  site origin. They are editorial discovery cards, not category-matched
+  recommendations; a feed failure returns an empty list so trend browsing
+  remains available.
+- These public routes deliberately do not authenticate callers. Their trend
+  data is treated as public because it is displayed to any site visitor; query
+  bounds reduce response size and database work but do not prove a caller is
+  the BlogGenius site. The allowed `Origin` check and CORS response only govern
+  browser access. Non-browser clients can set or omit `Origin`, so this is not
+  an API key, access-control list, or defense against scripts, scraping, or
+  distributed requests. Do not put private, licensed, subscriber, or
+  otherwise sensitive data behind these routes.
+- The current public rate counter lives in Worker isolate memory. It can reset
+  when an isolate is restarted and is not shared across isolates or globally
+  coordinated. The `cf-connecting-ip` value supports basic per-IP throttling,
+  but IP rotation and distributed traffic can evade a per-IP threshold. The
+  public route currently allows 60 requests per minute per observed IP; this
+  should be treated as a soft guardrail, not a guaranteed account-wide quota
+  or cost ceiling.
+- Before broad Production use, configure and validate Cloudflare edge-level
+  rate limiting for these paths, monitor Worker and Supabase usage, and confirm
+  whether the response `Cache-Control` headers are actually honored by the
+  deployed cache path. The Worker sends a 60-second public cache hint, but the
+  header alone does not guarantee that every Cloudflare path caches the
+  response. If stronger caller verification becomes necessary, evaluate a
+  server-validated challenge (for example Turnstile) or a deliberate
+  authenticated product flow; a secret embedded in static-site JavaScript is
+  public and provides no caller authentication.
+
+### Mailing List Signup and Preferences
+
+The public Astro page submits email, one to five selected categories, and an
+explicit consent value to the existing Trends Worker. The Worker applies the
+site-origin CORS rule, a small body limit, input validation, and a best-effort
+per-IP signup throttle before forwarding the request to the dedicated
+`trends-mailing-list` Supabase Edge Function. The static page has no database,
+Brevo, or Worker-to-function credentials.
+
+The Edge Function accepts calls only with the private
+`TRENDS_NEWSLETTER_WORKER_TOKEN` shared between the Worker and Supabase. It
+stores the authoritative list in the `mailing.trends_newsletter_subscribers` table. RLS
+is enabled and direct access is revoked from `anon` and `authenticated`; only
+server-side `service_role` calls can invoke the mailing RPCs. Email addresses
+are normalized to lowercase. The row stores the selected category list, the
+consent timestamp and copy version, pending/active/unsubscribed status, and
+hashed action tokens. Raw confirmation and unsubscribe tokens are sent only in
+links and are not stored in the database.
+
+Signup uses double opt-in. New or previously unsubscribed addresses are
+recorded as pending and receive a Brevo confirmation email; confirmation links
+expire after 48 hours. Only a successful confirmation changes the row to active.
+Resubmitting an active address leaves its existing subscription unchanged and
+does not reveal list membership in the API response. Category preference
+management for active subscribers is not included in this slice. The
+confirmation email also includes a link to cancel the pending request. The
+static confirmation and unsubscribe pages call
+the Worker's corresponding POST route; no token is consumed by a plain GET.
+
+The three mailing routes require an allowed `Origin` and accept only POST and
+OPTIONS. This is a browser boundary, not authentication. The Worker forwards to
+the Edge Function URL using the server-only shared token. Configure
+`TRENDS_NEWSLETTER_FUNCTION_URL` and `TRENDS_NEWSLETTER_WORKER_TOKEN` as Worker
+secrets/variables, and set the matching token as a Supabase function secret.
+The function also needs its normal Supabase service credentials plus
+`BREVO_API_KEY`, `NEWSLETTER_EMAIL_FROM`, `BLOGGENIUS_ENV`, and
+`NEWSLETTER_EMAIL_MODE`. The newsletter sender address is independent of the
+license email sender setting. In non-production, mail is sent only when mode
+is `allowlist` and the address is in
+`NEWSLETTER_EMAIL_ALLOWLIST`; production sends only when mode is `live`. There
+is no silent development-to-live fallback.
+
+Signup throttling is currently an in-memory Worker-isolate guardrail and can
+reset or be bypassed across isolates/IPs. Origin checks do not prevent direct
+scripts. Before making the form broadly available, configure Cloudflare edge
+rate limiting for all three mailing paths and consider Turnstile or another
+server-validated challenge to reduce email bombing. Monitor Brevo send volume.
+The Edge Function also enforces the delivery-mode and development allowlist
+before sending confirmation mail.
+
+For environment setup order, Supabase's `mailing` exposed-schema requirement,
+Brevo IP allowlisting diagnosis, and the verified Development-to-Production
+rollout checklist, see [Trends Backend Deployment](trends-backend-deployment.md#newsletter-signup-deployment-and-verification).
+
+This slice implements subscription, confirmation, and unsubscribe state
+changes only. The scheduled daily campaign sender, message generation/link
+verification, and automatic delivery recovery remain separate work; campaign
+queries must select only `status = 'active'`, and every campaign email must
+include a standards-compliant unsubscribe action.
 
 ### Desktop Token Lifecycle
 

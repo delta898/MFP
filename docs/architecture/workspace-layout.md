@@ -90,6 +90,7 @@ workspace/site-hosting/
 - Project and Site directories are siblings. A Site's owning Project is determined by `project_id` in `.bloggenius/site.json`, not by filesystem nesting.
 - Site IDs are unique within the shared `sites/` directory. Project site counts and Site lists are derived by matching that manifest field.
 - Existing nested `projects/{project_id}/sites/` data is not migrated or read by the current storage contract.
+- `workspace/` remains ignored by default. The public `www.bloggenius.kr` Astro source at `workspace/site-hosting/sites/www-bloggenius-kr/` is the sole explicit Git exception. Its build/cache/dependency artifacts and machine-local `.bloggenius/site.json` deployment state remain ignored; the source and content needed for the static site build are tracked.
 
 ## Deployment Rule
 - Desktop app release continues through the root release pipeline.

@@ -34,7 +34,7 @@ npm run env:status
 
 | 개발 단계 | 일반적인 브랜치 | 실행 환경 | Supabase 대상 |
 | --- | --- | --- | --- |
-| 기능 개발 | `feature/*` | `local` | 개발자 PC의 Supabase Docker |
+| 기능 개발 | `feature/*` | `local` 또는 `development` | 개발자 PC의 Supabase Docker 또는 BlogGenius Development Supabase |
 | 통합 검증 | `dev` | `development` | BlogGenius Development Supabase |
 | 릴리즈 검증 | `release/*` | Development에서 검증한 동일 변경 묶음 사용 | Production 후보 검사만 수행 |
 | 정식 운영 | `main` 또는 정식 패키지 | `production` | 운영 Supabase |
@@ -42,7 +42,7 @@ npm run env:status
 환경 선택은 브랜치를 자동으로 바꾸지 않고, 브랜치도 환경을 자동 선택하지 않는다. 대신 배포
 preflight가 허용되지 않은 브랜치와 target 조합을 차단한다.
 
-- `feature/*`: `local`만 변경 작업 허용
+- `feature/*`: `local`, `development` 변경 작업 허용. Development 적용은 프로젝트 ref를 명시하고 preflight를 통과해야 하며, Production은 차단
 - `dev`: `local`, `development` 허용
 - `release/*`, `main`: production 후보가 될 수 있음
 - 분류되지 않은 브랜치와 detached HEAD: 기본적으로 `local`만 허용
@@ -207,6 +207,8 @@ BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF="..."
 BLOGGENIUS_DEVELOPMENT_SUPABASE_URL="https://....supabase.co"
 BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY="..."
 BLOGGENIUS_DEVELOPMENT_SUPABASE_DB_URL="..."
+BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL="https://trendapi-dev.bloggenius.kr"
+BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.bloggenius.kr"
 ```
 
 공백이나 특수문자가 포함된 값은 반드시 따옴표로 감싼다. `.env.development`는 readiness와
@@ -280,7 +282,7 @@ BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME="BlogGenius Production"
 BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF="..."
 BLOGGENIUS_PRODUCTION_SUPABASE_URL="https://....supabase.co"
 BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY="..."
-BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.example.com"
+BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.bloggenius.kr"
 ```
 
 Google과 Cloudflare OAuth 설정은 `.env.oauth.prod`에서 읽는다. `.env.production`에는 service-role

@@ -760,9 +760,8 @@ function createSiteHostingSiteRepository(options = {}) {
         }
         const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
         const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
-        const updated = {
-            ...manifest,
-            deployment: {
+        const environment = deployment.environment === 'development' ? 'development' : 'production';
+        const deploymentRecord = {
                 provider: 'cloudflare',
                 worker_name: String(deployment.worker_name || ''),
                 url: String(deployment.url || ''),
@@ -772,7 +771,12 @@ function createSiteHostingSiteRepository(options = {}) {
                 worker_created_on: String(deployment.worker_created_on || ''),
                 managed_by_app: deployment.managed_by_app === true,
                 deployed_at: String(deployment.deployed_at || '')
-            },
+        };
+        const deployments = { ...(manifest.deployments || {}), [environment]: deploymentRecord };
+        const updated = {
+            ...manifest,
+            deployments,
+            ...(environment === 'production' ? { deployment: deploymentRecord } : {}),
             updated_at: String(deployment.deployed_at || manifest.updated_at || '')
         };
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
@@ -803,13 +807,15 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
-    function clearDeployment(projectId, siteId, updatedAt = new Date().toISOString()) {
+    function clearDeployment(projectId, siteId, updatedAt = new Date().toISOString(), environment = 'production') {
         const site = readSite(projectId, siteId);
         if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
         const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
         const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
-        const updated = { ...manifest, updated_at: String(updatedAt || manifest.updated_at || '') };
-        delete updated.deployment;
+        const env = environment === 'development' ? 'development' : 'production';
+        const deployments = { ...(manifest.deployments || {}), [env]: null };
+        const updated = { ...manifest, deployments, updated_at: String(updatedAt || manifest.updated_at || '') };
+        if (env === 'production') delete updated.deployment;
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
         fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
         fileSystem.renameSync(tempPath, manifestPath);
@@ -924,17 +930,23 @@ function createSiteHostingSiteRepository(options = {}) {
         }
         const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
         const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
-        const updated = {
-            ...manifest,
-            hostname: String(binding.site_hostname ?? manifest.hostname ?? '').trim(),
-            domain: String(binding.domain ?? manifest.domain ?? '').trim(),
-            custom_domain_binding: {
+        const environment = binding.environment === 'development' ? 'development' : 'production';
+        const bindingRecord = {
                 id: String(binding.id || ''),
                 hostname: String(binding.hostname || ''),
                 zone_id: String(binding.zone_id || ''),
                 zone_name: String(binding.zone_name || ''),
                 connected_at: String(binding.connected_at || '')
-            },
+        };
+        const customDomainBindings = { ...(manifest.custom_domain_bindings || {}), [environment]: bindingRecord };
+        const updated = {
+            ...manifest,
+            custom_domain_bindings: customDomainBindings,
+            ...(environment === 'production' ? {
+                hostname: String(binding.site_hostname ?? manifest.hostname ?? '').trim(),
+                domain: String(binding.domain ?? manifest.domain ?? '').trim(),
+                custom_domain_binding: bindingRecord
+            } : {}),
             updated_at: String(binding.connected_at || manifest.updated_at || '')
         };
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
@@ -943,7 +955,7 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
-    function clearCustomDomainBinding(projectId, siteId, updatedAt = new Date().toISOString()) {
+    function clearCustomDomainBinding(projectId, siteId, updatedAt = new Date().toISOString(), environment = 'production') {
         const site = readSite(projectId, siteId);
         if (!site) {
             const error = new Error('사이트를 찾을 수 없습니다.');
@@ -953,7 +965,10 @@ function createSiteHostingSiteRepository(options = {}) {
         }
         const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
         const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
-        const updated = { ...manifest, custom_domain_binding: null, updated_at: updatedAt };
+        const env = environment === 'development' ? 'development' : 'production';
+        const bindings = { ...(manifest.custom_domain_bindings || {}), [env]: null };
+        const updated = { ...manifest, custom_domain_bindings: bindings,
+            ...(env === 'production' ? { custom_domain_binding: null } : {}), updated_at: updatedAt };
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
         fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
         fileSystem.renameSync(tempPath, manifestPath);

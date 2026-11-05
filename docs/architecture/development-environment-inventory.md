@@ -97,7 +97,7 @@ License precheck, v2, and v3 are retained as historical implementation inputs. T
 
 ## Production baseline procedure
 
-This procedure is designed now but executed only after explicit approval to perform read-only production inspection.
+The read-only schema and migration-history inspection has been completed for the current Production promotion. It confirmed that Production has existing license data and an empty migration ledger while all 35 repository migrations are present in Development. The old migration chain must not be replayed against Production as-is: its first migration creates `public.licenses` without `IF NOT EXISTS`, and later historical migrations include data updates and column removal.
 
 1. Confirm clean working tree, current branch, Supabase CLI version, selected target, project name, and project ref.
 2. Refuse to proceed if the linked project does not match the configured production target.
@@ -111,7 +111,13 @@ This procedure is designed now but executed only after explicit approval to perf
 10. Apply the same migration set to a fresh hosted development project.
 11. Review migration diff and only then reconcile production migration history. Never mark migrations applied merely to silence a mismatch.
 
-No production command is run as part of Stage 1.
+No production write has been performed as part of this inspection. The current read-only findings and the bounded one-time license alignment operation are recorded separately below.
+
+### One-time Development and Production license alignment
+
+`supabase/operations/licenses/2026-11-05_license_alignment.sql` is a manually reviewed operator action, not a migration and not part of normal deployment. Run the same SQL against Development first and Production second. It aligns the existing `public.licenses` constraints/default and `public.license_plans` test/free quotas to the approved Production values (`usage_limit` default 20; `test=50`, `free=20`). It does not insert, delete, or update license records; plan rows are updated only if their quota differs. Run the read-only preflight against each target first and stop if any guard count is nonzero. Then run the transactional apply section and verify with the postflight queries. The file includes separate rollback snippets for the audited pre-alignment Development and Production states.
+
+This action does **not** reconcile `supabase_migrations.schema_migrations`, deploy the Development-only newsletter schema, or make a broad `supabase db push` safe. Production migration-history reconciliation and the ordered promotion of the remaining app-owned schema are still separate required work before automatic Production migrations can be enabled.
 
 ## Inventory maintenance
 

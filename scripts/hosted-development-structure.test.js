@@ -72,3 +72,10 @@ test('license email function fails closed and supports development sink or allow
     assert.match(source, /environment === "production"/);
     assert.match(source, /mode === "live"/);
 });
+
+test('newsletter sender configuration is independent from license email settings', () => {
+    const source = read('supabase/functions/trends-mailing-list/handler.ts');
+
+    assert.match(source, /getEnv\("NEWSLETTER_EMAIL_FROM"\)/);
+    assert.doesNotMatch(source, /getEnv\("LICENSE_EMAIL_FROM"\)/);
+});

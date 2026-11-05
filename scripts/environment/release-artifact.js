@@ -8,6 +8,11 @@ const { getBranchTargetPolicy } = require('./branch-target-policy');
 
 const ARTIFACT_SCHEMA_VERSION = 1;
 const ATTESTATION_SCHEMA_VERSION = 1;
+// Shared application code imported by Supabase Edge Functions must participate
+// in the same deployment fingerprint as files stored under supabase/functions.
+const EDGE_FUNCTION_SHARED_FILES = Object.freeze([
+    'apps/trends/trends-newsletter/src/delivery.js'
+]);
 
 function sha256(value) {
     return crypto.createHash('sha256').update(value).digest('hex');
@@ -65,8 +70,14 @@ function collectReleasePayload(options = {}) {
                 ...hashed
             });
         });
-    const edgeFunctionFiles = listFiles(functionDir, fsImpl)
+    const edgeFunctionFiles = [
+        ...listFiles(functionDir, fsImpl),
+        ...EDGE_FUNCTION_SHARED_FILES
+            .map((file) => path.join(repoRoot, file))
+            .filter((file) => fsImpl.existsSync(file))
+    ]
         .filter((file) => /\.(?:ts|js|json)$/.test(file))
+        .filter((file, index, files) => files.indexOf(file) === index)
         .map((file) => hashFile(repoRoot, file, fsImpl));
     const edgeFunctions = (hostedManifest.edge_functions || [])
         .map((item) => Object.freeze({

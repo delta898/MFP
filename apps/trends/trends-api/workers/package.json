@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "node --test src/index.test.js",
     "secret:development": "wrangler secret put",
     "secret:production": "wrangler secret put --env production",
     "deploy:development": "wrangler deploy --env=\"\"",

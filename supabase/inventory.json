@@ -18,7 +18,8 @@
     "supabase/functions/keyword-research/index.ts",
     "supabase/functions/knowledge-gateway/index.ts",
     "supabase/functions/send-license-code/index.ts",
-    "supabase/functions/serpapi-news-collector/index.ts"
+    "supabase/functions/serpapi-news-collector/index.ts",
+    "supabase/functions/trends-mailing-list/index.ts"
   ],
   "shared_edge_modules": [
     "supabase/functions/_shared/knowledge-gateway-contract.ts",
@@ -32,7 +33,9 @@
     "supabase/functions/_shared/license-access-token.ts",
     "supabase/functions/_shared/serpapi-collection-contract.ts",
     "supabase/functions/_shared/serpapi-collection-operations-service.ts",
-    "supabase/functions/_shared/serpapi-collection-service.ts"
+    "supabase/functions/_shared/serpapi-collection-service.ts",
+    "supabase/functions/trends-mailing-list/handler.ts",
+    "supabase/functions/trends-mailing-list/handler_test.ts"
   ],
   "database_assets": [
     {
@@ -181,6 +184,46 @@
     },
     {
       "path": "supabase/migrations/202609110001_fix_smart_usage_status_capability_scope.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611020001_trends_mailing_list.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030001_trends_newsletter_run_state.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030002_trends_newsletter_shared_editions.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030003_trends_newsletter_attempts_and_dev_retries.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030004_trends_newsletter_recipient_delivery.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030005_trends_subscriber_category_limit.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030006_rename_trends_newsletter_tables.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030007_trends_newsletter_static_shared_copy.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611030008_trends_newsletter_delivery_revisions.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202611040001_trends_subscription_confirmation_category_editing.sql",
       "classification": "canonical_migration"
     },
     {
@@ -401,6 +444,10 @@
     },
     {
       "path": "supabase/operations/licenses/supabase_issue_pro_license.sql",
+      "classification": "license_operator_action"
+    },
+    {
+      "path": "supabase/operations/licenses/2026-11-05_license_alignment.sql",
       "classification": "license_operator_action"
     },
     {

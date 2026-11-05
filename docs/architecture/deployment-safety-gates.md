@@ -40,7 +40,9 @@ explicit target + operation
   -> ALLOWED or DENIED
 ```
 
-- `feature/*`는 `local`만 허용한다.
+- `feature/*`는 `local`과 `development`를 허용한다. 개발 기능은 feature branch에서
+  개발 Supabase에 적용하고 검증할 수 있다. Development target과 프로젝트 identity를 명시하고
+  preflight를 통과해야 한다. `feature/*`는 production을 허용하지 않는다.
 - `dev`는 `local`과 `development`만 허용한다.
 - `main`과 `release/*`만 production 후보가 된다.
 - detached HEAD와 분류되지 않은 branch는 local-only로 취급한다.
@@ -58,11 +60,13 @@ explicit target + operation
 | production | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME` | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF` |
 
 현재 Supabase CLI link는 `supabase/.temp/linked-project.json`에서 읽는다. 이 파일은 Git에
-포함하지 않는다. hosted 명령이 `--project-ref`를 명시하지 않은 경우 configured name/ref와
+포함하지 않는다. Supabase CLI hosted 명령은 `--remote=<project-ref>`로 대상을 명시하고,
+configured name/ref와
 linked name/ref가 모두 일치해야 한다.
 
 Stage 5부터 SaaS hosted 명령은 기존 production link를 바꾸지 않도록 명시적인 ref를 사용할 수 있다.
-preflight의 `--project-ref`는 Supabase CLI에 전달할 동일 ref여야 하며 configured target ref와
+preflight 도구 자체의 `--project-ref` 입력은 Supabase CLI에 전달하는 `--remote=<project-ref>`와
+동일한 ref여야 하며 configured target ref와
 정확히 일치해야 한다.
 
 ```bash
@@ -72,8 +76,8 @@ npm run env:preflight -- \
   --project-ref <DEVELOPMENT_PROJECT_REF>
 ```
 
-명시적 ref가 있으면 ambient link는 사용하지 않는다. 그렇더라도 branch 정책은 완화되지 않으므로
-development hosted operation은 `dev`에서만 허용된다.
+명시적 ref가 있으면 ambient link는 사용하지 않는다. feature branch는 이 명시적 개발 target을
+검증에 사용할 수 있지만 production ref는 허용되지 않는다.
 
 project ref가 없는 development Supabase는 `--supabase-url`로 configured HTTPS endpoint를 다시
 확인할 수 있다. 이 identity는 환경 제공자의 종류나 내부 배포 방식을 드러내지 않는다.
@@ -113,7 +117,8 @@ Stage 3의 공통 CLI는 안전 판단과 dry-run 출력을 제공한다. 실제
 판단을 호출한 뒤 명시적인 target으로만 명령을 구성한다.
 
 - Stage 4B: local migration/reset/seed command와 preflight 결합;
-- Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 외부 적용 인계;
+- Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 feature branch에서의
+  개발 환경 적용 및 검증;
 - Stage 6: CI drift check, production dry-run checklist, 별도 사용자 승인 절차.
 
 ## Immutable promotion artifact
@@ -131,6 +136,16 @@ Development 적용 후 공식 Supabase CLI의 migration/Function 읽기 결과�
 - Function별 `verify_jwt` 정책
 - 모든 Function의 ACTIVE 상태
 - development가 검증한 artifact fingerprint
+
+GitHub Actions는 원격 migration 조회와 Function 조회를 별도 step으로 실행한다. 각 명령의 stdout과
+stderr를 분리해 보관하고, 실패한 경우 해당 명령의 출력과 exit code를 그 step 로그에 남긴다.
+따라서 `Verify Hosted Development Drift`가 실패하면 `Read remote migration state` 또는
+`Read remote Function state` 중 실패한 step에서 Supabase CLI 오류를 확인할 수 있다.
+
+GitHub-hosted runner는 IPv6를 지원하지 않아 direct database endpoint에 연결할 수 없다. Development
+migration 조회 전에 명시적인 project ref로 `supabase link`를 실행해 Supavisor의 IPv4 pooler 연결을
+준비한다. 이 설정은 CI의 임시 checkout에만 기록되며 개발자 로컬 link나 원격 Supabase 상태는 바꾸지
+않는다.
 
 Production checklist는 `release/*` 또는 `main`에서만 생성할 수 있으며, 현재 revision과 같은 artifact를
 검증한 development workflow run을 명시해야 한다. 결과의 `ready_for_user_approval`은 자동 배포 허가가

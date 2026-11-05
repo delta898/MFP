@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
 const axios = require('axios');
+const { randomUUID } = require('crypto');
 const { chromium } = require('playwright');
 const {
     formatTrendsEnvironmentDiagnostic,
@@ -52,6 +53,10 @@ function formatCollectorHelp() {
         '      --dry-run        Collect and summarize without writing to the API',
         '      --confirm-production',
         '                       Write to Production without an interactive prompt',
+        '      --force-newsletter-resend',
+        '                       Development only: send forceResend=true in the completion signal',
+        '                       Requires NEWSLETTER_RESEND_ENABLED=true on the Dev Worker.',
+        '                       Use with one date only; normal runs never resend.',
         '      --headed         Show the browser window (default: headless)',
         '      --headless       Hide the browser window',
         '      --swipe-delay-ms <ms>',
@@ -71,6 +76,9 @@ function formatCollectorHelp() {
         '  Production defaults to interactive confirmation and requires a TTY.',
         '  TRENDS_SWIPE_DELAY_MS, TRENDS_MAX_RETRIES, TRENDS_EXPECTED_CATEGORIES,',
         '  and TRENDS_KEYWORDS_PER_CATEGORY can set the same defaults for cron.',
+        '',
+        'Example (Development only):',
+        '  npm run trends:collector -- --date 2026-11-02 --force-newsletter-resend',
     ].join('\n');
 }
 
@@ -80,6 +88,7 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
         date: '',
         dryRun: false,
         confirmProduction: false,
+        forceNewsletterResend: false,
         headless: null,
         swipeDelayMs: null,
         maxRetries: null,
@@ -139,10 +148,16 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
             continue;
         }
 
+        if (argument === '--force-newsletter-resend') {
+            options.forceNewsletterResend = true;
+            continue;
+        }
+
         if (argument === '--confirm-production') {
             options.confirmProduction = true;
             continue;
         }
+
 
         if (argument === '--headed' || argument === '--headless') {
             const headless = argument === '--headless';
@@ -246,6 +261,7 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
     const authPathValue = String(env.TRENDS_AUTH_FILE_PATH || './config/naver_auth.json').trim() || './config/naver_auth.json';
     return {
         environment: String(env.TRENDS_ENV || '').trim().toLowerCase(),
+        forceNewsletterResend: cliOptions.forceNewsletterResend === true,
         rootDir,
         naverId: String(env.TRENDS_NAVER_ID || env.NAVER_ID || '').trim(),
         authPath: path.isAbsolute(authPathValue) ? authPathValue : path.resolve(rootDir, authPathValue),
@@ -388,6 +404,97 @@ async function pushPayloadToApi(payload, config, logger) {
     }
 }
 
+async function signalCollectionComplete(payload, completeness, config, logger = console) {
+    if (config.dryRun) return { skipped: true, reason: 'dry_run' };
+    if (!['development', 'production'].includes(config.environment)) {
+        return { skipped: true, reason: 'newsletter_not_enabled_for_environment' };
+    }
+    if (!completeness?.complete) throw new Error('불완전한 수집 결과는 뉴스레터 완료 신호를 보낼 수 없습니다.');
+    if (config.forceNewsletterResend === true && config.environment !== 'development') {
+        throw new Error('뉴스레터 재발송 요청은 Development 수집에서만 사용할 수 있습니다.');
+    }
+    if (!config.apiBaseUrl || !config.apiToken || !config.environment) {
+        throw new Error('수집 완료 신호에는 환경별 Trends API 주소, 내부 토큰, 환경 값이 필요합니다.');
+    }
+
+    const runId = config.runId || randomUUID();
+    const signal = {
+        environment: config.environment,
+        trendDate: payload.trendDate,
+        signalId: runId,
+        runId,
+        status: 'collected',
+        source: config.source,
+        expectedCategories: completeness.expectedCategories,
+        itemsPerCategory: completeness.keywordsPerCategory,
+        itemCount: completeness.actualTotal
+    };
+    if (config.forceNewsletterResend === true) signal.forceResend = true;
+    try {
+        const response = await axios.post(
+            `${config.apiBaseUrl.replace(/\/+$/, '')}/internal/newsletter/collector-run`,
+            signal,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Trends-Environment': config.environment,
+                    Authorization: `Bearer ${config.apiToken}`
+                },
+                timeout: 15000
+            }
+        );
+        logger.info(`✅ newsletter 수집 완료 신호 전달: trendDate=${payload.trendDate || '-'}, workflow=${response?.data?.workflowId || 'accepted'}, duplicate=${Boolean(response?.data?.duplicate)}`);
+        return response.data;
+    } catch (error) {
+        const apiStatus = error?.response?.status;
+        const apiMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message;
+        throw new Error(apiStatus ? `Newsletter signal API ${apiStatus}: ${apiMessage}` : `Newsletter signal failed: ${apiMessage}`);
+    }
+}
+
+async function reportCollectorFailure(config, report, logger = console) {
+    if (config.dryRun || !['development', 'production'].includes(config.environment)) {
+        return { skipped: true };
+    }
+    if (!config.apiBaseUrl || !config.apiToken) throw new Error('Collector failure report requires the environment Trends API URL and token.');
+    const runId = config.runId || randomUUID();
+    const koreaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const requestedDate = String(report.trendDate || config.date || '').trim();
+    const dateMatch = requestedDate.match(/^(\d{4}-\d{2}-\d{2}|\d{8})$/);
+    const candidateDate = dateMatch
+        ? (requestedDate.includes('-') ? requestedDate : `${requestedDate.slice(0, 4)}-${requestedDate.slice(4, 6)}-${requestedDate.slice(6, 8)}`)
+        : (/^(?:yesterday|어제|-\d+d)$/i.test(requestedDate)
+            ? (() => {
+                const daysAgo = requestedDate === '어제' || requestedDate.toLowerCase() === 'yesterday' ? 1 : Number(requestedDate.slice(1, -1));
+                const day = new Date(`${koreaDate}T00:00:00+09:00`);
+                day.setUTCDate(day.getUTCDate() - daysAgo);
+                return day.toISOString().slice(0, 10);
+            })()
+            : koreaDate);
+    const parsedCandidateDate = new Date(`${candidateDate}T00:00:00.000Z`);
+    const normalizedDate = Number.isNaN(parsedCandidateDate.getTime()) || parsedCandidateDate.toISOString().slice(0, 10) !== candidateDate
+        ? koreaDate : candidateDate;
+    const body = {
+        environment: config.environment,
+        trendDate: normalizedDate,
+        runId,
+        signalId: runId,
+        source: config.source || DEFAULT_SOURCE,
+        status: 'failed',
+        stage: report.stage || 'collector',
+        error: String(report.error || 'collector_failed').slice(0, 500)
+    };
+    const response = await axios.post(`${config.apiBaseUrl.replace(/\/+$/, '')}/internal/newsletter/collector-run`, body, {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Trends-Environment': config.environment,
+            Authorization: `Bearer ${config.apiToken}`
+        }, timeout: 15000
+    });
+    logger.info(`✅ collector 실패 보고 전달: runId=${body.runId}, workflow=${response?.data?.workflowId || 'accepted'}`);
+    return response.data;
+}
+
 function formatApiResultSummary(apiResult = {}) {
     const parts = [];
     if (Number.isFinite(apiResult.accepted)) parts.push(`accepted=${apiResult.accepted}`);
@@ -466,6 +573,7 @@ async function runCollector(inputConfig = {}) {
         ...resolveCollectorConfig(process.env, cliOptions),
         ...inputConfig
     };
+    config.runId = config.runId || randomUUID();
     const executionMode = resolveCollectorExecutionMode(config.environment, cliOptions, {
         isTTY: inputConfig.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY)
     });
@@ -550,10 +658,18 @@ async function runCollector(inputConfig = {}) {
         await verifyCollectorApiEnvironment({ ...config, dryRun: false }, logger);
     }
     const apiResult = await pushPayloadToApi(payload, { ...config, dryRun: false }, logger);
+    let newsletterSignal;
+    try {
+        newsletterSignal = await signalCollectionComplete(payload, completeness, config, logger);
+    } catch (error) {
+        logger.warn(`⚠️ newsletter run 보고 실패: trendDate=${payload.trendDate || '-'}, error=${error.message}. 트렌드 데이터는 저장되었지만 실행 보고를 다시 시도합니다.`);
+        throw new Error(`트렌드 데이터는 저장됐지만 뉴스레터 실행 보고에 실패했습니다: ${error.message}`);
+    }
     logger.info(`✅ collector 완료: ${formatApiResultSummary(apiResult)}`);
     return {
         payload,
         apiResult,
+        newsletterSignal,
         executionMode,
         completeness
     };
@@ -574,8 +690,18 @@ if (require.main === module) {
         process.exit(1);
     }
 
-    runCollector({ cliOptions }).catch((error) => {
+    const runId = randomUUID();
+    runCollector({ cliOptions, runId }).catch(async (error) => {
         console.error(`❌ trends collector failed: ${error.message}`);
+        try {
+            const config = { ...resolveCollectorConfig(process.env, cliOptions), runId };
+            const stage = /session|login|로그인|세션|인증/i.test(error.message) ? 'naver_session'
+                : /불완전|완전성|category|keyword/i.test(error.message) ? 'collection_validation'
+                    : /API /i.test(error.message) ? 'trend_ingest' : 'collector';
+            await reportCollectorFailure(config, { stage, error: error.message });
+        } catch (reportError) {
+            console.error(`❌ collector failure report could not be delivered: ${reportError.message}`);
+        }
         process.exitCode = 1;
     });
 }
@@ -591,6 +717,8 @@ module.exports = {
     prepareCollectorRuntime,
     promptForProductionConfirmation,
     pushPayloadToApi,
+    signalCollectionComplete,
+    reportCollectorFailure,
     resolveCollectorConfig,
     resolveCollectorExecutionMode,
     runCollector,

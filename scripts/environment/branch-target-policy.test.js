@@ -4,9 +4,10 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { evaluateBranchTarget, getBranchTargetPolicy } = require('./branch-target-policy');
 
-test('feature and dev branches remain restricted to their approved target environments', () => {
+test('feature and dev branches may use local and development, never production', () => {
     assert.equal(evaluateBranchTarget('feature/environment-01', 'local').allowed, true);
-    assert.equal(evaluateBranchTarget('feature/environment-01', 'development').allowed, false);
+    assert.equal(evaluateBranchTarget('feature/environment-01', 'development').allowed, true);
+    assert.equal(evaluateBranchTarget('feature/environment-01', 'production').allowed, false);
     assert.equal(evaluateBranchTarget('dev', 'local').allowed, true);
     assert.equal(evaluateBranchTarget('dev', 'development').allowed, true);
     assert.equal(evaluateBranchTarget('dev', 'production').allowed, false);

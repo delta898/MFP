@@ -2,16 +2,28 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COLLECTOR="$SCRIPT_DIR/collect_production.sh"
+ENVIRONMENT="${1:-}"
+if [[ "$ENVIRONMENT" == "development" ]]; then
+  COLLECTOR="$SCRIPT_DIR/collect_development.sh"
+  TARGET_LABEL="Development"
+elif [[ "$ENVIRONMENT" == "production" ]]; then
+  COLLECTOR="$SCRIPT_DIR/collect_production.sh"
+  TARGET_LABEL="Production"
+else
+  echo "사용법: $0 <development|production> [옵션]" >&2
+  exit 2
+fi
+shift
+
 START_DATE="2026-01-01"
 END_DATE="$(python3 -c 'from datetime import date; print(date.today().isoformat())')"
 DELAY_SECONDS=3
 SWIPE_DELAY_MS=400
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 사용법:
-  ./apps/trends/trends-collector/commands/collect_production_range.sh [옵션]
+  $0 $ENVIRONMENT [옵션]
 
 옵션:
   --start DATE   수집 시작일 (YYYY-MM-DD 또는 YYYYMMDD, 기본: 2026-01-01)
@@ -22,28 +34,23 @@ usage() {
   -h, --help     도움말 표시
 
 예시:
-  ./apps/trends/trends-collector/commands/collect_production_range.sh
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 2026-01-01 --end 2026-10-29
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 20260101 --end 20261029 --delay 5
-  ./apps/trends/trends-collector/commands/collect_production_range.sh --start 20260101 --swipe-delay-ms 900
+  $0 $ENVIRONMENT
+  $0 $ENVIRONMENT --start 2026-01-01 --end 2026-10-29
+  $0 $ENVIRONMENT --start 20260101 --end 20261029 --delay 5
 EOF
 }
 
 normalize_date() {
   local value="$1"
-
   if [[ "$value" =~ ^[0-9]{8}$ ]]; then
     value="${value:0:4}-${value:4:2}-${value:6:2}"
   fi
-
   printf '%s\n' "$value"
 }
 
 is_valid_date() {
   local value="$1"
-
   [[ "$value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
-
   python3 - "$value" <<'PY' >/dev/null 2>&1
 from datetime import date
 import sys
@@ -57,9 +64,7 @@ PY
 }
 
 add_one_day() {
-  local value="$1"
-
-  python3 - "$value" <<'PY'
+  python3 - "$1" <<'PY'
 from datetime import date, timedelta
 import sys
 
@@ -108,27 +113,22 @@ if ! is_valid_date "$START_DATE"; then
   echo "시작일 형식이 잘못됐거나 존재하지 않는 날짜입니다: $START_DATE" >&2
   exit 2
 fi
-
 if ! is_valid_date "$END_DATE"; then
   echo "종료일 형식이 잘못됐거나 존재하지 않는 날짜입니다: $END_DATE" >&2
   exit 2
 fi
-
 if [[ ! "$DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
   echo "--delay는 0 이상의 정수여야 합니다: $DELAY_SECONDS" >&2
   exit 2
 fi
-
 if [[ ! "$SWIPE_DELAY_MS" =~ ^[0-9]+$ ]] || ((SWIPE_DELAY_MS > 60000)); then
   echo "--swipe-delay-ms는 0~60000 사이의 정수여야 합니다: $SWIPE_DELAY_MS" >&2
   exit 2
 fi
-
 if [[ "$START_DATE" > "$END_DATE" ]]; then
   echo "시작일이 종료일보다 늦습니다." >&2
   exit 2
 fi
-
 if [[ ! -x "$COLLECTOR" ]]; then
   echo "수집기를 찾을 수 없거나 실행 권한이 없습니다: $COLLECTOR" >&2
   exit 1
@@ -137,23 +137,33 @@ fi
 echo "수집 기간: $START_DATE ~ $END_DATE"
 echo "날짜 사이 대기: ${DELAY_SECONDS}초"
 echo "스와이프 후 대기: ${SWIPE_DELAY_MS}ms"
-echo "대상: Production"
+echo "대상: $TARGET_LABEL"
 
 day="$START_DATE"
-
+failed_dates=()
 while :; do
   echo
   echo "===== $day 수집 시작 ====="
-  "$COLLECTOR" --confirm-production --date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS"
-  echo "===== $day 완료 ====="
+  collector_args=(--date "$day" --swipe-delay-ms "$SWIPE_DELAY_MS")
+  if [[ "$ENVIRONMENT" == "production" ]]; then
+    collector_args=(--confirm-production "${collector_args[@]}")
+    if ! "$COLLECTOR" "${collector_args[@]}"; then
+      echo "===== $day 실패; Production 범위 수집을 중단합니다 =====" >&2
+      exit 1
+    fi
+  elif "$COLLECTOR" "${collector_args[@]}"; then
+    echo "===== $day 완료 ====="
+  else
+    status=$?
+    failed_dates+=("$day")
+    echo "===== $day 실패 (exit=$status); 다음 날짜를 계속합니다 =====" >&2
+  fi
 
   [[ "$day" == "$END_DATE" ]] && break
-
   if ((DELAY_SECONDS > 0)); then
     echo "다음 날짜까지 ${DELAY_SECONDS}초 대기..."
     sleep "$DELAY_SECONDS"
   fi
-
   next_day="$(add_one_day "$day")"
   if ! is_valid_date "$next_day"; then
     echo "다음 날짜 계산 결과가 잘못됐습니다: '$next_day' (현재 날짜: $day)" >&2
@@ -164,3 +174,7 @@ done
 
 echo
 echo "전체 날짜 수집 완료: $START_DATE ~ $END_DATE"
+if ((${#failed_dates[@]} > 0)); then
+  echo "실패 날짜: ${failed_dates[*]}" >&2
+  exit 1
+fi

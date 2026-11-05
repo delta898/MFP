@@ -1,0 +1,11 @@
+{
+  "format": "bloggenius-astro-project",
+  "schema_version": 1,
+  "settings_support": {
+    "site_identity": true,
+    "navigation": true,
+    "logo": true,
+    "favicon": true,
+    "share_image": true
+  }
+}

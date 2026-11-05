@@ -45,7 +45,7 @@ test('runtime credential rollout manifest owns exact migration and Function inpu
     ]);
 });
 
-test('feature branch can inspect rollout but only dev can become ready', () => {
+test('feature branch can prepare the development rollout without executing it', () => {
     const featurePlan = buildRolloutPlan({
         repoRoot: REPO_ROOT,
         env: READY_ENV,
@@ -53,8 +53,9 @@ test('feature branch can inspect rollout but only dev can become ready', () => {
     });
     const devPlan = buildRolloutPlan({ repoRoot: REPO_ROOT, env: READY_ENV, branch: 'dev' });
 
-    assert.equal(featurePlan.allowed, false);
-    assert.ok(featurePlan.preflights.every((item) => item.reasons.includes('branch_target_denied')));
+    assert.equal(featurePlan.allowed, true);
+    assert.ok(featurePlan.preflights.every((item) => item.allowed));
+    assert.equal(featurePlan.remoteMutationsExecuted, false);
     assert.equal(devPlan.allowed, true);
     assert.equal(devPlan.remoteMutationsExecuted, false);
     assert.equal(devPlan.productionMutationAllowed, false);
@@ -73,7 +74,10 @@ test('rollout plan is provider-neutral, dry-runs DB first, and never contains se
     );
 
     assert.match(output, /db push --dry-run/);
+    assert.match(output, /db push --dry-run --remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
+    assert.match(output, /db push --remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes/);
     assert.match(output, /functions deploy knowledge-gateway/);
+    assert.match(output, /functions deploy knowledge-gateway --remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" --yes/);
     assert.doesNotMatch(output, /db reset|secrets set|production-project/i);
     assert.doesNotMatch(serialized, /service_role|client-secret-value|ssh|compose/i);
     assert.deepEqual(naverSecret.required_for_features, ['blog_reference', 'shopping_product', 'news']);
