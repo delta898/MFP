@@ -75,7 +75,7 @@ test('Development and Production push workflows deploy the same three Worker rol
 });
 
 test('Production releases deploy matching access-token Function from a release push', () => {
-    const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
+    const deploy = productionWorkflow.match(/  deploy-bloggenius:[\s\S]*?(?=\n  deploy-mentivenus:)/)?.[0] || '';
     assert.match(deploy, /required=\([^\n]*TRENDS_READ_TOKEN_SECRET/);
     assert.match(deploy, /Sync Production access-token Function secrets[\s\S]*SUPABASE_URL:process\.env\.SUPABASE_URL[\s\S]*SUPABASE_SECRET_KEY:process\.env\.SUPABASE_SECRET_KEY[\s\S]*TRENDS_READ_TOKEN_SECRET:process\.env\.TRENDS_READ_TOKEN_SECRET[\s\S]*TRENDS_READ_TOKEN_ISSUER:"bloggenius-license"[\s\S]*TRENDS_READ_TOKEN_AUDIENCE:"trends-api"[\s\S]*supabase secrets set/);
     assert.match(deploy, /Deploy Production access-token Edge Function[\s\S]*supabase functions deploy issue-trends-access-token/);
@@ -168,13 +168,13 @@ test('Production deploy wrapper accepts release pushes and manual release operat
 });
 
 test('Production migration preview must finish before the separately gated deploy job', () => {
-    const preview = productionWorkflow.match(/  production-migration-preview:[\s\S]*?(?=\n  deploy:)/)?.[0] || '';
-    const deploy = productionWorkflow.match(/  deploy:[\s\S]*$/)?.[0] || '';
+    const preview = productionWorkflow.match(/  production-migration-preview:[\s\S]*?(?=\n  deploy-bloggenius:)/)?.[0] || '';
+    const deploy = productionWorkflow.match(/  deploy-bloggenius:[\s\S]*?(?=\n  deploy-mentivenus:)/)?.[0] || '';
     assert.match(preview, /environment: production/);
     assert.match(preview, /SUPABASE_DB_POOLER_URL: \$\{\{ secrets\.SUPABASE_DB_POOLER_URL \}\}/);
     assert.match(preview, /supabase db push --dry-run --remote="\$SUPABASE_DB_POOLER_URL"/);
     assert.doesNotMatch(preview, /supabase link/);
-    assert.match(deploy, /needs: \[validate-release-ref, build, production-migration-preview\]/);
+    assert.match(deploy, /needs: \[deployment-changes, validate-release-ref, build, production-migration-preview\]/);
     assert.match(deploy, /needs\.production-migration-preview\.result == 'success'/);
     assert.match(deploy, /environment: production/);
     assert.match(deploy, /SUPABASE_DB_POOLER_URL: \$\{\{ secrets\.SUPABASE_DB_POOLER_URL \}\}/);
@@ -191,9 +191,10 @@ test('Production API Worker deployment includes the newsletter forwarding token'
 
 test('Production deploy is push-driven, ensures an unbound site hostname, and keeps legacy cutover manual', () => {
     assert.match(productionWorkflow, /- deploy-workers[\s\S]*- cutover-site-domain[\s\S]*- rollback-site-domain/);
-    const deploy = productionWorkflow.match(/  deploy:[\s\S]*?(?=\n  site-domain-cutover:)/)?.[0] || '';
+    const deploy = productionWorkflow.match(/  deploy-bloggenius:[\s\S]*?(?=\n  deploy-mentivenus:)/)?.[0] || '';
     const cutover = productionWorkflow.match(/  site-domain-cutover:[\s\S]*$/)?.[0] || '';
-    assert.match(deploy, /github\.event_name == 'push' \|\| inputs\.operation == 'deploy-workers'/);
+    assert.match(deploy, /needs\.deployment-changes\.outputs\.bloggenius == 'true'/);
+    assert.match(deploy, /needs\.production-migration-preview\.result == 'success'/);
     assert.match(deploy, /Deploy Production site Worker and ensure its domain/);
     assert.match(deploy, /deploy-production-trends-site\.js/);
     const deployScript = fs.readFileSync(path.join(__dirname, 'deploy-production-trends-site.js'), 'utf8');

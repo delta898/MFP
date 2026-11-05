@@ -8,6 +8,8 @@ Site Hosting follows the runtime environment selected by `BLOGGENIUS_ENV`. Local
 
 The MentiVenus company homepage is a separate Astro project at `workspace/site-hosting/sites/www-mentivenus-com/`, linked to the BlogGenius product site. It follows the same push-based environment split: `dev` builds and deploys Worker `www-mentivenus-com-dev` at `www-dev.mentivenus.com`, while `release/*` builds and deploys `www-mentivenus-com-production` at `www.mentivenus.com`. Each pipeline creates the Worker when absent and binds the environment hostname only when unbound; an existing binding to another Worker fails closed and requires an explicit operational cutover.
 
+Push workflows classify changed paths into two deployment bundles. BlogGenius-owned application, Trends API/newsletter, Supabase, and product-site changes run the BlogGenius deployment chain, including its administrator canary and live activation. MentiVenus-only site changes build and deploy only the MentiVenus site; they do not run BlogGenius database, Worker, newsletter, or canary steps. Shared site-hosting/deployment infrastructure and workflow changes select both bundles. Manual `deploy-workers` keeps the full paired deployment behavior.
+
 Blog Beta can publish a manuscript to a Digital Garden (DG) Site backed by a local Vault. The destination picker exposes only folders under the root configured for that Site. The browser keeps the chosen relative path in the current tab session; the server resolves and validates it again when publishing.
 
 ## Destination contract

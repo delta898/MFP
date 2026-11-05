@@ -36,7 +36,8 @@ test('Development migrations are previewed and applied before drift and smoke ch
     assert.match(validation, /inputs\.mode == 'development-drift'/);
     assert.doesNotMatch(validation, /needs: development-drift/);
     const workerDeploy = workflow.match(/  deploy-development-workers:[\s\S]*?(?=\n  deploy-development-site:)/)?.[0] || '';
-    assert.match(workerDeploy, /needs: \[development-drift, validate-development-workers\]/);
+    assert.match(workerDeploy, /needs: \[deployment-changes, development-drift, validate-development-workers\]/);
+    assert.match(workerDeploy, /needs\.deployment-changes\.outputs\.bloggenius == 'true'/);
     assert.match(workflow, /Deploy Development newsletter Edge Function[\s\S]*if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/dev'[\s\S]*supabase functions deploy trends-mailing-list[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);
     assert.match(workflow, /Sync Development Trends access-token Function secrets[\s\S]*TRENDS_READ_TOKEN_ISSUER:"bloggenius-development"[\s\S]*TRENDS_READ_TOKEN_AUDIENCE:"trends-api-development"[\s\S]*supabase secrets set[\s\S]*--project-ref "\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"/);
     assert.match(workflow, /Deploy Development Trends access-token Edge Function[\s\S]*supabase functions deploy issue-trends-access-token[\s\S]*--remote="\$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF"[\s\S]*--yes/);

@@ -46,8 +46,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  deployment-changes:
+    name: Detect changed deployment bundles
+    runs-on: ubuntu-latest
+    outputs:
+      bloggenius: ${{ steps.scope.outputs.bloggenius }}
+      mentivenus: ${{ steps.scope.outputs.mentivenus }}
+      any: ${{ steps.scope.outputs.any }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Classify changes for this push
+        id: scope
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          WORKFLOW_MODE: ${{ inputs.mode }}
+        run: node scripts/deployment-change-scope.js
+
   release-artifact:
     name: Build Immutable Supabase Artifact
+    needs: deployment-changes
+    if: >-
+      needs.deployment-changes.outputs.bloggenius == 'true' ||
+      github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -72,10 +97,14 @@ jobs:
   development-drift:
     name: Verify Hosted Development Drift
     if: >-
+      always() &&
       github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.bloggenius == 'true' &&
+      needs.release-artifact.result == 'success' && needs.build-development-site.result == 'success' &&
+      needs.validate-development-workers.result == 'success' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift'))
-    needs: [release-artifact, build-development-site, validate-development-workers]
+    needs: [deployment-changes, release-artifact, build-development-site, validate-development-workers]
     outputs:
       newsletter_deployment_id: ${{ steps.newsletter-deployment.outputs.id }}
     runs-on: ubuntu-latest
@@ -301,8 +330,10 @@ jobs:
   validate-development-workers:
     name: Validate Development Workers
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev' && inputs.mode == 'development-drift')
+      needs.deployment-changes.outputs.bloggenius == 'true' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev' && inputs.mode == 'development-drift'))
+    needs: deployment-changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -375,8 +406,9 @@ jobs:
   build-development-site:
     name: Build Development Site
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      needs.deployment-changes.outputs.any == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
+    needs: deployment-changes
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -389,6 +421,7 @@ jobs:
             workspace/site-hosting/sites/www-bloggenius-kr/package-lock.json
             workspace/site-hosting/sites/www-mentivenus-com/package-lock.json
       - name: Build Development site
+        if: needs.deployment-changes.outputs.bloggenius == 'true' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'development-drift')
         working-directory: workspace/site-hosting/sites/www-bloggenius-kr
         env:
           BLOGGENIUS_ENV: development
@@ -409,6 +442,7 @@ jobs:
             exit 1
           fi
       - name: Build Development MentiVenus site
+        if: needs.deployment-changes.outputs.mentivenus == 'true'
         working-directory: workspace/site-hosting/sites/www-mentivenus-com
         env:
           MENTIVENUS_ENV: development
@@ -424,14 +458,14 @@ jobs:
             exit 1
           fi
       - uses: actions/upload-artifact@v6
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.deployment-changes.outputs.bloggenius == 'true'
         with:
           name: development-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-bloggenius-kr/dist/
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v6
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && needs.deployment-changes.outputs.mentivenus == 'true'
         with:
           name: development-mentivenus-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-mentivenus-com/dist/
@@ -440,8 +474,11 @@ jobs:
 
   deploy-development-workers:
     name: Deploy Development Workers
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: [development-drift, validate-development-workers]
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.bloggenius == 'true' &&
+      needs.development-drift.result == 'success' && needs.validate-development-workers.result == 'success'
+    needs: [deployment-changes, development-drift, validate-development-workers]
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -514,8 +551,11 @@ jobs:
 
   deploy-development-site:
     name: Deploy Development Site
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: [deploy-development-workers, build-development-site]
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.bloggenius == 'true' &&
+      needs.deploy-development-workers.result == 'success' && needs.build-development-site.result == 'success'
+    needs: [deployment-changes, deploy-development-workers, build-development-site]
     runs-on: ubuntu-latest
     environment: development
     env:
@@ -536,19 +576,41 @@ jobs:
         run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Deploy the Development site Worker and ensure its domain
         run: node scripts/deploy-development-site.js
+
+  deploy-development-mentivenus-site:
+    name: Deploy Development MentiVenus Site
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.mentivenus == 'true' && needs.build-development-site.result == 'success'
+    needs: [deployment-changes, build-development-site]
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      MENTIVENUS_ENV: development
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
       - uses: actions/download-artifact@v7
         with:
           name: development-mentivenus-site-${{ github.sha }}
           path: workspace/site-hosting/sites/www-mentivenus-com/dist/
+      - name: Install Cloudflare deploy dependencies
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Deploy the Development MentiVenus site Worker and ensure its domain
-        env:
-          MENTIVENUS_ENV: development
         run: node scripts/deploy-mentivenus-site.js
 
   send-development-newsletter-canary:
     name: Development | Send administrator canary
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    needs: [development-drift, deploy-development-site]
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/dev' &&
+      needs.deployment-changes.outputs.bloggenius == 'true' &&
+      needs.development-drift.result == 'success' && needs.deploy-development-site.result == 'success'
+    needs: [deployment-changes, development-drift, deploy-development-site]
     runs-on: ubuntu-latest
     environment: development
     env:
