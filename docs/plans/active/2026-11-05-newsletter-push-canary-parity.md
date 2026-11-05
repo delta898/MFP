@@ -3,7 +3,7 @@
 - Branch: `codex/newsletter-push-canary-parity`
 - Base/parent: `dev`
 - Start date: 2026-11-05
-- Status: implementation complete; ready for Development push verification
+- Status: implementation and automated verification complete; ready to merge into `dev`
 
 ## User need and goal
 
@@ -53,7 +53,9 @@ Make Development and Production newsletter operations predictable from their nor
 
 - Focused Node suites passed: canary client, secret sync, deployment/workflow contracts, and Trends API Worker (43 tests total); Newsletter Worker suite (42 tests).
 - Supabase mailing Edge Function `deno check` and handler tests passed (20 tests).
-- Workflow YAML parsing and `git diff --check` passed.
+- Full unit suite passed: 2,548 passed, 1 skipped, 0 failed across 474 test files. The skipped case is the repository's existing loopback-dependent test under the current execution environment.
+- Workflow YAML checks and `git diff --check` passed. Full-suite verification also exposed a stale workflow contract assertion; it was updated to account for the Development canary job's own Supabase CLI setup and the full suite then passed.
 - A Development push must be exercised by the user before promotion. It will send one fixed-admin canary, receive the existing Worker Telegram summary, and switch Development delivery to live only after canary success.
 - Production is configured for the same flow on `release/*` pushes. No Production deployment has been run as part of this change.
-- No commit, merge, push, or Production deployment is included in the implementation work unless separately requested.
+- Commits: `d61e6387` and `06ea5612`.
+- Merge into `dev` and feature-branch deletion are authorized by the user's `[cmd] (parent is dev)` request. No remote push or Production deployment is included.
