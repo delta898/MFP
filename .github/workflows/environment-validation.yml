@@ -184,6 +184,37 @@ jobs:
           supabase functions deploy trends-mailing-list \
             --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
             --yes
+      - name: Sync Development Trends access-token Function secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        env:
+          BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: ${{ vars.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL }}
+          TRENDS_SUPABASE_SECRET_KEY: ${{ secrets.TRENDS_SUPABASE_SECRET_KEY }}
+          TRENDS_READ_TOKEN_SECRET: ${{ secrets.TRENDS_READ_TOKEN_SECRET }}
+        run: |
+          set -euo pipefail
+          required_secrets=(BLOGGENIUS_DEVELOPMENT_SUPABASE_URL TRENDS_SUPABASE_SECRET_KEY TRENDS_READ_TOKEN_SECRET)
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Add ${secret_name} to the GitHub development environment configuration."
+              exit 1
+            fi
+          done
+
+          umask 077
+          secrets_file="$(mktemp "$RUNNER_TEMP/trends-access-function-secrets.XXXXXX.env")"
+          trap 'rm -f "$secrets_file"' EXIT
+          node -e 'const fs=require("node:fs"); const values={BLOGGENIUS_ENV:"development",SUPABASE_URL:process.env.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL,SUPABASE_SECRET_KEY:process.env.TRENDS_SUPABASE_SECRET_KEY,TRENDS_READ_TOKEN_SECRET:process.env.TRENDS_READ_TOKEN_SECRET,TRENDS_READ_TOKEN_ISSUER:"bloggenius-development",TRENDS_READ_TOKEN_AUDIENCE:"trends-api-development"}; fs.writeFileSync(process.argv[1],`${Object.entries(values).map(([name,value])=>`${name}=${JSON.stringify(value)}`).join("\n")}\n`,{mode:0o600});' "$secrets_file"
+          supabase secrets set \
+            --env-file "$secrets_file" \
+            --project-ref "$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --yes
+      - name: Deploy Development Trends access-token Edge Function
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: |
+          supabase functions deploy issue-trends-access-token \
+            --remote="$BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF" \
+            --yes
       - name: Read remote migration state
         shell: bash
         run: |

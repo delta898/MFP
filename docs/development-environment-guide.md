@@ -207,6 +207,8 @@ BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF="..."
 BLOGGENIUS_DEVELOPMENT_SUPABASE_URL="https://....supabase.co"
 BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY="..."
 BLOGGENIUS_DEVELOPMENT_SUPABASE_DB_URL="..."
+BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL="https://trendapi-dev.bloggenius.kr"
+BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.bloggenius.kr"
 ```
 
 공백이나 특수문자가 포함된 값은 반드시 따옴표로 감싼다. `.env.development`는 readiness와
@@ -280,7 +282,7 @@ BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME="BlogGenius Production"
 BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF="..."
 BLOGGENIUS_PRODUCTION_SUPABASE_URL="https://....supabase.co"
 BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY="..."
-BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.example.com"
+BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.bloggenius.kr"
 ```
 
 Google과 Cloudflare OAuth 설정은 `.env.oauth.prod`에서 읽는다. `.env.production`에는 service-role

@@ -210,3 +210,28 @@ test('Development Trends API requires the Production URL as a collision fence', 
     assert.equal(profile.trendsApi.configured, false);
     assert.equal(profile.trendsApi.reason, 'production_target_unknown');
 });
+
+test('BlogGenius hosted environments use their matching BlogGenius Trends API domains', () => {
+    const development = resolveRuntimeEnvironmentProfile({
+        env: {
+            BLOGGENIUS_ENV: 'development',
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: DEV_URL,
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: 'development-key',
+            BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL: 'https://trendapi-dev.bloggenius.kr',
+            BLOGGENIUS_PRODUCTION_TRENDS_API_URL: 'https://trendapi.bloggenius.kr'
+        }
+    });
+    const production = resolveRuntimeEnvironmentProfile({
+        env: {
+            BLOGGENIUS_ENV: 'production',
+            BLOGGENIUS_PRODUCTION_SUPABASE_URL: PROD_URL,
+            BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY: 'production-key',
+            BLOGGENIUS_PRODUCTION_TRENDS_API_URL: 'https://trendapi.bloggenius.kr'
+        }
+    });
+
+    assert.equal(development.trendsApi.configured, true);
+    assert.equal(development.trendsApi.url, 'https://trendapi-dev.bloggenius.kr');
+    assert.equal(production.trendsApi.configured, true);
+    assert.equal(production.trendsApi.url, 'https://trendapi.bloggenius.kr');
+});

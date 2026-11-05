@@ -3,13 +3,13 @@
 This is a separate implementation of the existing Trends API contract. The
 Docker implementation remains under `../docker/` as an Oracle rollback path.
 The Cloudflare Workers are now the active API endpoints. Development consumers
-use the renamed Worker and hostname below; Production keeps its existing
-hostname until a separately approved migration.
+use the renamed Worker and hostname below. Production keeps its legacy hostname
+as a compatibility alias and also serves the new BlogGenius hostname.
 
 | Environment | Worker | API hostname | `workers.dev` fallback |
 | --- | --- | --- | --- |
 | Development | `bloggenius-trends-api-dev` | `trendapi-dev.bloggenius.kr` | `bloggenius-trends-api-dev.delta898.workers.dev` |
-| Production | `bloggenius-trends-api-production` | `trendapi.hangadac.com` | `bloggenius-trends-api-production.delta898.workers.dev` |
+| Production | `bloggenius-trends-api-production` | `trendapi.bloggenius.kr` (legacy alias: `trendapi.hangadac.com`) | `bloggenius-trends-api-production.delta898.workers.dev` |
 
 Cloudflare Custom Domains own DNS and TLS for the API hostnames. Each hostname
 routes all paths to its Worker. The Production Oracle Docker service remains
