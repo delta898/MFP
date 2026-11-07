@@ -13,6 +13,11 @@ function cleanText(value, maxLength = 500) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
+function cleanExcerpt(value, maxLength = 240) {
+    const excerpt = cleanText(value, maxLength + 1);
+    return excerpt.length > maxLength ? `${excerpt.slice(0, maxLength).trimEnd()}…` : excerpt;
+}
+
 function safeSiteUrl(value, environment, allowedPath = null) {
     try {
         const url = new URL(String(value || ''));
@@ -120,7 +125,7 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
     const greeting = cleanText(edition.greeting, 100);
     const introduction = cleanText(edition.introduction, 360);
     const articleTitle = cleanText(edition.featured_post?.title, 200);
-    const articleExcerpt = cleanText(edition.featured_post?.excerpt, 420);
+    const articleExcerpt = cleanExcerpt(edition.featured_post?.excerpt);
     if (!greeting || !introduction || !articleTitle) throw new Error('Shared edition content is incomplete.');
 
     const sections = selectedCategories.map((category) => ({
@@ -161,7 +166,15 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
           </ol>
         </section>`).join('');
 
-    const html = `<!doctype html><html lang="ko"><body style="margin:0;background:#f5f6f2;color:#1e2b25;font-family:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+    const html = `<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+      @media only screen and (max-width:600px) {
+        .today-read-image-cell,.today-read-content-cell { display:block !important;width:100% !important;box-sizing:border-box !important; }
+        .today-read-image-cell { padding:0 0 16px !important; }
+        .today-read-image { width:100% !important;max-width:100% !important;height:auto !important; }
+        .today-read-title { font-size:21px !important;line-height:1.4 !important; }
+        .today-read-excerpt { font-size:15px !important;line-height:1.65 !important; }
+      }
+    </style></head><body style="margin:0;background:#f5f6f2;color:#1e2b25;font-family:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif">
       <div style="display:none;max-height:0;overflow:hidden">${isCanary ? '관리자 확인용 CANARY 테스트 메일 · 구독자 발송 아님 · ' : ''}${escapeHtml(dateLabel)} 관심 카테고리별 네이버 트렌드 브리핑</div>
       <main style="max-width:680px;margin:0 auto;padding:28px 16px 40px">
         ${isCanary ? '<div style="margin:0 0 14px;padding:12px 16px;border:1px solid #e8c98a;border-radius:12px;background:#fff7e6;color:#765313;font-size:14px;font-weight:700">🧪 관리자 확인용 CANARY 테스트 메일 · 구독자에게 발송되지 않았습니다.</div>' : ''}
@@ -177,10 +190,10 @@ export function buildRecipientBriefing({ environment = 'development', trendDate,
         <section style="margin:32px 0 0;padding:24px;border-radius:18px;background:#fff;border:1px solid #dce5df">
           <p style="margin:0 0 10px;color:#315f4c;font-size:12px;font-weight:700;letter-spacing:.16em">TODAY'S READ</p>
           <table role="presentation" style="width:100%;border-collapse:collapse"><tbody><tr>
-            ${articleImageUrl ? `<td style="width:144px;padding:0 18px 0 0;vertical-align:top"><a href="${escapeHtml(articleUrl)}" style="display:block"><img src="${escapeHtml(articleImageUrl)}" alt="${escapeHtml(articleTitle)}" width="144" style="display:block;width:144px;max-width:100%;height:auto;border:0;border-radius:10px"></a></td>` : ''}
-            <td style="vertical-align:top">
-              <h2 style="margin:0 0 10px;font-size:20px;line-height:1.45"><a href="${escapeHtml(articleUrl)}" style="color:#1e2b25;text-decoration:none">${escapeHtml(articleTitle)}</a></h2>
-              ${articleExcerpt ? `<p style="margin:0;color:#64736b;line-height:1.7">${escapeHtml(articleExcerpt)}</p>` : ''}
+            ${articleImageUrl ? `<td class="today-read-image-cell" style="width:144px;padding:0 18px 0 0;vertical-align:top"><a href="${escapeHtml(articleUrl)}" style="display:block"><img class="today-read-image" src="${escapeHtml(articleImageUrl)}" alt="${escapeHtml(articleTitle)}" width="144" style="display:block;width:144px;max-width:100%;height:auto;border:0;border-radius:10px"></a></td>` : ''}
+            <td class="today-read-content-cell" style="vertical-align:top">
+              <h2 class="today-read-title" style="margin:0 0 10px;font-size:20px;line-height:1.45"><a href="${escapeHtml(articleUrl)}" style="color:#1e2b25;text-decoration:none">${escapeHtml(articleTitle)}</a></h2>
+              ${articleExcerpt ? `<p class="today-read-excerpt" style="margin:0;color:#64736b;line-height:1.7">${escapeHtml(articleExcerpt)}</p>` : ''}
               <p style="margin:18px 0 0"><a href="${escapeHtml(articleUrl)}" style="color:#315f4c;font-weight:700">글 읽기 →</a></p>
             </td>
           </tr></tbody></table>

@@ -51,13 +51,29 @@ test('builds personalized HTML and text with all twenty movement details and cur
     assert.match(briefing.html, /NEW/);
     assert.doesNotMatch(briefing.html, /<script>/);
     assert.match(briefing.html, /https:\/\/blog\.gongzza\.com\/updates\/1/);
-    assert.match(briefing.html, /<img src="https:\/\/blog\.gongzza\.com\/wp-content\/cover\.jpg" alt="BlogGenius 업데이트 안내" width="144"/);
+    assert.match(briefing.html, /<img class="today-read-image" src="https:\/\/blog\.gongzza\.com\/wp-content\/cover\.jpg" alt="BlogGenius 업데이트 안내" width="144"/);
+    assert.match(briefing.html, /@media only screen and \(max-width:600px\)/);
+    assert.match(briefing.html, /class="today-read-image-cell"/);
+    assert.match(briefing.html, /class="today-read-content-cell"/);
     assert.match(briefing.html, /share-card\.svg/);
     assert.match(briefing.html, /unsubscribe\//);
     assert.match(briefing.text, /전체 트렌드 보기/);
     assert.match(briefing.text, /도전인생 · BlogGenius/);
     assert.match(briefing.html, /도전인생 · BlogGenius/);
     assert.match(briefing.text, /구독 취소/);
+});
+
+test('keeps the featured article excerpt concise for narrow email layouts', () => {
+    const briefing = makeBriefing({
+        edition: {
+            ...edition,
+            featured_post: { ...edition.featured_post, excerpt: '가'.repeat(400) }
+        }
+    });
+    const excerpt = briefing.html.match(/class="today-read-excerpt"[^>]*>(.*?)<\/p>/)?.[1];
+    assert.ok(excerpt);
+    assert.equal(excerpt.length, 241);
+    assert.ok(excerpt.endsWith('…'));
 });
 
 test('omits an unsafe article thumbnail URL while keeping the article card', () => {
