@@ -885,11 +885,15 @@ prompt 대신 `--confirm-production`을 명시하고, 중복 실행 lock·실패
 
 If the collector is hosted on the server, prefer the same absolute Node path discovered with `which node`.
 
-Example once-per-day run:
+Example schedule with stdout and stderr appended to a date-specific log file:
 
 ```cron
-15 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && ./apps/trends/trends-collector/commands/collect_production.sh --confirm-production >> /home/ubuntu/Project/NaverAutoBlog/logs/trends-collector.log 2>&1
+20-40/5 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && mkdir -p logs && ./apps/trends/trends-collector/commands/collect_production.sh --confirm-production >> "logs/trends-collector-$(date +\%F).log" 2>&1
 ```
+
+This creates `logs/trends-collector-YYYY-MM-DD.log` and appends all runs from that date to the same
+file. The command writes a timestamped start line when run without a terminal; collector output and
+errors are captured by cron redirection.
 
 이 예시는 승인 계약을 보여주기 위한 형태이며 lock·알림·재시도 설계 전에는 그대로 등록하지
 않는다.

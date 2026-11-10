@@ -42,4 +42,8 @@ if [[ "${1:-}" == "help" || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
+if [[ ! -t 1 ]]; then
+    printf '[%s] trends-collector started (production)\n' "$(date '+%Y-%m-%dT%H:%M:%S%:z')"
+fi
+
 exec npm run trends:collector:production -- "$@"
