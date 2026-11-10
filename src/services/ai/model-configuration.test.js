@@ -23,8 +23,8 @@ const modelSets = [
         ['gemini-3.1-pro-preview', 30], ['gemini-3.1-flash-lite', 40]
     ]],
     ['text', 'openai', 'openai_chat_completions', [
-        ['gpt-6-astra', 5], ['gpt-6.1-sol', 10], ['gpt-6-sol', 15], ['gpt-6-luna', 20],
-        ['gpt-5.6-sol', 30], ['gpt-5.6-terra', 40], ['gpt-5.6-luna', 50]
+        ['gpt-6.1-sol', 5], ['gpt-6.1-terra', 10], ['gpt-6-astra', 15], ['gpt-6-sol', 20], ['gpt-6-luna', 25],
+        ['gpt-5.6-sol', 30], ['gpt-5.6-terra', 35], ['gpt-5.6-luna', 40]
     ]],
     ['text', 'anthropic', 'anthropic_openai_compat', [
         ['claude-fable-5-1', 5], ['claude-opus-5', 10], ['claude-sonnet-5', 20], ['claude-haiku-4-5', 30]
@@ -152,8 +152,9 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
         [
-            'gpt-6-astra',
             'gpt-6.1-sol',
+            'gpt-6.1-terra',
+            'gpt-6-astra',
             'gpt-6-sol',
             'gpt-6-luna',
             'gpt-5.6-sol',
