@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { isPreExecutionValidationError } = require('../../agent-actions/execution-errors');
 const { IDENTIFIER_PATTERN } = require('../core/validators');
 
 const ACTIONABLE_STATES = new Set(['available', 'action_failed']);
@@ -38,11 +39,6 @@ function splitCapabilityId(capabilityId) {
         throw new RecommendationHandoffError('capability_unavailable', '추천에 연결된 기능을 사용할 수 없습니다.');
     }
     return { domain: capabilityId.slice(0, index), name: capabilityId.slice(index + 1) };
-}
-
-function stableErrorCode(error) {
-    const value = String(error?.code || '').trim().toLowerCase();
-    return /^[a-z][a-z0-9_:-]{0,119}$/.test(value) ? value : 'capability_execution_failed';
 }
 
 function createRecommendationHandoffService(options = {}) {
@@ -147,23 +143,30 @@ function createRecommendationHandoffService(options = {}) {
                 throw error;
             }
         } catch (error) {
-            try {
-                await recommendationStore.transitionRecommendation({
-                    owner_user_id: identity.ownerUserId,
-                    recommendation_id: identity.recommendationId,
-                    event_type: 'recommendation.action_failed',
-                    operation_id: `${operationId}:failed`,
-                    occurred_at: timestamp(),
-                    error_code: stableErrorCode(error),
-                    metadata: { capability_id: recommendation.candidate.handoff.capability_id }
-                });
-            } catch (_recordError) {
-                throw new RecommendationHandoffError(
-                    'failure_record_failed',
-                    '동작 실행 결과가 불확실해 자동 재시도를 중단했습니다. 상태를 확인해 주세요.'
-                );
+            if (isPreExecutionValidationError(error)) {
+                try {
+                    await recommendationStore.transitionRecommendation({
+                        owner_user_id: identity.ownerUserId,
+                        recommendation_id: identity.recommendationId,
+                        event_type: 'recommendation.action_failed',
+                        operation_id: `${operationId}:failed`,
+                        occurred_at: timestamp(),
+                        error_code: 'capability_validation_failed',
+                        metadata: { capability_id: recommendation.candidate.handoff.capability_id }
+                    });
+                } catch (_recordError) {
+                    throw new RecommendationHandoffError('failure_record_failed',
+                        '실행 전 검증에 실패했지만 상태 기록을 확인하지 못했습니다. 상태를 확인해 주세요.');
+                }
+                throw new RecommendationHandoffError('capability_execution_failed',
+                    '실행 전 검증에 실패했습니다. 설정을 확인한 뒤 다시 시도할 수 있습니다.');
             }
-            throw new RecommendationHandoffError('capability_execution_failed', '추천 동작 실행에 실패했습니다. 다시 시도할 수 있습니다.');
+            // A provider error or unsuccessful response does not prove that no
+            // side effect occurred. Leave action_started non-actionable.
+            throw new RecommendationHandoffError(
+                'execution_outcome_unknown',
+                '동작 실행 결과가 불확실합니다. 중복 실행하지 말고 상태를 확인해 주세요.'
+            );
         }
 
         try {
@@ -265,8 +268,15 @@ function createRecommendationHandoffService(options = {}) {
             if (confirmation.status !== 'pending') {
                 throw new RecommendationHandoffError('confirmation_already_decided', '이미 처리된 확인 요청입니다.');
             }
+            const ensureTransition = (transitioned) => {
+                if (transitioned) return;
+                if (confirmationStore.get(confirmationId)?.status === 'expired') {
+                    throw new RecommendationHandoffError('confirmation_expired', '확인 요청이 만료되었습니다.');
+                }
+                throw new RecommendationHandoffError('confirmation_already_decided', '이미 처리된 확인 요청입니다.');
+            };
             if (decision === 'reject') {
-                confirmationStore.reject(confirmationId);
+                ensureTransition(confirmationStore.reject(confirmationId));
                 return { ok: true, status: 'rejected', recommendation_id: identity.recommendationId };
             }
 
@@ -275,14 +285,24 @@ function createRecommendationHandoffService(options = {}) {
             if (resolved.capability.confirmPolicy === 'never') {
                 throw new RecommendationHandoffError('confirmation_policy_changed', '기능의 확인 정책이 변경되어 다시 시작해야 합니다.');
             }
-            confirmationStore.accept(confirmationId);
-            const executed = await execute(
-                identity,
-                recommendation,
-                resolved.action,
-                correlation.operation_id,
-                context
-            );
+            ensureTransition(confirmationStore.accept(confirmationId));
+            let executed;
+            try {
+                executed = await execute(
+                    identity,
+                    recommendation,
+                    resolved.action,
+                    correlation.operation_id,
+                    context
+                );
+            } catch (error) {
+                // Start rejection occurs before invoking the capability. Other
+                // failures can have external effects and remain indeterminate.
+                if (error.code === 'action_start_rejected' || error.code === 'capability_execution_failed') {
+                    confirmationStore.markExecutionFailed?.(confirmationId, error.code);
+                }
+                throw error;
+            }
             confirmationStore.markExecuted(confirmationId);
             return {
                 ok: true,

@@ -9,6 +9,14 @@ const { validatePlan } = require('./planning/planner-contract');
 const { createPlanner } = require('./planning/planner');
 const { applyUserActionPreferences } = require('../../services/memory/user-action-preferences');
 
+function ownsConfirmation(item, context) {
+    const owner = normalizeRuntimeContext(context);
+    return Boolean(item && owner.user.id && owner.conversation.id
+        && item.channel === owner.channel
+        && item.userId === owner.user.id
+        && item.conversationId === owner.conversation.id);
+}
+
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
     const confirmationStore = options.confirmationStore;
@@ -319,7 +327,8 @@ function createAgentRuntime(options = {}) {
                 const pendingAction = normalizedActions[0];
                 if (String(pendingAction.domain || '').trim() === 'agent.pending'
                     && (pendingAction.name === 'apply_latest' || pendingAction.name === 'reject_latest')) {
-                    const latestPending = confirmationStore.getPendingByUser(runtimeContext?.user?.id || '').slice(-1)[0] || null;
+                    const latestPending = confirmationStore.getPendingByUser(runtimeContext?.user?.id || '')
+                        .filter((item) => ownsConfirmation(item, context)).slice(-1)[0] || null;
                     if (!latestPending) {
                         return buildCompletedResult(
                             buildSyntheticCapabilityResult(
@@ -379,7 +388,14 @@ function createAgentRuntime(options = {}) {
             if (requiresConfirmation) {
                 let supersededConfirmation = null;
                 if (planned.supersedes_confirmation_id) {
+                    const previous = confirmationStore.get(planned.supersedes_confirmation_id);
+                    if (!ownsConfirmation(previous, context) || previous.status !== 'pending') {
+                        return buildInvalidResult(['대체할 수 있는 확인 대기 요청을 찾지 못했습니다.']);
+                    }
                     supersededConfirmation = confirmationStore.reject(planned.supersedes_confirmation_id);
+                    if (!supersededConfirmation) {
+                        return buildInvalidResult(['대체할 수 있는 확인 대기 요청을 찾지 못했습니다.']);
+                    }
                     if (supersededConfirmation) {
                         await recordEvent({
                             event_type: 'agent.confirmation.superseded',
@@ -496,13 +512,16 @@ function createAgentRuntime(options = {}) {
             };
         },
 
-        async handleConfirmationDecision(input = {}, context = {}) {
+        async handleConfirmationDecision(input = {}, context = {}, options = {}) {
             const confirmationId = String(input.confirmationId || '').trim();
             const decision = String(input.decision || '').trim().toLowerCase();
             const item = confirmationStore.get(confirmationId);
 
-            if (!item) {
+            if (!ownsConfirmation(item, context)) {
                 return { ok: false, status: 'not_found', message: '확인 요청을 찾지 못했습니다.' };
+            }
+            if (decision !== 'approve' && decision !== 'reject') {
+                return { ok: false, status: 'invalid_input', message: '유효한 승인 또는 거절을 선택해 주세요.' };
             }
             if (item.status === 'expired') {
                 return { ok: false, status: 'expired', message: '확인 요청이 만료되었습니다.' };
@@ -511,8 +530,15 @@ function createAgentRuntime(options = {}) {
                 return { ok: false, status: 'invalid_state', message: '이미 처리된 확인 요청입니다.' };
             }
 
+            const transitionFailed = () => {
+                const current = confirmationStore.get(confirmationId);
+                return current?.status === 'expired'
+                    ? { ok: false, status: 'expired', message: '확인 요청이 만료되었습니다.' }
+                    : { ok: false, status: 'invalid_state', message: '이미 처리된 확인 요청입니다.' };
+            };
             if (decision === 'reject') {
                 const rejected = confirmationStore.reject(confirmationId);
+                if (!rejected) return transitionFailed();
                 await recordEvent({
                     event_type: 'agent.confirmation.rejected',
                     actor_type: 'user',
@@ -527,6 +553,8 @@ function createAgentRuntime(options = {}) {
             }
 
             const accepted = confirmationStore.accept(confirmationId);
+            if (!accepted) return transitionFailed();
+            options.onAccepted?.();
             await recordEvent({
                 event_type: 'agent.confirmation.accepted',
                 actor_type: 'user',

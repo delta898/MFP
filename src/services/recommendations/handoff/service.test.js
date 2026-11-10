@@ -146,15 +146,13 @@ test('confirmPolicy never는 확인 없이 trusted action을 실행한다', asyn
     assert.equal((await recommendationStore.getRecommendation(input.ownerUserId, input.recommendationId)).status, 'action_completed');
 });
 
-test('실행 실패는 action_failed로 기록되고 새 operation으로 재시도된다', async () => {
+test('실행 오류의 결과가 불확실하면 재시도를 차단한다', async () => {
     const capabilityRegistry = registryFixture({ confirmPolicy: 'never', failCount: 1 });
     const { service, input, recommendationStore } = await fixture({ capabilityRegistry });
-    await assert.rejects(service.prepare(input), (error) => error.code === 'capability_execution_failed');
-    assert.equal((await recommendationStore.getRecommendation(input.ownerUserId, input.recommendationId)).status, 'action_failed');
-    const retry = await service.prepare(input);
-    assert.equal(retry.status, 'executed');
-    assert.equal(capabilityRegistry.executionCount, 2);
-    assert.equal((await recommendationStore.getRecommendation(input.ownerUserId, input.recommendationId)).status, 'action_completed');
+    await assert.rejects(service.prepare(input), (error) => error.code === 'execution_outcome_unknown');
+    assert.equal((await recommendationStore.getRecommendation(input.ownerUserId, input.recommendationId)).status, 'action_in_progress');
+    await assert.rejects(service.prepare(input), error => error.code === 'recommendation_not_actionable');
+    assert.equal(capabilityRegistry.executionCount, 1);
 });
 
 test('owner mismatch와 expired recommendation은 동일 owner scope 밖 실행을 막는다', async () => {
@@ -168,4 +166,131 @@ test('owner mismatch와 expired recommendation은 동일 owner scope 밖 실행�
         expiredFixture.service.prepare(expiredFixture.input),
         (error) => error.code === 'recommendation_expired'
     );
+});
+
+test('handoff decision refuses an expiry between lookup and transition', async (t) => {
+    for (const decision of ['accept', 'reject']) await t.test(decision, async () => {
+        const confirmationStore = new ConfirmationStore({ ttlMs: 1000 });
+        let now = 10000;
+        confirmationStore._now = () => now;
+        const { service, input, capabilityRegistry } = await fixture({ confirmationStore });
+        const prepared = await service.prepare(input);
+        const originalGet = confirmationStore.get.bind(confirmationStore);
+        let advance = true;
+        confirmationStore.get = id => { const result = originalGet(id); if (advance) { advance = false; now += 1000; } return result; };
+        await assert.rejects(service.decide({ ...input, confirmationId: prepared.confirmation.id, decision }), error => error.code === 'confirmation_expired');
+        assert.equal(confirmationStore.get(prepared.confirmation.id).status, 'expired');
+        assert.equal(capabilityRegistry.executionCount, 0);
+    });
+});
+
+
+test('승인 후 시작 거부는 확정 실패로 기록하고 실행하지 않는다', async () => {
+    const { service, input, recommendationStore, confirmationStore, capabilityRegistry } = await fixture();
+    const prepared = await service.prepare(input);
+    const original = recommendationStore.transitionRecommendation.bind(recommendationStore);
+    recommendationStore.transitionRecommendation = async event => {
+        if (event.event_type === 'recommendation.action_started') throw new Error('injected');
+        return original(event);
+    };
+    await assert.rejects(service.decide({ ...input, confirmationId: prepared.confirmation.id, decision: 'accept' }), error => error.code === 'action_start_rejected');
+    assert.equal(confirmationStore.get(prepared.confirmation.id).status, 'failed');
+    assert.equal(capabilityRegistry.executionCount, 0);
+});
+
+test('승인 후 불확실한 실행 오류는 보존하고 재실행하지 않는다', async () => {
+    const { service, input, confirmationStore, capabilityRegistry } = await fixture({ failCount: 1 });
+    const prepared = await service.prepare(input);
+    const decision = { ...input, confirmationId: prepared.confirmation.id, decision: 'accept' };
+    await assert.rejects(service.decide(decision), error => error.code === 'execution_outcome_unknown');
+    assert.equal(confirmationStore.get(prepared.confirmation.id).status, 'accepted');
+    await assert.rejects(service.decide(decision), error => error.code === 'confirmation_already_decided');
+    await assert.rejects(service.prepare(input), error => error.code === 'recommendation_not_actionable');
+    assert.equal(capabilityRegistry.executionCount, 1);
+});
+
+
+test('추천 승인 저장 실패 시 실행하지 않는다', async () => {
+    const { service, input, confirmationStore, capabilityRegistry } = await fixture();
+    const prepared = await service.prepare(input);
+    const persist = confirmationStore._persist.bind(confirmationStore);
+    confirmationStore._persist = () => {
+        if (confirmationStore.items.get(prepared.confirmation.id)?.status === 'accepted') throw Object.assign(new Error('injected'), { code: 'CONFIRMATION_STORAGE_ERROR' });
+        return persist();
+    };
+    await assert.rejects(service.decide({ ...input, confirmationId: prepared.confirmation.id, decision: 'accept' }), { code: 'CONFIRMATION_STORAGE_ERROR' });
+    assert.equal(capabilityRegistry.executionCount, 0);
+});
+
+test('registry의 실행 직전 검증 거부만 안전하게 실패 처리하고 새 요청으로 재시도한다', async (t) => {
+    const { createCapabilityRegistry } = require('../../../host/agent/capability-registry/registry');
+    for (const confirmPolicy of ['never', 'required']) await t.test(confirmPolicy, async () => {
+        let validations = 0;
+        let executions = 0;
+        const failAt = confirmPolicy === 'never' ? 2 : 3;
+        const capability = {
+            id: 'content.register_topic.execute', type: 'content.register', domain: 'content.register_topic',
+            effect: 'local_change', confirmPolicy,
+            validate(params) {
+                validations++;
+                return validations === failAt
+                    ? { ok: false, errors: ['injected'], normalizedParams: null }
+                    : { ok: true, errors: [], normalizedParams: params };
+            },
+            async preview() { return {}; },
+            async execute() { executions++; return { success: true }; }
+        };
+        const capabilityRegistry = createCapabilityRegistry({ agentActionProviders: [() => [capability]] });
+        const { service, input, recommendationStore, confirmationStore } = await fixture({ capabilityRegistry });
+        let prepared;
+        if (confirmPolicy === 'required') prepared = await service.prepare(input);
+        const first = () => confirmPolicy === 'never' ? service.prepare(input)
+            : service.decide({ ...input, confirmationId: prepared.confirmation.id, decision: 'accept' });
+        await assert.rejects(first(), { code: 'capability_execution_failed' });
+        assert.equal(executions, 0);
+        assert.equal((await recommendationStore.getRecommendation(input.ownerUserId, input.recommendationId)).status, 'action_failed');
+        if (prepared) assert.equal(confirmationStore.get(prepared.confirmation.id).status, 'failed');
+        const retry = await service.prepare(input);
+        if (confirmPolicy === 'required') {
+            assert.equal(retry.status, 'confirmation_required');
+            assert.equal((await service.decide({ ...input, confirmationId: retry.confirmation.id, decision: 'accept' })).status, 'executed');
+        } else assert.equal(retry.status, 'executed');
+        assert.equal(executions, 1);
+    });
+});
+
+test('안전한 실패라도 실패 상태 기록이 거부되면 재실행을 허용하지 않는다', async () => {
+    const { createCapabilityRegistry } = require('../../../host/agent/capability-registry/registry');
+    let validations = 0;
+    let executions = 0;
+    const capabilityRegistry = createCapabilityRegistry({ agentActionProviders: [() => [{
+        id: 'content.register_topic.execute', type: 'content.register', domain: 'content.register_topic', confirmPolicy: 'never',
+        validate(params) { return ++validations === 2 ? { ok: false, errors: ['injected'] } : { ok: true, normalizedParams: params }; },
+        async preview() { return {}; }, async execute() { executions++; return { success: true }; }
+    }]] });
+    const { service, input, recommendationStore } = await fixture({ capabilityRegistry });
+    const original = recommendationStore.transitionRecommendation.bind(recommendationStore);
+    recommendationStore.transitionRecommendation = async event => {
+        if (event.event_type === 'recommendation.action_failed') throw new Error('injected');
+        return original(event);
+    };
+    await assert.rejects(service.prepare(input), { code: 'failure_record_failed' });
+    await assert.rejects(service.prepare(input), { code: 'recommendation_not_actionable' });
+    assert.equal(executions, 0);
+});
+
+test('capability 실행 중 내부 registry의 검증 거부는 바깥 작업이 안전하다는 증거가 아니다', async () => {
+    const { createCapabilityRegistry } = require('../../../host/agent/capability-registry/registry');
+    let executions = 0;
+    const nested = { id: 'nested.run', type: 'nested', domain: 'nested', confirmPolicy: 'never',
+        validate: () => ({ ok: false, errors: ['no'] }), preview: async () => ({}), execute: async () => ({ success: true }) };
+    let registry;
+    const outer = { id: 'content.register_topic.execute', type: 'content.register', domain: 'content.register_topic', confirmPolicy: 'never',
+        validate: params => ({ ok: true, normalizedParams: params }), preview: async () => ({}),
+        async execute() { executions++; return registry.executeAction({ domain: 'nested', name: 'run', params: {} }); } };
+    registry = createCapabilityRegistry({ agentActionProviders: [() => [outer, nested]] });
+    const { service, input } = await fixture({ capabilityRegistry: registry });
+    await assert.rejects(service.prepare(input), { code: 'execution_outcome_unknown' });
+    await assert.rejects(service.prepare(input), { code: 'recommendation_not_actionable' });
+    assert.equal(executions, 1);
 });

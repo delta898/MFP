@@ -1,3 +1,4 @@
+const { createPreExecutionValidationError, isPreExecutionValidationError } = require('../../../services/agent-actions/execution-errors');
 const { buildCapabilityId } = require('../../../services/agent-actions/capability-id');
 const Ajv2020 = require('ajv/dist/2020');
 const { createAgentPendingCapabilities } = require('./actions/pending');
@@ -241,12 +242,24 @@ function createCapabilityRegistry(deps = {}) {
                 ? this.getAgentAction(action.action_id)
                 : this.get(buildCapabilityId(action.domain, action.name));
             if (!capability) throw new Error('등록되지 않은 capability입니다.');
-            const validation = await capability.validate(action.params || {}, context);
+            let validation;
+            try {
+                validation = await capability.validate(action.params || {}, context);
+            } catch (error) {
+                // A nested registry failure does not establish the outer call's effects.
+                if (isPreExecutionValidationError(error)) throw new Error('Capability validation failed', { cause: error });
+                throw error;
+            }
             if (!validation.ok) {
-                throw new Error(validation.errors.join(' '));
+                throw createPreExecutionValidationError(validation.errors.join(' '));
             }
             const normalizedAction = { ...action, params: validation.normalizedParams };
-            return capability.execute(normalizedAction.params || {}, context);
+            try {
+                return await capability.execute(normalizedAction.params || {}, context);
+            } catch (error) {
+                if (isPreExecutionValidationError(error)) throw new Error('Capability execution failed', { cause: error });
+                throw error;
+            }
         }
     };
 }

@@ -6,6 +6,7 @@ const { getDefaultContentWritingProfile } = require('../../../services/content-w
 
 const {
     extractProductData,
+    refineImageCandidates,
     buildAiPrompt,
     buildShoppingInstructionPrompt,
     selectShoppingEditorialPlan,
@@ -614,4 +615,39 @@ test('mergeProductData does not let review-stage ui noise overwrite official tit
     assert.equal(merged.title, baseData.title);
     assert.equal(merged.reviewData.reviewCount, 19306);
     assert.equal(merged.debugTrace.mergeDecisions.title.source, 'base');
+});
+
+test('product extraction preserves image ranking, expansion, deduplication and invalid URL filtering', () => {
+    const html = `<html><head><title>상품</title><meta property="og:image" content="/cover.jpg"></head><body>
+      <div class="productImage"><img src="https://shop-phinf.pstatic.net/item.jpg?type=s80"></div>
+      <div id="detail"><img src="/detail.jpg"><img src="data:image/png;base64,abc"><img src="/icon.svg"></div>
+      <img src="http://[invalid">
+    </body></html>`;
+    const result = extractProductData('https://example.com/product/1', html);
+    assert.deepEqual(result.imageUrls, [
+        'https://shop-phinf.pstatic.net/item.jpg?type=o1000',
+        'https://example.com/detail.jpg',
+        'https://example.com/cover.jpg'
+    ]);
+    assert.deepEqual(result.imageMeta.map(({ url, source }) => ({ url, source })), [
+        { url: result.imageUrls[0], source: 'main_gallery' },
+        { url: result.imageUrls[1], source: 'detail_dom' },
+        { url: result.imageUrls[2], source: 'og' }
+    ]);
+    assert.ok(result.imageMeta.every(item => Number.isFinite(item.score)));
+});
+
+test('product extraction preserves empty image results and invalid base handling', () => {
+    const result = extractProductData('invalid-base', '<html><body><img src="relative.jpg"><img src="data:image/png;base64,x"></body></html>');
+    assert.deepEqual(result.imageUrls, []);
+    assert.deepEqual(result.imageMeta, []);
+});
+
+test('image refinement preserves output options and malformed input failure behavior', () => {
+    const candidates = [{ url: '/detail.jpg', source: 'detail_dom' }, null, 'data:image/png,x', '/icon.svg'];
+    assert.deepEqual(refineImageCandidates(candidates, 'https://example.com/p'), ['https://example.com/detail.jpg']);
+    assert.deepEqual(refineImageCandidates(candidates, 'https://example.com/p', { withMeta: true }), [
+        { url: 'https://example.com/detail.jpg', source: 'detail_dom', score: 55 }
+    ]);
+    assert.throws(() => refineImageCandidates(null, 'https://example.com/p'), TypeError);
 });

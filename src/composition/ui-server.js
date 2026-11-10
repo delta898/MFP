@@ -85,8 +85,7 @@ const {
 } = modelConfiguration;
 const { normalizeWritingStyle } = require('../services/content-writing/writing-style');
 const { normalizeWritingStrategy } = require('../services/content-writing/writing-strategy');
-const { createSnsSheetStore } = require('../applications/sns/distribution/sns-sheet-store');
-const { createGoogleSheetsSnsGateway } = require('../adapters/storage/google-sheets-sns-gateway');
+const { createSnsSheetStoreComposition } = require('./sns-sheet-store');
 const { createCardNewsRuntime } = require('./card-news-runtime');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../applications/card-news/sources/feed-sources');
 const { createSnsRssDiscovery } = require('../applications/sns/distribution/sns-rss-discovery');
@@ -307,13 +306,10 @@ const googleSheetsClient = createGoogleSheetsClient({
     httpClient: axios,
     logger: Logger
 });
-const snsSheetGateway = createGoogleSheetsSnsGateway({
+const snsSheetStore = createSnsSheetStoreComposition({
     GoogleSheets,
     googleSheetsClient,
     CONFIG
-});
-const snsSheetStore = createSnsSheetStore({
-    gateway: snsSheetGateway
 });
 const cardNewsRuntime = createCardNewsRuntime({
     GoogleSheets,

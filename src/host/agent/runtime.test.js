@@ -257,3 +257,120 @@ test('agent runtime keeps explicit publish row targets when they are already pre
     assert.equal(decided.ok, true);
     assert.deepEqual(capabilityRegistry.executedActions[1].params.targetRowIndices, [3]);
 });
+
+test('confirmation decision enforces each owner field and rejects invalid decisions without mutation', async () => {
+    const store = new ConfirmationStore();
+    const registry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+    const owner = { channel: 'mcp', user: { id: 'owner' }, conversation: { id: 'conversation' } };
+    store.create({ id: 'owned', channel: 'mcp', userId: 'owner', conversationId: 'conversation', actions: [{ id: 'a', domain: 'content.register_topic', name: 'execute' }] });
+    const others = [
+        { ...owner, channel: 'telegram' },
+        { ...owner, user: { id: 'other' } },
+        { ...owner, conversation: { id: 'other' } },
+        { ...owner, user: { id: '' } },
+        { ...owner, conversation: { id: '' } }
+    ];
+    for (const context of others) for (const decision of ['approve', 'reject']) {
+        const result = await runtime.handleConfirmationDecision({ confirmationId: 'owned', decision }, context);
+        assert.equal(result.ok, false);
+        assert.equal(store.get('owned').status, 'pending');
+        assert.equal(registry.executedActions.length, 0);
+    }
+    for (const decision of ['', 'yes', 'cancel', 'approved']) {
+        const result = await runtime.handleConfirmationDecision({ confirmationId: 'owned', decision }, owner);
+        assert.equal(result.ok, false);
+        assert.equal(store.get('owned').status, 'pending');
+        assert.equal(registry.executedActions.length, 0);
+    }
+    assert.equal((await runtime.handleConfirmationDecision({ confirmationId: 'owned', decision: 'approve' }, owner)).status, 'executed');
+    assert.equal(registry.executedActions.length, 1);
+    assert.equal((await runtime.handleConfirmationDecision({ confirmationId: 'owned', decision: 'approve' }, owner)).ok, false);
+    assert.equal(registry.executedActions.length, 1);
+});
+
+test('expired and concurrent confirmation decisions never execute twice', async () => {
+    const store = new ConfirmationStore({ ttlMs: 1000 });
+    let now = 10000;
+    store._now = () => now;
+    let executions = 0;
+    let release;
+    const wait = new Promise(resolve => { release = resolve; });
+    const runtime = createAgentRuntime({ confirmationStore: store, capabilityRegistry: {
+        async executeAction() { executions++; await wait; return { success: true }; }
+    } });
+    const owner = { channel: 'mcp', user: { id: 'owner' }, conversation: { id: 'conversation' } };
+    const create = id => store.create({ id, channel: 'mcp', userId: 'owner', conversationId: 'conversation', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    create('expired'); now += 1000;
+    assert.equal((await runtime.handleConfirmationDecision({ confirmationId: 'expired', decision: 'approve' }, owner)).status, 'expired');
+    assert.equal(executions, 0);
+    create('concurrent');
+    const first = runtime.handleConfirmationDecision({ confirmationId: 'concurrent', decision: 'approve' }, owner);
+    const second = runtime.handleConfirmationDecision({ confirmationId: 'concurrent', decision: 'approve' }, owner);
+    assert.equal((await second).ok, false);
+    release();
+    assert.equal((await first).status, 'executed');
+    assert.equal(executions, 1);
+});
+
+
+test('plan replacement only supersedes a pending confirmation belonging to the caller', async (t) => {
+    const owner = { channel: 'mcp', user: { id: 'owner' }, conversation: { id: 'conversation' } };
+    const cases = [
+        ['other channel', { ...owner, channel: 'telegram' }, 'pending', false],
+        ['other user', { ...owner, user: { id: 'other' } }, 'pending', false],
+        ['other conversation', { ...owner, conversation: { id: 'other' } }, 'pending', false],
+        ['missing user', { ...owner, user: {} }, 'pending', false],
+        ['missing conversation', { ...owner, conversation: {} }, 'pending', false],
+        ['accepted', owner, 'accepted', false],
+        ['executed', owner, 'executed', false],
+        ['same owner', owner, 'pending', true]
+    ];
+    for (const [label, context, initialStatus, allowed] of cases) {
+        await t.test(label, async () => {
+            const confirmationStore = new ConfirmationStore();
+            const capabilityRegistry = createStubCapabilityRegistry();
+            const runtime = createAgentRuntime({ confirmationStore, capabilityRegistry });
+            const original = confirmationStore.create({ channel: owner.channel, userId: owner.user.id, conversationId: owner.conversation.id });
+            if (initialStatus === 'accepted') confirmationStore.accept(original.id);
+            if (initialStatus === 'executed') confirmationStore.markExecuted(original.id, []);
+            const result = await runtime.handlePlan({
+                plan_id: 'replacement', goal: 'replace', reason: 'test', confirmation_mode: 'plan',
+                supersedes_confirmation_id: original.id,
+                steps: [{ id: 'step', action: { id: 'action', type: 'content.publish', domain: 'content.publish', name: 'execute', params: {}, requires_confirmation: true }, preconditions: [], requires_confirmation: true }]
+            }, context);
+            assert.equal(confirmationStore.get(original.id).status, allowed ? 'rejected' : initialStatus);
+            assert.equal(result.ok, allowed);
+            assert.equal(capabilityRegistry.executedActions.length, 0);
+            if (allowed) {
+                assert.equal(result.confirmation.supersededConfirmationId, original.id);
+                assert.equal(result.confirmation.status, 'pending');
+            } else {
+                assert.equal(confirmationStore.items.size, 1);
+            }
+        });
+    }
+});
+
+test('expiry between lookup and transition blocks approval, rejection and replacement', async (t) => {
+    for (const operation of ['approve', 'reject', 'replace']) await t.test(operation, async () => {
+        const store = new ConfirmationStore({ ttlMs: 1000 });
+        let now = 10000;
+        store._now = () => now;
+        const registry = createStubCapabilityRegistry();
+        const runtime = createAgentRuntime({ confirmationStore: store, capabilityRegistry: registry });
+        const owner = { channel: 'mcp', user: { id: 'owner' }, conversation: { id: 'conversation' } };
+        store.create({ id: 'boundary', channel: 'mcp', userId: 'owner', conversationId: 'conversation', actions: [{ id: 'a', domain: 'content.register_topic', name: 'execute' }] });
+        const originalGet = store.get.bind(store);
+        let advance = true;
+        store.get = id => { const result = originalGet(id); if (advance) { advance = false; now += 1000; } return result; };
+        const result = operation === 'replace' ? await runtime.handlePlan({
+            plan_id: 'replacement', goal: 'replace', reason: 'test', confirmation_mode: 'plan', supersedes_confirmation_id: 'boundary',
+            steps: [{ id: 'step', action: { id: 'action', type: 'content.publish', domain: 'content.publish', name: 'execute', params: {}, requires_confirmation: true }, preconditions: [], requires_confirmation: true }]
+        }, owner) : await runtime.handleConfirmationDecision({ confirmationId: 'boundary', decision: operation }, owner);
+        assert.equal(result.ok, false);
+        assert.equal(store.get('boundary').status, 'expired');
+        assert.equal(store.items.size, 1);
+        assert.equal(registry.executedActions.length, 0);
+    });
+});
