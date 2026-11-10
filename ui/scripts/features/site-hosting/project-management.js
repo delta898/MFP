@@ -618,8 +618,10 @@ async function siteHostingDeleteSite(siteId, button) {
       .filter((step) => ['custom_domain', 'worker'].includes(step.kind))
       .map((step) => `• ${step.label}`);
     const connectionSummary = connections.length ? connections.join('\n') : '• Cloudflare 연결 없음';
+    const archiveStep = (plan.steps || []).find((step) => step.kind === 'archive');
+    if (typeof archiveStep?.label !== 'string' || !archiveStep.label.trim()) throw new Error('사이트 파일 보관 경로를 확인할 수 없어 삭제를 진행하지 않습니다.');
     const accepted = await showUiConfirm(
-      `“${plan.site_name || site.name}” 사이트를 삭제할까요?\n\n${connectionSummary}\n• 로컬 파일은 영구 삭제하지 않고 보관합니다.`,
+      `“${plan.site_name || site.name}” 사이트를 삭제할까요?\n\n${connectionSummary}\n• 로컬 파일은 영구 삭제하지 않고 보관합니다.\n• ${archiveStep.label}`,
       { title: '사이트 삭제', confirmText: '삭제 진행', cancelText: '취소' }
     );
     if (!accepted) {

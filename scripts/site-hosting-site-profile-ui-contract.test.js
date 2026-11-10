@@ -206,6 +206,8 @@ test('site deletion uses a compact confirmation, locks the card while running, a
     assert.match(runtime, /\/delete`/);
     assert.match(runtime, /confirmed: true, plan_id: plan\.id/);
     assert.match(runtime, /connectionSummary[\s\S]*로컬 파일은 영구 삭제하지 않고 보관합니다/);
+    assert.match(runtime, /step\.kind === 'archive'/);
+    assert.match(runtime, /\$\{archiveStep\.label\}/);
     assert.match(runtime, /삭제 중 · 연결 정리 및 파일 보관/);
     assert.match(runtime, /lockAllActions: true/);
     assert.match(runtime, /ui-spinner ui-spinner-accent/);

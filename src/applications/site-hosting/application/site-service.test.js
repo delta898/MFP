@@ -425,6 +425,64 @@ test('site deletion detaches the recorded custom domain before deleting its veri
     }
 });
 
+for (const failAt of ['domain', 'worker', 'archive']) test(`site deletion stops at ${failAt} failure and allows a fresh plan`, async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-delete-remote-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        repository.create('project-1', { id: 'site-1', name: '연결된 사이트', template_id: 'minimal-homepage' });
+        repository.recordDeployment('project-1', 'site-1', {
+            worker_name: 'bg-site-1', url: 'https://bg-site-1.workers.dev', deployment_id: 'deployment-1', version_id: 'version-1',
+            worker_account_id: 'account-1', worker_created_on: '2026-10-06T00:00:00Z', managed_by_app: true, deployed_at: '2026-10-06T00:01:00Z'
+        });
+        repository.recordCustomDomainBinding('project-1', 'site-1', {
+            id: 'binding-1', hostname: 'blog.example.com', site_hostname: 'blog', domain: 'example.com', zone_id: 'zone-1', zone_name: 'example.com', connected_at: '2026-10-06T00:02:00Z'
+        });
+        const originalArchive = repository.archive.bind(repository);
+        let archiveCalls = 0;
+        repository.archive = (...args) => { archiveCalls++; if (failAt === 'archive') throw new Error('fixture archive failure'); return originalArchive(...args); };
+        let bindingPresent = true;
+        let dnsPresent = true;
+        let workerPresent = true;
+        const calls = [];
+        const binding = { id: 'binding-1', hostname: 'blog.example.com', service: 'bg-site-1', zone_id: 'zone-1', environment: 'production' };
+        const adapter = {
+            listZones: async () => [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            listWorkerDomains: async ({ hostname } = {}) => bindingPresent && (!hostname || hostname === binding.hostname) ? [{ ...binding }] : [],
+            listDnsRecords: async () => dnsPresent ? [{ id: 'dns-1', type: 'AAAA', name: 'blog.example.com', content: '100::', proxied: true, ttl: 1 }] : [],
+            listWorkerScripts: async () => workerPresent ? [{ id: 'bg-site-1', created_on: '2026-10-06T00:00:00Z' }] : [],
+            listDeployments: async () => [{ id: 'deployment-1', versions: [{ version_id: 'version-1', percentage: 100 }] }],
+            detachWorkerDomain: async () => { calls.push('domain'); if (failAt === 'domain') throw new Error('fixture domain failure'); bindingPresent = false; dnsPresent = false; },
+            deleteWorker: async () => { calls.push('worker'); if (failAt === 'worker') throw new Error('fixture worker failure'); workerPresent = false; }
+        };
+        let id = 0;
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates,
+            runtimeEnvironment: 'production',
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'account-1' } }),
+            createCloudflareSdkAdapter: () => adapter,
+            createId: () => `plan-${++id}`,
+            now: () => '2026-10-06T12:00:00.000Z',
+            sleep: async () => {}
+        });
+        const plan = await service.prepareSiteDeletion('project-1', 'site-1');
+        assert.deepEqual(plan.steps.map((step) => step.kind), ['custom_domain', 'worker', 'archive']);
+        await assert.rejects(service.deleteSite('project-1', 'site-1', { confirmed: true, plan_id: plan.id }), /fixture .* failure/);
+        assert.deepEqual(calls, failAt === 'domain' ? ['domain'] : ['domain', 'worker']);
+        assert.equal(archiveCalls, failAt === 'archive' ? 1 : 0);
+        assert.ok(repository.get('project-1', 'site-1'), 'local site remains available');
+        await assert.rejects(service.deleteSite('project-1', 'site-1', { confirmed: true, plan_id: plan.id }), { code: 'SITE_HOSTING_DELETE_PLAN_EXPIRED' });
+        const freshPlan = await service.prepareSiteDeletion('project-1', 'site-1');
+        assert.notEqual(freshPlan.id, plan.id);
+        assert.deepEqual(freshPlan.steps.map((step) => step.kind),
+            failAt === 'domain' ? ['custom_domain', 'worker', 'archive'] : failAt === 'worker' ? ['worker', 'archive'] : ['archive']);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service exposes Amade 0.1 family metadata and normalizes its shared menu and publishing contract', async () => {
     const template = {
         id: 'personal-post-list', version: '0.1.0', name: '글 목록형', description: '소개', family_id: 'personal-homepage', family_name: '개인 홈페이지',
