@@ -5,7 +5,7 @@
 - branch: `feature/wordpress-image-blocks`
 - 시작일: 2026-11-12
 - base/parent branch: `dev`
-- 상태: 구현 완료. `dev` 병합 전 전체 유닛 스위트 승인 대기.
+- 상태: `dev`에 병합. 기능 브랜치는 삭제한다.
 
 ## 사용자 필요
 
@@ -34,3 +34,5 @@ WordPress에 올린 글을 편집기로 열면 업로드한 이미지가 image b
 
 - 사용자는 WordPress 편집기에서 직접 확인하기로 했다.
 - `BLOGGENIUS_ENV=local node --test src/applications/blog/publishing/wordpress.test.js`: 7개 통과.
+- 전체 유닛 스위트: 2,631개 중 2,630개 통과, 0개 실패, 1개 건너뜀. `npm audit --audit-level=high`는 moderate 24건을 포함해 28건을 보고했고 스위트를 막지 않았다.
+- WordPress 편집기에서 이미지 블록으로 열리는지는 사용자가 확인한다.
