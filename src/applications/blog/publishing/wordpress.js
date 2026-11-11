@@ -12,6 +12,16 @@ function escapeHtmlAttribute(value) {
     })[character]);
 }
 
+function renderWordPressImageBlock(asset, altText) {
+    const id = Number(asset?.id);
+    const hasId = Number.isInteger(id) && id > 0;
+    const attrs = hasId ? ` {"id":${id}}` : '';
+    const imageClass = hasId ? ` class="wp-image-${id}"` : '';
+    const src = escapeHtmlAttribute(asset.url);
+    const alt = escapeHtmlAttribute(altText || '');
+    return `<!-- wp:image${attrs} -->\n<figure class="wp-block-image"><img src="${src}" alt="${alt}"${imageClass}/></figure>\n<!-- /wp:image -->`;
+}
+
 function requireText(value, label) {
     if (typeof value !== 'string' || !value.trim()) throw new TypeError(`${label} must be a non-empty string.`);
     return value.trim();
@@ -117,12 +127,15 @@ function createWordPressPublishingApplication(options = {}) {
                 }
             }
 
-            const content = input.content.replace(ASSET_REFERENCE_PATTERN, (reference, key) => {
-                const asset = uploadedAssets.get(key.trim());
+            const renderAsset = (key) => {
+                const asset = uploadedAssets.get(String(key || '').trim());
                 if (!asset) return '';
-                const descriptor = input.assets.find((item) => item.key === key.trim());
-                return `<img src="${escapeHtmlAttribute(asset.url)}" alt="${escapeHtmlAttribute(descriptor?.altText || '')}">`;
-            });
+                const descriptor = input.assets.find((item) => item.key === String(key || '').trim());
+                return renderWordPressImageBlock(asset, descriptor?.altText || '');
+            };
+            const content = input.content
+                .replace(/<p>\s*\{\{asset:([^}]+)\}\}\s*<\/p>/g, (reference, key) => renderAsset(key))
+                .replace(ASSET_REFERENCE_PATTERN, (reference, key) => renderAsset(key));
 
             let finalStatus = input.status === 'schedule' ? 'future' : input.status;
             if (warnings.length && finalStatus !== 'draft') finalStatus = 'draft';

@@ -64,7 +64,7 @@ test('Application composes media, category, and post Plugin operations', async (
         warnings: null
     });
     const postPayload = JSON.parse(calls.at(-1).init.body);
-    assert.equal(postPayload.content, '<p>Morning view</p><img src="https://site.test/photo.png" alt="Sea">');
+    assert.equal(postPayload.content, '<p>Morning view</p><!-- wp:image {"id":8} -->\n<figure class="wp-block-image"><img src="https://site.test/photo.png" alt="Sea" class="wp-image-8"/></figure>\n<!-- /wp:image -->');
     assert.equal(postPayload.status, 'future');
     assert.deepEqual(postPayload.categories, [5]);
     assert.equal(postPayload.featured_media, 8);
