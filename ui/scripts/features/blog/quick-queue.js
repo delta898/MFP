@@ -6,7 +6,7 @@ const BLOG_NEXT_BUILTIN_DEFAULTS = Object.freeze({
 const BLOG_NEXT_PERSISTED_SETTING_IDS = new Set([
   'blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-naver-category',
   'blog-next-wordpress-category', 'blog-next-writing-strategy', 'blog-next-image-mode',
-  'blog-next-runner-headless', 'blog-next-external-reference',
+  'blog-next-post-status', 'blog-next-runner-headless', 'blog-next-external-reference',
   'blog-next-writing-length', 'blog-next-writing-opening', 'blog-next-writing-development',
   'blog-next-writing-ending'
 ]);
@@ -93,10 +93,9 @@ function loadBlogNextTopicDefaults() {
   try {
     const stored = localStorage.getItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY);
     const settings = stored ? normalizeBlogNextTopicDefaults(JSON.parse(stored)) : normalizeBlogNextTopicDefaults(BLOG_NEXT_BUILTIN_DEFAULTS);
-    // Publishing fields are target-scoped and intentionally live only for the current browser session.
+    // Category belongs to one target. The posting method is a reusable default.
     settings.naverCategory = '';
     settings.wordpressCategory = '';
-    settings.postStatus = 'publish';
     return settings;
   } catch (_error) {
     return normalizeBlogNextTopicDefaults(BLOG_NEXT_BUILTIN_DEFAULTS);
@@ -134,12 +133,11 @@ function rememberBlogNextTopicDefaults() {
   if (blogNextEditingRowIndex !== null) return;
   try {
     const settings = readBlogNextTopicSettings();
-    // Publishing choices belong to a specific queue item; they are never quick-flow defaults.
+    // Target and category belong to one post. The posting method is kept for the next one.
     delete settings.platforms;
     delete settings.siteTarget;
     delete settings.naverCategory;
     delete settings.wordpressCategory;
-    delete settings.postStatus;
     localStorage.setItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY, JSON.stringify(settings));
   } catch (_error) {
     // 저장소가 차단되어도 글감 등록은 계속할 수 있어야 한다.
