@@ -186,20 +186,28 @@ function createMcpAgentActionAdapter(options = {}) {
                 };
             }
             if (args.decision === 'approve') {
-                const execution = runtime.handleConfirmationDecision({ confirmationId, decision: 'approve' }, context);
-                Promise.resolve(execution).catch((error) => {
+                let acknowledge;
+                let acknowledged = false;
+                const accepted = new Promise((resolve) => { acknowledge = resolve; });
+                const execution = runtime.handleConfirmationDecision(
+                    { confirmationId, decision: 'approve' }, context,
+                    { onAccepted: () => { acknowledged = true; acknowledge({
+                        ok: true,
+                        status: 'accepted',
+                        confirmation_id: confirmationId,
+                        message: '승인을 접수했습니다. 작업은 백그라운드에서 진행됩니다. blog_confirmation_status로 진행 상태와 최종 결과를 확인해 주세요.'
+                    }); } }
+                );
+                const outcome = Promise.resolve(execution).catch((error) => {
+                    if (!acknowledged) throw error;
                     const current = runtime.confirmationStore?.get?.(confirmationId);
                     if (current?.status === 'accepted') {
                         const code = String(error?.code || error?.name || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN';
                         runtime.confirmationStore.markExecutionFailed?.(confirmationId, code);
                     }
+                    throw error;
                 });
-                return {
-                    ok: true,
-                    status: 'accepted',
-                    confirmation_id: confirmationId,
-                    message: '승인을 접수했습니다. 작업은 백그라운드에서 진행됩니다. blog_confirmation_status로 진행 상태와 최종 결과를 확인해 주세요.'
-                };
+                return Promise.race([accepted, outcome]);
             }
             return runtime.handleConfirmationDecision({ confirmationId, decision: args.decision }, context);
         }

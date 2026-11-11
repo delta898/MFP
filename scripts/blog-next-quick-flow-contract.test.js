@@ -148,6 +148,10 @@ test('reusable generation and publish choices persist without carrying article d
   assert.match(queue, /'blog-next-writing-length'[\s\S]*?'blog-next-writing-ending'/);
   assert.match(queue, /function rememberBlogNextTopicDefaultsForSetting\(fieldId = ''\)[\s\S]*?BLOG_NEXT_PERSISTED_SETTING_IDS\.has/);
   assert.match(queue, /function rememberBlogNextTopicDefaults\(\) \{\s*if \(blogNextEditingRowIndex !== null\) return;/);
+  assert.match(queue, /'blog-next-post-status'/);
+  assert.doesNotMatch(queue.match(/function rememberBlogNextTopicDefaults\(\) \{[\s\S]*?\n\}/)?.[0] || '', /delete settings\.postStatus/);
+  assert.doesNotMatch(queue.match(/function loadBlogNextTopicDefaults\(\) \{[\s\S]*?\n\}/)?.[0] || '', /settings\.postStatus = 'publish'/);
+  assert.match(read('ui/scripts/features/blog/publishing-targets.js'), /liveStatus \|\| stored\?\.postStatus \|\| 'publish'/);
   assert.match(queue, /form\.addEventListener\('change',[\s\S]*?rememberBlogNextTopicDefaultsForSetting\(event\.target\?\.id\)/);
   assert.match(execution, /publishSettings\?\.addEventListener\('change',[\s\S]*?rememberBlogNextTopicDefaultsForSetting\(event\.target\?\.id\)/);
   assert.doesNotMatch(queue.match(/function readBlogNextTopicSettings\(\) \{[\s\S]*?\n\}/)?.[0] || '', /scheduleDate|referenceUrl|subject|keywords|instruction/);

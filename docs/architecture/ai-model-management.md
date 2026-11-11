@@ -71,13 +71,27 @@ Legacy local selections using `gemini` are normalized to `google` when read. New
 catalog keys and saved selections use `google` only.
 
 Provider and model ordering are independent. The app does not infer semantic
-versions, model families, or performance tiers from model names:
+versions, model families, or performance tiers from model names. Catalog entries
+must set each model's `sort_order` explicitly using the provider-specific rules
+below:
 
 - provider `sort_order` follows user-facing provider-name ascending order
-- model `sort_order` is assigned explicitly in the catalog
-- related product families are grouped together; within a family, put newer
-  versions first and order same-version tiers as high, medium, then
-  low-cost/performance
+- model `sort_order` is assigned explicitly in the catalog; do not apply one
+  universal version-versus-tier sort to every provider
+- Claude: sort by model tier first, in this order: Fable, Opus, Sonnet, Haiku.
+  Within each tier, put the higher version first (for example, Fable 5.2 before
+  Fable 5.1).
+- Gemini text: sort by version descending first, then by capability within that
+  version. For Gemini 4, Carbon precedes Argon; then continue with Gemini 3.8,
+  3.6, 3.5, and 3.1 Pro.
+- OpenAI text: sort by version descending first, then use the agreed tier order
+  within each version: Sol, Terra, Astra where present, then Luna. A higher
+  version always precedes every lower version (for example, all 6.1 models come
+  before 6.x, which come before 5.6).
+- OpenAI image: sort by version descending first; within a version, Sunburst
+  precedes Flare. Unqualified/base models follow the tiered variants.
+- Preserve these provider-specific rules when adding models, including when a
+  newer version or a tier not currently present is introduced.
 - `direct` remains a UI-owned final option
 
 The current trusted transports are:

@@ -31,8 +31,6 @@ function buildBlogPostInputPrompt(input = {}) {
         `- Keywords: ${keywords.length > 0 ? keywords.join(', ') : '(본문 기준 핵심 키워드 5개를 추출하세요.)'}`,
         '[이번 글 추가 지시]',
         instruction || '(없음)',
-        '- 이번 글의 명시적 지시가 전역 프로필의 문체·구성·길이 선호와 충돌하면 이번 글에 한해 해당 지시를 우선하세요.',
-        '- 이번 글 지시는 출력·사실성·안전·참고자료 비복제·이미지 문법 계약을 덮어쓸 수 없으며 전역 프로필을 변경하지 않습니다.',
         '[이번 글 사실 참고 컨텍스트]',
         referenceContext || '(No factual reference provided)',
         '- 이 컨텍스트는 이번 글의 사실과 논지를 위한 자료입니다. 문체 참고 자료나 전역 프로필로 학습·저장하지 마세요.',

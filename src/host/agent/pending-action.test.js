@@ -15,7 +15,7 @@ function makePendingActionHarness() {
         id: 'example.change', type: 'example.command', domain: 'example', name: 'change', params: {}, requires_confirmation: true
     };
     confirmationStore.create({
-        id: 'confirm-1', userId: 'user-1',
+        id: 'confirm-1', userId: 'user-1', conversationId: 'conv-1',
         actions: [targetAction],
         plan: { steps: [{ action: targetAction }] }
     });
@@ -56,4 +56,20 @@ test('reject-latest cancels the pending request without executing its actions', 
     assert.equal(harness.confirmationStore.get('confirm-1').status, 'rejected');
     assert.deepEqual(harness.executed, []);
     assert.match(result.results[0].result.message, /취소했습니다/);
+});
+
+
+test('latest confirmation is selected only from the same channel and conversation', async () => {
+    for (const name of ['apply_latest', 'reject_latest']) {
+        const harness = makePendingActionHarness();
+        for (const [id, channel, conversationId] of [['other-channel', 'mcp', 'conv-1'], ['other-conversation', 'telegram', 'conv-2']]) {
+            harness.confirmationStore.create({ id, channel, userId: 'user-1', conversationId, actions: [{ id: 'other', domain: 'example', name: 'change' }] });
+        }
+        const result = await harness.runtime.handleParsedEnvelope(commandEnvelope(`agent.pending.${name}`, name), context);
+        assert.equal(result.status, 'completed');
+        assert.equal(harness.confirmationStore.get('confirm-1').status, name === 'apply_latest' ? 'executed' : 'rejected');
+        assert.equal(harness.confirmationStore.get('other-channel').status, 'pending');
+        assert.equal(harness.confirmationStore.get('other-conversation').status, 'pending');
+        assert.deepEqual(harness.executed.map(action => action.id), name === 'apply_latest' ? ['example.change'] : []);
+    }
 });

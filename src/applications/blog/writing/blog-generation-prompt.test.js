@@ -77,14 +77,15 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.match(result.prompt, /마지막에 선택 체크리스트/);
     assert.match(result.prompt, /\[분석된 참고 글의 세부 특징\]/);
     assert.match(result.prompt, /짧은 문단과 쉬운 어휘/);
-    assert.match(result.prompt, /분석 결과는 이미 위의 최종 문체·길이·구성 값에 반영/);
-    assert.match(result.prompt, /이번 글의 명시적 지시.*최종 프로필과 분석된 세부 특징보다 우선/);
+    assert.match(result.prompt, /최종 문체·길이·구성 값을 바꾸지 마세요/);
+    assert.match(result.prompt, /\[우선순위\]/);
     assert.match(result.prompt, /이번 글은 1,000자 안팎/);
     assert.match(result.prompt, /정확히 2개 작성/);
     assert.equal(result.image_plan.source, 'post');
     assert.equal(result.image_plan.count, 2);
     assert.match(result.prompt, /유지보수 기간은 3년/);
-    assert.match(result.prompt, /이번 글에 한해 해당 지시를 우선/);
+    assert.match(result.prompt, /2\. 이번 글의 명시적 지시/);
+    assert.doesNotMatch(result.profile_prompt, /세부 흐름\/문단 길이/);
 
     const contractIndex = result.prompt.indexOf('[최우선 출력 계약]');
     const strategyIndex = result.prompt.indexOf('[글 작성 전략]');

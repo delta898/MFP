@@ -878,7 +878,7 @@ function startFixtureServer(requests) {
         const siteHostingDeleteMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/delete$/);
         if (siteHostingDeletePlanMatch && req.method === 'POST') {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ success: true, data: { id: 'site-delete-plan-smoke', ready: true, site_name: '설정 변경 사이트', steps: [{ kind: 'archive', label: '사이트 파일을 site-hosting/archive에 보관' }] } }));
+            res.end(JSON.stringify({ success: true, data: { id: 'site-delete-plan-smoke', ready: true, site_name: '설정 변경 사이트', steps: [{ kind: 'archive', label: '사이트 파일 보관: /fixture/site-hosting/archive/site-smoke-1' }] } }));
             return;
         }
         if (siteHostingDeleteMatch && req.method === 'POST') {
@@ -2924,6 +2924,7 @@ async function run() {
                     window.__domainDisconnectConfirmCalls = [];
                     showUiConfirm = async (message, options) => {
                         window.__domainDisconnectConfirmCalls.push({ message, options });
+                        if (options?.title === '사이트 삭제' && !window.__deleteCancelledOnce) { window.__deleteCancelledOnce = true; return false; }
                         return true;
                     };
                 });
@@ -2995,10 +2996,28 @@ async function run() {
                 assert.deepEqual(requests.find((request) => request.method === 'POST'
                     && request.pathname.endsWith('/sites/site-smoke-1/worker-disconnect'))?.body, { confirmed: true });
                 await page.waitForFunction(() => !document.querySelector('[data-site-worker-disconnect="site-smoke-1"]'));
+                for (const steps of [[], [{ kind: 'archive', label: '' }], [{ kind: 'archive', label: '  ' }]]) {
+                    const planUrl = '**/sites/site-smoke-1/delete-plan';
+                    const mockPlan = (route) => route.fulfill({ json: { success: true, data: { id: 'invalid-plan', ready: true, steps } } });
+                    await page.route(planUrl, mockPlan);
+                    await page.locator('.site-hosting-site-more summary').click();
+                    const invalidPlanResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/sites/site-smoke-1/delete-plan'));
+                    await page.locator('[data-site-delete="site-smoke-1"]').click();
+                    await invalidPlanResponse;
+                    await page.getByText('사이트 파일 보관 경로를 확인할 수 없어 삭제를 진행하지 않습니다.').waitFor();
+                    assert.equal(await page.evaluate(() => window.__domainDisconnectConfirmCalls.length), 2, 'invalid archive step must not ask for confirmation');
+                    assert.equal(requests.filter((request) => request.method === 'POST' && request.pathname.endsWith('/sites/site-smoke-1/delete')).length, 0, 'invalid archive step must not delete');
+                    await page.unroute(planUrl, mockPlan);
+                }
                 await page.locator('.site-hosting-site-more summary').click();
                 const deletionPlanResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/sites/site-smoke-1/delete-plan'));
                 await page.locator('[data-site-delete="site-smoke-1"]').click();
                 await deletionPlanResponse;
+                await page.waitForFunction(() => window.__deleteCancelledOnce === true && !document.querySelector('[data-site-delete="site-smoke-1"]')?.disabled);
+                assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls.at(-1).message), /사이트 파일 보관: \/fixture\/site-hosting\/archive\/site-smoke-1/);
+                assert.equal(requests.filter((request) => request.method === 'POST' && request.pathname.endsWith('/sites/site-smoke-1/delete')).length, 0, 'cancel must not delete');
+                await page.locator('.site-hosting-site-more summary').click();
+                await page.locator('[data-site-delete="site-smoke-1"]').click();
                 await page.getByRole('heading', { name: '사이트 삭제 완료' }).waitFor();
                 assert.deepEqual(requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites/site-smoke-1/delete'))?.body,
                     { confirmed: true, plan_id: 'site-delete-plan-smoke' });
@@ -5838,6 +5857,7 @@ async function run() {
             { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/custom-domain-disconnect' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/worker-disconnect' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/delete-plan' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/delete-plan' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/delete' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },

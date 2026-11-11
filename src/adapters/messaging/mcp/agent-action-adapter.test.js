@@ -125,9 +125,10 @@ test('MCP confirmation status recovers completed results and repeated approval d
 test('MCP accepts approval immediately while execution continues and exposes later status', async () => {
     const fixture = createFixture();
     let finishExecution;
-    fixture.runtime.handleConfirmationDecision = (input, context) => {
+    fixture.runtime.handleConfirmationDecision = (input, context, options) => {
         fixture.calls.push({ confirmationInput: input, context });
         fixture.confirmation.status = 'accepted';
+        options.onAccepted();
         return new Promise((resolve) => { finishExecution = resolve; });
     };
     const adapter = createMcpAgentActionAdapter(fixture);
@@ -164,4 +165,144 @@ test('MCP can update options on a pending confirmation before approval', async (
 
     assert.equal(result.status, 'confirmation_required');
     assert.deepEqual(fixture.calls[0].updateInput.parameters, { image_mode: 'none', naver_category: 'AI' });
+});
+
+test('MCP decisions reach the real runtime with the originating session identity', async () => {
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    const confirmationStore = new ConfirmationStore();
+    let executions = 0;
+    const capabilityRegistry = { listAgentActions: () => [], async executeAction() { executions++; return { success: true, message: 'ok' }; } };
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore });
+    const adapter = createMcpAgentActionAdapter({ capabilityRegistry, runtime });
+    confirmationStore.create({ id: 'real', channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    const call = (decision, userId, conversationId) => adapter.callTool({ name: 'blog_confirmation_decide', arguments: { confirmation_id: 'real', decision } }, { userId, conversationId });
+    for (const [user, conversation] of [['other', 'mcp:owner'], ['owner', 'mcp:other']]) {
+        for (const decision of ['approve', 'reject']) assert.equal((await call(decision, user, conversation)).status, 'not_found');
+    }
+    assert.equal((await call('invalid', 'owner', 'mcp:owner')).status, 'invalid_input');
+    assert.equal(confirmationStore.get('real').status, 'pending');
+    assert.equal(executions, 0);
+    assert.equal((await call('approve', 'owner', 'mcp:owner')).status, 'accepted');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(confirmationStore.get('real').status, 'executed');
+    assert.equal(executions, 1);
+});
+
+test('MCP reports expiry between its lookup and runtime lookup or transition', async () => {
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    for (const boundary of ['lookup', 'transition']) {
+        const store = new ConfirmationStore();
+        let runs = 0;
+        const registry = { listAgentActions: () => [], async executeAction() { runs++; return { success: true }; } };
+        const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+        store.create({ id: boundary, channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+        const get = store.get.bind(store);
+        const accept = store.accept.bind(store);
+        let reads = 0;
+        if (boundary === 'lookup') store.get = id => { if (++reads === 2) store.items.get(id).expiresAtMs = Date.now() - 1; return get(id); };
+        else store.accept = id => { store.items.get(id).expiresAtMs = Date.now() - 1; return accept(id); };
+        const result = await createMcpAgentActionAdapter({ capabilityRegistry: registry, runtime }).callTool({ name: 'blog_confirmation_decide', arguments: { confirmation_id: boundary, decision: 'approve' } }, { userId: 'owner', conversationId: 'mcp:owner' });
+        assert.equal(result.status, 'expired', boundary);
+        assert.equal(result.ok, false);
+        assert.equal(runs, 0);
+    }
+});
+
+test('MCP real runtime acknowledges a long action without waiting and blocks duplicate approval', async () => {
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    const store = new ConfirmationStore();
+    let finish, runs = 0;
+    const registry = { listAgentActions: () => [], executeAction() { runs++; return new Promise(resolve => { finish = resolve; }); } };
+    const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+    store.create({ id: 'long', channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    const adapter = createMcpAgentActionAdapter({ capabilityRegistry: registry, runtime });
+    const call = (userId = 'owner') => adapter.callTool({ name: 'blog_confirmation_decide', arguments: { confirmation_id: 'long', decision: 'approve' } }, { userId, conversationId: 'mcp:owner' });
+    const [first, second] = await Promise.all([call(), call()]);
+    assert.equal(first.status, 'accepted');
+    assert.equal(first.ok, true);
+    assert.equal(second.status, 'accepted');
+    assert.equal(second.ok, false);
+    assert.equal((await call('other')).status, 'not_found');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(runs, 1);
+    assert.equal(store.get('long').status, 'accepted');
+    finish({ success: true });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(store.get('long').status, 'executed');
+});
+
+test('MCP records a background execution failure after acknowledging', async () => {
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    const store = new ConfirmationStore();
+    let fail;
+    const registry = { listAgentActions: () => [], executeAction() { return new Promise((_, reject) => { fail = reject; }); } };
+    const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+    store.create({ id: 'failure', channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    const adapter = createMcpAgentActionAdapter({ capabilityRegistry: registry, runtime });
+    const context = { userId: 'owner', conversationId: 'mcp:owner' };
+    const ack = await adapter.callTool({ name: 'blog_confirmation_decide', arguments: { confirmation_id: 'failure', decision: 'approve' } }, context);
+    assert.equal(ack.status, 'accepted');
+    await new Promise(resolve => setImmediate(resolve));
+    fail(Object.assign(new Error('test failure'), { code: 'TEST_FAILURE' }));
+    await new Promise(resolve => setImmediate(resolve));
+    const status = await adapter.callTool({ name: 'blog_confirmation_status', arguments: { confirmation_id: 'failure' } }, context);
+    assert.equal(status.status, 'failed');
+    assert.match(status.message, /TEST_FAILURE/);
+});
+
+test('MCP tracks a long running action past retention and retains its completed result', async () => {
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    const store = new ConfirmationStore({ ttlMs: 1000 });
+    let now = 10000, finish, runs = 0;
+    store._now = () => now;
+    const registry = { listAgentActions: () => [], executeAction() { runs++; return new Promise(resolve => { finish = resolve; }); } };
+    const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+    const adapter = createMcpAgentActionAdapter({ capabilityRegistry: registry, runtime });
+    const context = { userId: 'owner', conversationId: 'mcp:owner' };
+    store.create({ id: 'long-retention', channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    const call = name => adapter.callTool({ name, arguments: { confirmation_id: 'long-retention', decision: 'approve' } }, context);
+    assert.equal((await call('blog_confirmation_decide')).status, 'accepted');
+    await new Promise(resolve => setImmediate(resolve));
+    now += 3000;
+    assert.equal((await call('blog_confirmation_status')).status, 'accepted');
+    assert.equal((await call('blog_confirmation_decide')).ok, false);
+    assert.equal(runs, 1);
+    finish({ success: true, message: 'done' });
+    await new Promise(resolve => setImmediate(resolve));
+    const result = await call('blog_confirmation_status');
+    assert.equal(result.status, 'executed');
+    assert.equal(result.results[0].result.message, 'done');
+    now += 1000;
+    assert.equal((await call('blog_confirmation_status')).status, 'not_found');
+});
+
+
+test('MCP does not acknowledge or execute when persisting approval fails', async t => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { createAgentRuntime } = require('../../../host/agent/runtime');
+    const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'approval-failure-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const persistPath = path.join(dir, 'state.json');
+    const store = new ConfirmationStore({ persistPath });
+    let runs = 0;
+    const registry = { listAgentActions: () => [], async executeAction() { runs++; return { success: true }; } };
+    const runtime = createAgentRuntime({ capabilityRegistry: registry, confirmationStore: store });
+    store.create({ id: 'persist-failure', channel: 'mcp', userId: 'owner', conversationId: 'mcp:owner', actions: [{ id: 'a', domain: 'example', name: 'run' }] });
+    const persist = store._persist.bind(store);
+    store._persist = () => {
+        if (store.items.get('persist-failure')?.status === 'accepted') throw Object.assign(new Error('injected'), { code: 'CONFIRMATION_STORAGE_ERROR' });
+        return persist();
+    };
+    const adapter = createMcpAgentActionAdapter({ capabilityRegistry: registry, runtime });
+    await assert.rejects(adapter.callTool({ name: 'blog_confirmation_decide', arguments: { confirmation_id: 'persist-failure', decision: 'approve' } }, { userId: 'owner', conversationId: 'mcp:owner' }), { code: 'CONFIRMATION_STORAGE_ERROR' });
+    assert.equal(runs, 0);
+    assert.equal(new ConfirmationStore({ persistPath }).get('persist-failure').status, 'pending');
 });

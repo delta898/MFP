@@ -23,8 +23,8 @@ const modelSets = [
         ['gemini-3.1-pro-preview', 30], ['gemini-3.1-flash-lite', 40]
     ]],
     ['text', 'openai', 'openai_chat_completions', [
-        ['gpt-6-astra', 5], ['gpt-6.1-sol', 10], ['gpt-6-sol', 15], ['gpt-6-luna', 20],
-        ['gpt-5.6-sol', 30], ['gpt-5.6-terra', 40], ['gpt-5.6-luna', 50]
+        ['gpt-6.1-sol', 5], ['gpt-6.1-terra', 10], ['gpt-6-astra', 15], ['gpt-6-sol', 20], ['gpt-6-luna', 25],
+        ['gpt-5.6-sol', 30], ['gpt-5.6-terra', 35], ['gpt-5.6-luna', 40]
     ]],
     ['text', 'anthropic', 'anthropic_openai_compat', [
         ['claude-fable-5-1', 5], ['claude-opus-5', 10], ['claude-sonnet-5', 20], ['claude-haiku-4-5', 30]
@@ -48,7 +48,8 @@ const modelSets = [
         ['gemini-nano-banana-2.1', 5], ['gemini-3.1-flash-image', 10], ['gemini-3.1-flash-lite-image', 20]
     ]],
     ['image', 'openai', 'openai_images', [
-        ['gpt-image-2.5-sunburst', 5], ['gpt-image-2.5-flare', 10], ['gpt-image-2', 20]
+        ['gpt-image-2.6-sunburst', 5], ['gpt-image-2.6-flare', 10],
+        ['gpt-image-2.5-sunburst', 15], ['gpt-image-2.5-flare', 20], ['gpt-image-2', 25]
     ]],
     ['image', 'kie', 'kie_market_image_jobs', [
         ['flux-3/klein-text-to-image', 10], ['gpt-image-2-5-sunburst-text-to-image', 110], ['gpt-image-2-5-flare-text-to-image', 120],
@@ -152,8 +153,9 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
         [
-            'gpt-6-astra',
             'gpt-6.1-sol',
+            'gpt-6.1-terra',
+            'gpt-6-astra',
             'gpt-6-sol',
             'gpt-6-luna',
             'gpt-5.6-sol',
@@ -171,6 +173,16 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
         ]
     );
     assert.equal(catalog.image.some((item) => item.code.startsWith('imagen-')), false);
+    assert.deepEqual(
+        catalog.image.filter((item) => item.provider === 'openai').map((item) => item.code),
+        [
+            'gpt-image-2.6-sunburst',
+            'gpt-image-2.6-flare',
+            'gpt-image-2.5-sunburst',
+            'gpt-image-2.5-flare',
+            'gpt-image-2'
+        ]
+    );
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [

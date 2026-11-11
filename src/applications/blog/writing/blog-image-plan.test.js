@@ -65,9 +65,9 @@ test('image mode explicitly distinguishes generation, prompt-only and no-image m
 test('image plan prompt requests the resolved exact count and keeps regions when generation is off', () => {
     const prompt = buildBlogImagePlanPrompt({ count: 3 });
     assert.match(prompt, /정확히 3개 작성/);
-    assert.match(prompt, /title, prompt와 문법 문자는 순수 본문 글자 수에 포함하지 마세요/);
-    assert.match(prompt, /IMAGE_0부터 시작/);
+    assert.match(prompt, /인물 속성을 구체화하지 말고/);
     assert.match(prompt, /실제 AI 이미지 파일 생성 여부와 무관하게/);
+    assert.doesNotMatch(buildBlogImagePlanPrompt({ mode: 'none', count: 0 }), /인물 속성/);
 });
 
 test('image block validation requires the exact sequential count', () => {

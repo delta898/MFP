@@ -300,8 +300,11 @@ function syncBlogNextPublishingTargetSettings(type, { force = false, restoreStor
     siteHint.hidden = target !== 'site-hosting' || !isVault;
     siteHint.textContent = isVault ? '연결된 Vault root 아래 폴더에 원고를 저장합니다.' : '';
   }
-  const desiredStatus = stored?.postStatus || (target === 'naver' && !blogNextActivePublishSettingsKey ? status?.value || 'publish' : 'publish');
   const validStatuses = target === 'site-hosting' ? ['publish', 'draft'] : ['publish', 'draft', 'schedule'];
+  // The posting method is one reusable choice. A stored per-target value must not
+  // replace the select after topic defaults have already restored it.
+  const liveStatus = validStatuses.includes(status?.value) ? status.value : '';
+  const desiredStatus = liveStatus || stored?.postStatus || 'publish';
   if (status) status.value = validStatuses.includes(desiredStatus) ? desiredStatus : 'publish';
   if (scheduleDate) scheduleDate.value = stored?.scheduleDate || (target === 'naver' && !blogNextActivePublishSettingsKey ? scheduleDate.value : '');
   blogNextActivePublishSettingsKey = nextKey;

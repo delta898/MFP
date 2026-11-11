@@ -44,7 +44,7 @@ test('blog profile prompt renders common and blog choices without shopping instr
     assert.match(prompt, /도입은 H2 없이 약 150~250자/);
     assert.match(prompt, /한두 문장짜리 빈약한 섹션은 만들지 마세요/);
     assert.match(prompt, /핵심 설명과 함께 해석 또는.*실용 정보/);
-    assert.match(prompt, /\[\[IMAGE_N \.\.\.\]\] 블록 전체의 title·prompt/);
+    assert.doesNotMatch(prompt, /\[\[IMAGE_N \.\.\.\]\] 블록 전체의 title·prompt/);
     assert.match(prompt, /비교 기준과 선택 조건/);
     assert.match(prompt, /10년 경력 편집자/);
     assert.match(prompt, /결론에 체크리스트/);
@@ -71,7 +71,7 @@ test('blog length presets provide explicit reader-visible length and H2 guides',
         assert.match(prompt, new RegExp(length));
         assert.match(prompt, new RegExp(headings));
         assert.match(prompt, /독자가 실제로 읽는 순수 본문/);
-        assert.match(prompt, /Markdown 문법 기호/);
+        assert.doesNotMatch(prompt, /Markdown 문법 기호/);
     });
 });
 
@@ -87,6 +87,11 @@ test('blog prompt contract contains immutable output and safety rules without pr
     assert.match(contract, /\[\[IMAGE_N/);
     assert.match(contract, /공백을 포함한 독자 가독 본문/);
     assert.match(contract, /이미지 블록 전체의 title·prompt·구분 문자는 글자 수에서 제외/);
+    assert.match(contract, /\[우선순위\]/);
+    assert.match(contract, /각 H2의 첫 문장/);
+    assert.match(contract, /25~40자/);
+    assert.match(contract, /본문에 실제로 있는 표현 5~8개/);
+    assert.doesNotMatch(contract, /성별, 연령, 국적/);
     assert.match(contract, /이미지 영역 수와 배치는 별도로 전달되는 이미지 계획/);
     assert.match(contract, /본문 문단 바로 뒤에 이미지 블록.*빈 줄을 넣지 말고, 문단 다음 줄에서 이미지 블록을 시작/);
     assert.match(contract, /IMAGE 블록 다음에는 빈 줄 하나/);

@@ -2,7 +2,9 @@
 
 const axiosDefault = require('axios');
 const cheerio = require('cheerio');
-const { rethrowIfCanceled, throwIfCanceled } = require('../../utilities/async/cancellation');
+const dns = require('node:dns');
+const net = require('node:net');
+const { raceWithCancellation, rethrowIfCanceled, throwIfCanceled } = require('../../utilities/async/cancellation');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -259,10 +261,72 @@ function extractReferenceContentFromHtml(html, url) {
 }
 
 
+// Only globally routable addresses are eligible; rejecting mixed DNS answers also
+// prevents fallback to an internal address when address-family selection changes.
+const blockedAddresses = new net.BlockList();
+for (const [address, prefix] of [
+    ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+    ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24],
+    ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16],
+    ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
+    ['224.0.0.0', 4], ['240.0.0.0', 4]
+]) blockedAddresses.addSubnet(address, prefix, 'ipv4');
+for (const [address, prefix] of [
+    ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20]
+]) blockedAddresses.addSubnet(address, prefix, 'ipv6');
+const globalIpv6 = new net.BlockList();
+globalIpv6.addSubnet('2000::', 3, 'ipv6');
+const MAX_REFERENCE_RESPONSE_BYTES = 1024 * 1024;
+const MAX_REFERENCE_REDIRECTS = 5;
+
+function isPublicAddress(address) {
+    const version = net.isIP(address);
+    if (version === 4) return !blockedAddresses.check(address, 'ipv4');
+    if (version === 6) return globalIpv6.check(address, 'ipv6') && !blockedAddresses.check(address, 'ipv6');
+    return false;
+}
+
+function parseReferenceUrl(raw) {
+    const url = new URL(raw);
+    const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '');
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || !hostname
+        || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local')
+        || (net.isIP(hostname) && !isPublicAddress(hostname))) {
+        throw new Error('Reference URL is not public');
+    }
+    return url;
+}
+
+async function resolveReferenceAddresses(hostname, lookup, timeout, signal) {
+    const literal = net.isIP(hostname);
+    let addresses;
+    if (literal) {
+        addresses = [{ address: hostname, family: literal }];
+    } else {
+        let timer;
+        try {
+            addresses = await raceWithCancellation(() => Promise.race([
+                Promise.resolve().then(() => lookup(hostname, { all: true, verbatim: true })),
+                new Promise((_, reject) => {
+                    timer = setTimeout(() => reject(new Error('Reference DNS lookup timed out')), timeout);
+                })
+            ]), signal);
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+    if (!Array.isArray(addresses) || !addresses.length || addresses.some(({ address, family }) =>
+        !isPublicAddress(address) || (family && family !== net.isIP(address)))) {
+        throw new Error('Reference hostname did not resolve exclusively to public addresses');
+    }
+    return addresses.map(({ address }) => ({ address, family: net.isIP(address) }));
+}
+
 function createBlogReferenceContentFetcher(options = {}) {
     const axios = options.axios || axiosDefault;
     const config = options.config || {};
     const Logger = options.logger || console;
+    const lookup = options.lookup || dns.promises.lookup;
 
     return async function fetchReferenceContent(url, options = {}) {
         const signal = options?.signal;
@@ -271,15 +335,46 @@ function createBlogReferenceContentFetcher(options = {}) {
         Logger.debug(`🌐 [참고자료 Fetch] 요청 시작: ${url}`);
         Logger.debug(`🌐 [Scraping] 접속 시도: ${url}`);
         try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-                },
-                timeout: config.SCRAPING_TIMEOUT || 20000,
-                maxRedirects: 5,
-                ...(signal ? { signal } : {})
-            });
+            let current = parseReferenceUrl(url);
+            let response;
+            for (let redirects = 0; ; redirects += 1) {
+                const hostname = current.hostname.replace(/^\[|\]$/g, '');
+                const approved = await resolveReferenceAddresses(hostname, lookup, config.SCRAPING_TIMEOUT || 20000, signal);
+                throwIfCanceled(signal);
+                response = await axios.get(current.toString(), {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                    },
+                    timeout: config.SCRAPING_TIMEOUT || 20000,
+                    maxRedirects: 0,
+                    proxy: false,
+                    maxContentLength: MAX_REFERENCE_RESPONSE_BYTES,
+                    responseType: 'arraybuffer',
+                    validateStatus: (status) => status >= 200 && status < 400,
+                    lookup: (requestedHost, lookupOptions, callback) => {
+                        if (requestedHost.toLowerCase().replace(/\.$/, '') !== hostname.toLowerCase().replace(/\.$/, '')) {
+                            return callback(new Error('Unexpected DNS lookup target'));
+                        }
+                        const family = typeof lookupOptions === 'object' ? lookupOptions.family : lookupOptions;
+                        const candidates = family ? approved.filter((item) => item.family === family) : approved;
+                        if (!candidates.length) return callback(new Error('No approved address for requested family'));
+                        if (lookupOptions?.all) return callback(null, candidates.map((item) => ({ ...item })));
+                        return callback(null, candidates[0].address, candidates[0].family);
+                    },
+                    ...(signal ? { signal } : {})
+                });
+                throwIfCanceled(signal);
+                if (response.status >= 300 && response.status < 400) {
+                    if (redirects >= MAX_REFERENCE_REDIRECTS || !response.headers?.location) throw new Error('Invalid or excessive redirects');
+                    current = parseReferenceUrl(new URL(response.headers.location, current).toString());
+                    continue;
+                }
+                const bytes = Buffer.isBuffer(response.data) ? response.data : Buffer.from(response.data || '');
+                if (bytes.length > MAX_REFERENCE_RESPONSE_BYTES) throw new Error('Reference response too large');
+                response.data = bytes.toString('utf8');
+                break;
+            }
             throwIfCanceled(signal);
             const extracted = extractReferenceContentFromHtml(response.data, url);
             if (!extracted.text) {

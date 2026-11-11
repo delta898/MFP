@@ -21,7 +21,10 @@ class ConfirmationStore {
                 item.status = 'expired';
                 this.items.set(id, item);
             }
-            if (item.expiresAtMs <= now - this.ttlMs) {
+            // Accepted may still be executing, including after a restart with an
+            // unknown outcome. Never infer completion or retry from elapsed time.
+            const retentionStart = Math.max(item.expiresAtMs, item.completedAtMs || 0);
+            if (item.status !== 'accepted' && retentionStart <= now - this.ttlMs) {
                 this.items.delete(id);
             }
         }
@@ -48,7 +51,8 @@ class ConfirmationStore {
             status: String(item.status || 'pending').trim(),
             createdAt: String(item.createdAt || '').trim(),
             expiresAt: String(item.expiresAt || '').trim(),
-            expiresAtMs: Number.isFinite(Number(item.expiresAtMs)) ? Number(item.expiresAtMs) : 0
+            expiresAtMs: Number.isFinite(Number(item.expiresAtMs)) ? Number(item.expiresAtMs) : 0,
+            completedAtMs: Number.isFinite(Number(item.completedAtMs)) ? Number(item.completedAtMs) : 0
         };
     }
 
@@ -69,7 +73,8 @@ class ConfirmationStore {
         try {
             if (!fs.existsSync(this.persistPath)) return;
             const raw = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
-            const items = Array.isArray(raw?.items) ? raw.items : [];
+            if (!raw || !Array.isArray(raw.items)) throw new Error('Invalid confirmation state');
+            const items = raw.items;
             items.forEach((item) => {
                 const normalized = this._normalizePersistedItem(item);
                 if (normalized.id) {
@@ -77,20 +82,30 @@ class ConfirmationStore {
                 }
             });
             this._cleanupExpired();
-        } catch (_error) {
-            // Ignore persistence load failures and continue in memory-only mode.
+        } catch (error) {
+            throw Object.assign(new Error('Confirmation state could not be loaded safely'), { code: 'CONFIRMATION_STORAGE_ERROR', cause: error });
         }
     }
 
     _persist() {
         if (!this.persistPath) return;
+        const directory = path.dirname(this.persistPath);
+        const temporary = `${this.persistPath}.${crypto.randomUUID()}.tmp`;
+        let fd;
         try {
-            fs.mkdirSync(path.dirname(this.persistPath), { recursive: true });
-            fs.writeFileSync(this.persistPath, JSON.stringify({
-                items: Array.from(this.items.values())
-            }, null, 2), 'utf8');
-        } catch (_error) {
-            // Ignore persistence write failures to avoid breaking runtime behavior.
+            fs.mkdirSync(directory, { recursive: true });
+            fd = fs.openSync(temporary, 'wx', 0o600);
+            fs.writeFileSync(fd, JSON.stringify({ items: Array.from(this.items.values()) }, null, 2), 'utf8');
+            fs.fsyncSync(fd);
+            fs.closeSync(fd);
+            fd = undefined;
+            fs.renameSync(temporary, this.persistPath);
+            const dirFd = fs.openSync(directory, 'r');
+            try { fs.fsyncSync(dirFd); } finally { fs.closeSync(dirFd); }
+        } catch (error) {
+            if (fd !== undefined) { try { fs.closeSync(fd); } catch (_) {} }
+            try { fs.unlinkSync(temporary); } catch (_) {}
+            throw Object.assign(new Error('Confirmation state could not be persisted safely'), { code: 'CONFIRMATION_STORAGE_ERROR', cause: error });
         }
     }
 
@@ -157,6 +172,7 @@ class ConfirmationStore {
         const item = this.items.get(String(id || '').trim());
         if (!item) return null;
         item.status = 'executed';
+        item.completedAtMs = this._now();
         item.execution = {
             success: !results.some((entry) => entry?.result?.success === false),
             results: results.map((entry) => ({
@@ -175,6 +191,7 @@ class ConfirmationStore {
         const item = this.items.get(String(id || '').trim());
         if (!item) return null;
         item.status = 'failed';
+        item.completedAtMs = this._now();
         item.execution = {
             success: false,
             errorCode: String(code || 'UNKNOWN').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'UNKNOWN'
@@ -212,7 +229,7 @@ class ConfirmationStore {
         this._cleanupExpired();
         const key = String(id || '').trim();
         const item = this.items.get(key);
-        if (!item) return null;
+        if (!item || item.status !== 'pending') return null;
         item.status = nextStatus;
         this.items.set(key, item);
         this._persist();
