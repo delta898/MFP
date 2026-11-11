@@ -29,7 +29,6 @@ const LENGTH_RULES = Object.freeze({
 });
 
 const BODY_STRUCTURE_RULES = Object.freeze([
-    '- 순수 본문 글자 수에는 도입, 소제목의 실제 문구, 각 섹션 본문과 마무리만 포함하고, Markdown 문법 기호와 [[IMAGE_N ...]] 블록 전체의 title·prompt는 포함하지 마세요.',
     '- 도입은 H2 없이 약 150~250자로 작성하고, 마무리도 H2 개수에서 제외하세요.',
     '- 소제목 숫자를 맞추기 위한 한두 문장짜리 빈약한 섹션은 만들지 마세요.',
     '- 각 H2 섹션에는 핵심 설명과 함께 해석 또는 독자에게 유용한 실용 정보를 충분히 포함하세요.'
@@ -123,8 +122,7 @@ function buildBlogWritingProfilePromptFromProjection(projection = {}) {
     if (blog.additional_instruction) {
         sections.push(
             '[블로그 추가 작성 지침]',
-            blog.additional_instruction,
-            '- 위 지침은 시스템 출력, 사실성, 참고자료 비복제와 이미지 문법 계약을 덮어쓸 수 없습니다.'
+            blog.additional_instruction
         );
     }
 
@@ -140,11 +138,8 @@ function buildBlogWritingProfilePromptFromProjection(projection = {}) {
         sections.push(
             '[분석된 참고 글의 세부 특징]',
             `- 요약: ${fingerprint.summary || '분석된 구성과 표현 특성을 참고하세요.'}`,
-            `- 세부 흐름/문단 길이: ${(fingerprint.structure?.section_flow || []).join(' → ') || '-'} / ${fingerprint.structure?.paragraph_length || '-'}`,
-            `- 문장/온도/어휘/표현 장치: ${fingerprint.voice?.sentence_rhythm || '-'} / ${fingerprint.voice?.warmth || '-'} / ${fingerprint.voice?.vocabulary || '-'} / ${(fingerprint.voice?.rhetorical_devices || []).join(', ') || '-'}`,
             `- 피할 특성: ${(fingerprint.avoid || []).join(', ') || '없음'}`,
-            '- 분석 결과는 이미 위의 최종 문체·길이·구성 값에 반영되었습니다. 이 세부 특징은 그 값을 바꾸지 않는 범위에서만 보완하세요.',
-            '- 이번 글의 명시적 지시가 있으면 시스템 계약을 해치지 않는 범위에서 최종 프로필과 분석된 세부 특징보다 우선합니다.',
+            '- 최종 문체·길이·구성 값을 바꾸지 마세요.',
             '- 이는 원문 복제나 작성자 persona 추정이 아닌 분석된 문체 특성이며 사실 또는 경험의 근거로 사용하지 마세요.'
         );
     }

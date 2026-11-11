@@ -41,7 +41,7 @@ test('writing style prompt contains concrete mode and speech rules', () => {
     assert.match(prompt, /높임 방식은 평어/);
     assert.match(prompt, /~다, ~했다 형태를 중심/);
     assert.match(prompt, /~요, ~습니다, ~세요와 구어적 종결/);
-    assert.match(prompt, /Instructions.*우선/);
+    assert.doesNotMatch(prompt, /Instructions.*우선/);
 });
 
 test('shopping writing style prompt maps every common preference without fabricated experience', () => {

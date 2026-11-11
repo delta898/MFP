@@ -70,8 +70,7 @@ function buildWritingStylePrompt(input = {}) {
         '[사용자 문체 설정]',
         `- 예상 문체: ${getWritingStyleDescription(style)}`,
         ...modeRules,
-        ...speechRules,
-        '- 입력 데이터의 Instructions에 이번 글의 문체를 바꾸라는 명시적 요청이 있으면 그 요청을 우선하세요.'
+        ...speechRules
     ].join('\n');
 }
 
