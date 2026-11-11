@@ -48,7 +48,8 @@ const modelSets = [
         ['gemini-nano-banana-2.1', 5], ['gemini-3.1-flash-image', 10], ['gemini-3.1-flash-lite-image', 20]
     ]],
     ['image', 'openai', 'openai_images', [
-        ['gpt-image-2.5-sunburst', 5], ['gpt-image-2.5-flare', 10], ['gpt-image-2', 20]
+        ['gpt-image-2.6-sunburst', 5], ['gpt-image-2.6-flare', 10],
+        ['gpt-image-2.5-sunburst', 15], ['gpt-image-2.5-flare', 20], ['gpt-image-2', 25]
     ]],
     ['image', 'kie', 'kie_market_image_jobs', [
         ['flux-3/klein-text-to-image', 10], ['gpt-image-2-5-sunburst-text-to-image', 110], ['gpt-image-2-5-flare-text-to-image', 120],
@@ -172,6 +173,16 @@ test('provider and model order follows the Supabase snapshot sort order', () => 
         ]
     );
     assert.equal(catalog.image.some((item) => item.code.startsWith('imagen-')), false);
+    assert.deepEqual(
+        catalog.image.filter((item) => item.provider === 'openai').map((item) => item.code),
+        [
+            'gpt-image-2.6-sunburst',
+            'gpt-image-2.6-flare',
+            'gpt-image-2.5-sunburst',
+            'gpt-image-2.5-flare',
+            'gpt-image-2'
+        ]
+    );
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
