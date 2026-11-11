@@ -85,6 +85,11 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     assert.match(composerSource, /\? '발행 완료'/);
     assert.match(composerSource, /imageFileEl\.disabled\s*=\s*manualSnsPublishingInFlight/);
     assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);
+    assert.match(composerSource, /Buffer 연결이 끊어졌습니다/);
+    assert.match(composerSource, /Buffer에서 이 채널 발행이 잠겨 있습니다/);
+    assert.match(composerSource, /이 채널 종류는 수동 발행을 지원하지 않습니다/);
+    assert.match(composerSource, /아직 지원하지 않는 채널입니다/);
+    assert.doesNotMatch(composerSource, /현재 수동 발행 미지원/);
     assert.match(composerSource, /manualSnsDraggedImageIndex/);
     assert.match(socialView, /id="manual-sns-publish-btn" class="primary ui-loading-action"/);
     assert.match(feedbackStyles, /button\.ui-loading-action\.is-loading::before/);

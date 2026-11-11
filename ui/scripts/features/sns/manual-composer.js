@@ -83,6 +83,14 @@ function getManualSnsChannelTextLimit(channel = {}) {
   return Number.isFinite(limit) && limit > 0 ? limit : 0;
 }
 
+function describeManualSnsChannelUnavailable(channel = {}) {
+  if (channel.is_disconnected) return 'Buffer 연결이 끊어졌습니다. 다시 연결한 뒤 작업 공간을 갱신해 주세요.';
+  if (channel.is_locked) return 'Buffer에서 이 채널 발행이 잠겨 있습니다.';
+  if (channel.disabled) return '이 채널 종류는 수동 발행을 지원하지 않습니다.';
+  if (!channel.supported) return '아직 지원하지 않는 채널입니다.';
+  return '';
+}
+
 function getManualSnsChannelLabel(channel = {}) {
   const service = String(channel.service || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const platform = BufferChannelCards.serviceLabels[service] || String(channel.service || 'SNS').trim();
@@ -877,11 +885,11 @@ function renderManualSnsChannels() {
   channels.forEach((channel) => {
     const input = listEl?.querySelector(`[data-manual-sns-channel][value="${CSS.escape(String(channel.id || ''))}"]`);
     const metadata = input?.closest('label')?.querySelector('.buffer-channel-metadata');
-    const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
+    const unavailableReason = describeManualSnsChannelUnavailable(channel);
     const textLimit = getManualSnsChannelTextLimit(channel);
-    if (metadata && !unavailable && !(Number(channel.limit) > 0)) {
+    if (metadata && !unavailableReason && !(Number(channel.limit) > 0)) {
       metadata.textContent = `${textLimit > 0 ? `최대 ${textLimit.toLocaleString('ko-KR')}자` : '글자 수 제한 확인 필요'} · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 확인 필요'}${channel.image_required ? ' · 이미지 필수' : ''}`;
-    } else if (unavailable && metadata) metadata.textContent = '현재 수동 발행 미지원';
+    } else if (unavailableReason && metadata) metadata.textContent = unavailableReason;
   });
   if (manualSnsConfig.workspaceLoadMessage && listEl) {
     const statusEl = document.createElement('p');

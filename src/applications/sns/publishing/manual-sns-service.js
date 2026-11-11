@@ -240,14 +240,19 @@ function createManualSnsService(deps = {}) {
                 throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_NOT_CONFIGURED', '설정에 저장되지 않은 Buffer 채널이 포함되어 있습니다.');
             }
             const label = channel.name || channel.service || '선택한 채널';
-            if (channel.is_disconnected || channel.is_locked) {
-                throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_UNAVAILABLE', `${label} 채널은 현재 Buffer에서 사용할 수 없습니다.`);
+            if (channel.is_disconnected) {
+                throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_UNAVAILABLE', `${label} 채널은 Buffer 연결이 끊어졌습니다. 다시 연결한 뒤 작업 공간을 갱신해 주세요.`);
+            }
+            if (channel.is_locked) {
+                throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_UNAVAILABLE', `${label} 채널은 Buffer에서 발행이 잠겨 있습니다.`);
             }
             if (!channel.supported) {
                 throw createManualSnsError(
                     400,
                     channel.disabled ? 'SNS_SERVICE_DISABLED' : 'SNS_SERVICE_UNSUPPORTED',
-                    `${label} 채널은 현재 수동 SNS 발행을 지원하지 않습니다.`
+                    channel.disabled
+                        ? `${label} 채널 종류는 수동 발행을 지원하지 않습니다.`
+                        : `${label} 채널은 아직 지원하지 않습니다.`
                 );
             }
             return channel;
