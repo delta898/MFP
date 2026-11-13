@@ -40,9 +40,11 @@ function buildBlogPostInputPrompt(input = {}) {
 
 function buildBlogGenerationPrompt(options = {}) {
     const baseProjection = projectWritingProfile(options.profile, { kind: 'blog' });
+    const rawWritingOverrides = options.post?.writing_overrides || options.post?.writingOverrides;
+    const autoComposition = rawWritingOverrides?.auto === true;
     const { projection, overrides: writingOverrides } = applyBlogWritingOverridesToProjection(
         baseProjection,
-        options.post?.writing_overrides || options.post?.writingOverrides
+        rawWritingOverrides
     );
     const strategy = resolveWritingStrategy({
         override: options.strategy,
@@ -60,7 +62,7 @@ function buildBlogGenerationPrompt(options = {}) {
         promptPaths: options.promptPaths,
         fileSystem: options.fileSystem
     });
-    const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection);
+    const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection, { autoComposition });
     const imagePlan = resolveImagePlan({
         post_mode: options.post?.image_mode,
         post_generate: options.post?.image_generate,
@@ -74,6 +76,7 @@ function buildBlogGenerationPrompt(options = {}) {
         strategy,
         projection,
         writing_overrides: writingOverrides,
+        auto_composition: autoComposition,
         contract_and_strategy_prompt: contractAndStrategyPrompt,
         strategy_prompt: strategyPrompt,
         profile_prompt: profilePrompt,

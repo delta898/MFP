@@ -16,9 +16,16 @@ function validateBlogWritingOverrides(input = {}) {
     }
     const errors = [];
     const allowedFields = new Set(Object.keys(BLOG_WRITING_OVERRIDE_FIELDS));
+    allowedFields.add('auto');
     for (const [field, rawValue] of Object.entries(input)) {
         if (!allowedFields.has(field)) {
             errors.push({ field: `writingOverrides.${field}`, code: 'WRITING_OVERRIDE_FIELD_UNSUPPORTED', message: '이번 글에서 변경할 수 없는 글쓰기 항목입니다.' });
+            continue;
+        }
+        if (field === 'auto') {
+            if (typeof rawValue !== 'boolean') {
+                errors.push({ field: 'writingOverrides.auto', code: 'WRITING_OVERRIDE_VALUE_INVALID', message: 'Auto 선택값을 확인해 주세요.' });
+            }
             continue;
         }
         const value = String(rawValue || '').trim().toLowerCase();
@@ -33,6 +40,7 @@ function validateBlogWritingOverrides(input = {}) {
 function applyBlogWritingOverridesToProjection(projection = {}, input = {}) {
     const next = JSON.parse(JSON.stringify(projection));
     const overrides = normalizeBlogWritingOverrides(input);
+    if (overrides.auto === true) return { projection: next, overrides };
     for (const [field, value] of Object.entries(overrides)) {
         const path = BLOG_WRITING_OVERRIDE_FIELDS[field].path;
         let target = next;

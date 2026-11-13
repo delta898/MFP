@@ -23,7 +23,7 @@ const PROFILE_ENUMS = Object.freeze({
     narratorPresence: Object.freeze(['minimal', 'occasional', 'present']),
     lengthPreset: Object.freeze(['short', 'standard', 'long']),
     opening: Object.freeze(['direct', 'contextual', 'scene']),
-    development: Object.freeze(['explanatory', 'problem_solution', 'experience_review', 'comparison']),
+    development: Object.freeze(['explanatory', 'problem_solution', 'experience_review', 'comparison', 'introduction']),
     ending: Object.freeze(['summary', 'judgment', 'next_step']),
     headingDensity: Object.freeze(['sparse', 'balanced', 'dense']),
     imageCountMode: Object.freeze(['auto', 'fixed']),

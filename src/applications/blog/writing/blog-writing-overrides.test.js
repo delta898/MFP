@@ -16,6 +16,20 @@ test('normalizes only the four allowed per-post composition overrides', () => {
     });
 });
 
+test('preserves the per-post Auto flag and does not apply manual values while automatic composition is enabled', () => {
+    const original = projectWritingProfile(getDefaultContentWritingProfile(), { kind: 'blog' });
+    const before = JSON.stringify(original);
+    const result = applyBlogWritingOverridesToProjection(original, {
+        auto: true, length: 'long', opening: 'scene', development: 'introduction', ending: 'next_step'
+    });
+
+    assert.deepEqual(result.overrides, {
+        auto: true, length: 'long', opening: 'scene', development: 'introduction', ending: 'next_step'
+    });
+    assert.deepEqual(result.projection, original);
+    assert.equal(JSON.stringify(original), before);
+});
+
 test('rejects unsupported fields and invalid values at the topic boundary', () => {
     const result = validateBlogWritingOverrides({ length: 'endless', tone: 'vivid' });
     assert.equal(result.valid, false);
@@ -23,6 +37,11 @@ test('rejects unsupported fields and invalid values at the topic boundary', () =
         'WRITING_OVERRIDE_VALUE_INVALID',
         'WRITING_OVERRIDE_FIELD_UNSUPPORTED'
     ]);
+});
+
+test('validates Auto as a boolean at the topic boundary', () => {
+    assert.equal(validateBlogWritingOverrides({ auto: true }).valid, true);
+    assert.equal(validateBlogWritingOverrides({ auto: 'true' }).errors[0].code, 'WRITING_OVERRIDE_VALUE_INVALID');
 });
 
 test('applies partial overrides without mutating the global projection', () => {

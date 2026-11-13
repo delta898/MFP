@@ -474,6 +474,7 @@ function initBlogNextQuickQueue() {
   });
   document.getElementById('blog-next-editor-settings-form')?.addEventListener('submit', (event) => event.preventDefault());
   form.addEventListener('change', (event) => {
+    if (event.target?.id === 'blog-next-writing-auto') syncBlogNextWritingAutoState();
     if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(event.target?.id)) {
       syncBlogNextProviderDependentFields();
     }

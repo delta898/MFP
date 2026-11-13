@@ -51,6 +51,21 @@ test('blog profile prompt renders common and blog choices without shopping instr
     assert.doesNotMatch(prompt, /가격을 먼저 설명/);
 });
 
+test('introduction development explains one subject without invented claims or purchase pressure', () => {
+    const prompt = buildBlogWritingProfilePrompt({
+        channels: {
+            blog: {
+                structure: { development: 'introduction' }
+            }
+        }
+    });
+    const rule = prompt.split('\n').find((line) => line.includes('상품·서비스·장소'));
+
+    assert.equal(rule, '- 본문은 상품·서비스·장소 하나가 무엇인지, 누구에게 왜 맞는지, 선택 전에 확인할 점이 무엇인지 설명하고 입력에 없는 가격·효과·방문·개인 경험, 슬로건이나 구매 압박 문구를 만들지 마세요.');
+    assert.equal(prompt.split('\n').filter((line) => line.includes('상품·서비스·장소')).length, 1);
+    assert.doesNotMatch(prompt, /핵심 개념과 근거를 이해하기 쉬운 순서로/);
+});
+
 test('blog length presets provide explicit reader-visible length and H2 guides', () => {
     const expected = [
         ['short', '900~1,200자', 'H2 소제목은 3개'],

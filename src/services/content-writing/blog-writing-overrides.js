@@ -16,6 +16,7 @@ function isRecord(value) {
 function normalizeBlogWritingOverrides(input = {}) {
     const source = isRecord(input) ? input : {};
     const result = {};
+    if (source.auto === true) result.auto = true;
     for (const [field, definition] of Object.entries(BLOG_WRITING_OVERRIDE_FIELDS)) {
         const value = String(source[field] || '').trim().toLowerCase();
         if (PROFILE_ENUMS[definition.enumKey].includes(value)) result[field] = value;

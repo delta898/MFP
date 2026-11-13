@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
     CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
+    PROFILE_ENUMS,
     DEFAULT_CONTENT_WRITING_PROFILE,
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile,
@@ -61,6 +62,40 @@ test('profile normalizer applies safe field defaults independently', () => {
     assert.deepEqual(normalized.channels.blog.image_plan, { count_mode: 'fixed', fixed_count: 5 });
     assert.equal(normalized.channels.shopping.mode, 'product_default');
     assert.equal(normalized.channels.shopping.additional_instruction, '배송 조건 우선');
+});
+
+test('development stays a closed set that accepts introduction and keeps the explanatory default', () => {
+    assert.deepEqual([...PROFILE_ENUMS.development], [
+        'explanatory',
+        'problem_solution',
+        'experience_review',
+        'comparison',
+        'introduction'
+    ]);
+    assert.equal(getDefaultContentWritingProfile().channels.blog.structure.development, 'explanatory');
+
+    const accepted = normalizeWritingProfile({
+        channels: { blog: { structure: { development: 'INTRODUCTION' } } }
+    });
+    assert.equal(accepted.channels.blog.structure.development, 'introduction');
+    assert.equal(validateWritingProfile({
+        channels: { blog: { structure: { development: 'introduction' } } }
+    }).valid, true);
+
+    const rejected = validateWritingProfile({
+        channels: { blog: { structure: { development: 'advertorial' } } }
+    });
+    assert.equal(rejected.valid, false);
+    assert.equal(
+        rejected.errors.some((item) => item.path === 'channels.blog.structure.development' && item.code === 'INVALID_ENUM'),
+        true
+    );
+    assert.equal(
+        normalizeWritingProfile({
+            channels: { blog: { structure: { development: 'advertorial' } } }
+        }).channels.blog.structure.development,
+        'explanatory'
+    );
 });
 
 test('strict profile validation rejects invalid enums, lengths and fixed image counts', () => {

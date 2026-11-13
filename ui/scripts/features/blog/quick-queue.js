@@ -8,7 +8,7 @@ const BLOG_NEXT_PERSISTED_SETTING_IDS = new Set([
   'blog-next-wordpress-category', 'blog-next-writing-strategy', 'blog-next-image-mode',
   'blog-next-post-status', 'blog-next-runner-headless', 'blog-next-external-reference',
   'blog-next-writing-length', 'blog-next-writing-opening', 'blog-next-writing-development',
-  'blog-next-writing-ending'
+  'blog-next-writing-ending', 'blog-next-writing-auto'
 ]);
 
 let blogNextTopicSubmitting = false;

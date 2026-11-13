@@ -68,6 +68,32 @@ test('analyzer treats sources as untrusted and returns only allowlisted fingerpr
     });
 });
 
+test('analyzer allowlist includes introduction and labels it 소개·추천형', async () => {
+    const schema = buildAnalysisResponseSchema();
+    assert.deepEqual(schema.properties.settings.properties.development.enum, [
+        'explanatory',
+        'problem_solution',
+        'experience_review',
+        'comparison',
+        'introduction'
+    ]);
+    assert.equal(schema.properties.structure.properties.section_flow.items.enum.includes('introduction'), false);
+
+    const analyze = createStyleReferenceAnalyzer({
+        fetchStyleReference: async () => ({ title: '참고 글', text: '본문' }),
+        generateText: async () => JSON.stringify({
+            surface: { writing_mode: 'conversational', speech_level: 'polite', tone: 'balanced', information_density: 'balanced' },
+            settings: { length_preset: 'standard', opening: 'contextual', development: 'introduction', ending: 'judgment', heading_density: 'balanced' },
+            structure: { opening_pattern: 'short_context_then_topic', section_flow: ['information'], paragraph_length: 'medium', ending_pattern: 'short_summary' },
+            voice: { sentence_rhythm: 'medium', warmth: 'neutral', vocabulary: 'balanced', rhetorical_devices: [] },
+            avoid: []
+        })
+    });
+    const result = await analyze({ sample_text: '상품 소개 문장' });
+    assert.equal(result.fingerprint.settings.development, 'introduction');
+    assert.match(result.fingerprint.summary, /소개·추천형으로 전개/);
+});
+
 test('truncated analysis receives one structured format repair attempt', async () => {
     const calls = [];
     const analyze = createStyleReferenceAnalyzer({

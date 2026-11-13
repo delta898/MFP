@@ -6,16 +6,18 @@ const BLOG_NEXT_WRITING_OVERRIDE_IDS = Object.freeze({
   development: 'blog-next-writing-development',
   ending: 'blog-next-writing-ending'
 });
+const BLOG_NEXT_WRITING_AUTO_ID = 'blog-next-writing-auto';
 
 const BLOG_NEXT_WRITING_LABELS = Object.freeze({
   length: { short: '짧게 · 900~1,200자', standard: '보통 · 1,500~1,800자', long: '길게 · 2,200~2,800자' },
   opening: { direct: '핵심부터', contextual: '공감 상황부터', scene: '장면·이야기부터' },
-  development: { explanatory: '설명형', problem_solution: '문제 해결형', experience_review: '경험·리뷰형', comparison: '비교·선택형' },
+  development: { explanatory: '설명형', problem_solution: '문제 해결형', experience_review: '경험·리뷰형', comparison: '비교·선택형', introduction: '소개·추천형' },
   ending: { summary: '핵심 요약', judgment: '개인적 판단', next_step: '다음 행동 제안' }
 });
 
 function readBlogNextWritingOverrides() {
   const result = {};
+  if (getBlogNextSettingsElement(BLOG_NEXT_WRITING_AUTO_ID)?.checked === true) result.auto = true;
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field, id]) => {
     const value = String(getBlogNextSettingsElement(id)?.value || '').trim();
     if (value) result[field] = value;
@@ -25,6 +27,7 @@ function readBlogNextWritingOverrides() {
 
 function normalizeBlogNextWritingOverrides(value = {}) {
   const result = {};
+  if (value?.auto === true) result.auto = true;
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field]) => {
     const candidate = String(value?.[field] || '').trim();
     if (BLOG_NEXT_WRITING_LABELS[field]?.[candidate]) result[field] = candidate;
@@ -37,6 +40,17 @@ function applyBlogNextWritingOverrides(value = {}) {
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field, id]) => {
     const element = getBlogNextSettingsElement(id);
     if (element) element.value = normalized[field] || '';
+  });
+  const auto = getBlogNextSettingsElement(BLOG_NEXT_WRITING_AUTO_ID);
+  if (auto) auto.checked = value?.auto === true;
+  syncBlogNextWritingAutoState();
+}
+
+function syncBlogNextWritingAutoState() {
+  const auto = getBlogNextSettingsElement(BLOG_NEXT_WRITING_AUTO_ID)?.checked === true;
+  Object.values(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach((id) => {
+    const element = getBlogNextSettingsElement(id);
+    if (element) element.disabled = auto;
   });
 }
 

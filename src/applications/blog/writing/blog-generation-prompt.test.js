@@ -122,6 +122,44 @@ test('blog generation composer applies only explicit per-post composition overri
     assert.equal(profile.channels.blog.length.preset, 'long');
 });
 
+test('Auto composition chooses all four settings in the same final-writing prompt and ignores saved manual values', () => {
+    const profile = createCustomProfile();
+    const result = buildBlogGenerationPrompt({
+        profile,
+        strategy: 'search',
+        config: promptConfig,
+        promptPaths: BlogPromptPaths,
+        post: {
+            subject: '초보자를 위한 소형 커피머신 소개',
+            keywords: ['소형 커피머신', '주방 공간'],
+            instruction: '가격보다 크기와 관리 편의성을 중심으로 알려주세요.',
+            reference_context: '공식 제품 안내: 물통 용량은 0.8L입니다.',
+            writing_overrides: {
+                auto: true, length: 'short', opening: 'direct',
+                development: 'comparison', ending: 'summary'
+            }
+        }
+    });
+
+    assert.equal(result.auto_composition, true);
+    assert.deepEqual(result.writing_overrides, {
+        auto: true, length: 'short', opening: 'direct', development: 'comparison', ending: 'summary'
+    });
+    assert.equal(result.projection.channel.length.preset, 'long');
+    assert.equal(result.projection.channel.structure.opening, 'direct');
+    assert.equal(result.projection.channel.structure.development, 'comparison');
+    assert.match(result.profile_prompt, /\[이번 글 구성 자동 선택\]/);
+    assert.match(result.profile_prompt, /짧게\(공백 포함 약 900~1,200자/);
+    assert.match(result.profile_prompt, /공감 상황부터는 독자의 문제·상황/);
+    assert.match(result.profile_prompt, /소개·추천형은 상품·서비스·장소 하나/);
+    assert.match(result.profile_prompt, /마무리 방식/);
+    assert.match(result.profile_prompt, /참고 글의 요약과 피할 특성만 문체 참고로 사용/);
+    assert.doesNotMatch(result.profile_prompt, /약 2,200~2,800자를 목표로 작성하세요/);
+    assert.doesNotMatch(result.profile_prompt, /핵심 답변이나 결론부터 제시/);
+    assert.match(result.post_input_prompt, /소형 커피머신/);
+    assert.match(result.post_input_prompt, /물통 용량은 0\.8L/);
+});
+
 test('blog composer excludes shopping fields and raw style-reference sources', () => {
     const result = buildBlogGenerationPrompt({
         profile: createCustomProfile(),

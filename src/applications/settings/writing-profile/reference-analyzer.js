@@ -52,7 +52,8 @@ function buildFingerprintSummary(fingerprint) {
         explanatory: '설명형',
         problem_solution: '문제 해결형',
         experience_review: '경험·리뷰형',
-        comparison: '비교·선택형'
+        comparison: '비교·선택형',
+        introduction: '소개·추천형'
     }[fingerprint.settings.development];
     return `${writingMode}·${speechLevel}, ${paragraph}과 ${vocabulary}를 사용하며 ${development}으로 전개하는 ${warmth} ${length}`;
 }

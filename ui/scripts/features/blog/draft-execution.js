@@ -495,7 +495,9 @@ async function generateBlogNextAiDraft(origin = 'create') {
 function markBlogNextAiDraftSourceChanged(fieldId = '') {
   const sourceFields = new Set([
     'blog-next-subject', 'blog-next-title', 'blog-next-keywords', 'blog-next-instruction',
-    'blog-next-reference-url', 'blog-next-writing-strategy', 'blog-next-image-mode'
+    'blog-next-reference-url', 'blog-next-writing-strategy', 'blog-next-image-mode',
+    'blog-next-writing-auto', 'blog-next-writing-length', 'blog-next-writing-opening',
+    'blog-next-writing-development', 'blog-next-writing-ending'
   ]);
   const state = blogNextDraftState.ai;
   if (!state.draftId || !sourceFields.has(fieldId)) return;

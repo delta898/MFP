@@ -65,6 +65,22 @@ test('optional content and publish settings disclose their current values', () =
   assert.doesNotMatch(html, /<details class="blog-next-disclosure" id="blog-next-content-settings"[^>]*\sopen/);
 });
 
+test('Blog Beta exposes Auto composition and disables per-post composition selectors in that mode', () => {
+  const html = readBlogNextView();
+  const overrides = read('ui/scripts/features/blog/writing-overrides.js');
+  const queue = read('ui/scripts/features/blog/quick-queue.js');
+  const settings = read('ui/scripts/features/blog/settings-instance.js');
+
+  assert.match(html, /id="blog-next-writing-auto" type="checkbox"/);
+  assert.match(html, /Auto \(AI\)/);
+  assert.match(html, /주제, 키워드, 참고사항을 보고 AI가 본문 길이와 도입·전개·마무리 방식을 골라/);
+  assert.doesNotMatch(html, /이번 글 구성|글쓰기 기본값 변경/);
+  assert.match(overrides, /function syncBlogNextWritingAutoState\(\)[\s\S]*?element\.disabled = auto/);
+  assert.match(overrides, /getBlogNextSettingsElement\(BLOG_NEXT_WRITING_AUTO_ID\)\?\.checked === true\) result\.auto = true/);
+  assert.match(queue, /blog-next-writing-auto/);
+  assert.match(settings, /id === 'blog-next-writing-auto'\) syncBlogNextWritingAutoState/);
+});
+
 test('Blog Beta settings groups are sourced from one reusable partial per group', () => {
   const entry = read('ui/partials/views/blog-next.html');
   const topicPartial = read('ui/partials/views/blog-next/topic-settings.html');
@@ -621,8 +637,8 @@ test('surface fills communicate state and help follows the active style', () => 
   assert.match(css, /\.blog-next-disclosure > summary:hover\s*\{[^}]*background:\s*var\(--ui-surface-hover\)/s);
   assert.match(css, /\.blog-next-disclosure\[open\] > summary\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
   assert.match(css, /\.blog-next-disclosure \.blog-next-execution-options\s*\{[^}]*background:\s*transparent/s);
-  assert.equal((html.match(/class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="[^"]+ 도움말" aria-describedby="blog-next-help-[^"]+"/g) || []).length, 6);
-  assert.equal((html.match(/class="tooltip-text" id="blog-next-help-[^"]+" role="tooltip"/g) || []).length, 6);
+  assert.equal((html.match(/class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="[^"]+ 도움말" aria-describedby="blog-next-help-[^"]+"/g) || []).length, 7);
+  assert.equal((html.match(/class="tooltip-text" id="blog-next-help-[^"]+" role="tooltip"/g) || []).length, 7);
   assert.match(css, /\.blog-next-topic-form \.blog-next-help-trigger \.tooltip-text\s*\{[^}]*background:\s*var\(--ui-surface-emphasis\)[^}]*color:\s*var\(--ui-text-inverse\)/s);
   assert.match(css, /\.blog-next-topic-form \.blog-next-help-trigger \.tooltip-text\s*\{[^}]*transition:\s*opacity\s+var\(--ui-motion-standard\)/s);
   assert.match(css, /\.blog-next-topic-form \.blog-next-help-trigger:focus \.tooltip-text\s*\{/);

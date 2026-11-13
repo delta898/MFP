@@ -72,6 +72,7 @@ function bindBlogNextEditorSettingsInstance(editor) {
   editor.dataset.settingsBound = 'true';
   const onChange = (event) => {
     const id = event.target?.dataset.blogNextSettingKey || '';
+    if (id === 'blog-next-writing-auto') syncBlogNextWritingAutoState();
     if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(id)) {
       syncBlogNextProviderDependentFields();
       if (id === 'blog-next-target-site-hosting' && event.target.checked) {

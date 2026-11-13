@@ -85,17 +85,23 @@ test('both strategies create an honest curiosity gap and require the body to clo
     });
 
     for (const prompt of [searchPrompt, discoveryPrompt]) {
-        assert.match(prompt, /정직한 호기심 간극/);
         assert.match(prompt, /이유·결과·판단/);
         assert.match(prompt, /반드시 회수/);
         assert.match(prompt, /`이것`/);
-        assert.match(prompt, /본문에 없는 경험, 수치|본문에 근거/);
     }
 
+    assert.match(searchPrompt, /본문에 없는 경험, 수치|본문에 근거/);
+    assert.match(searchPrompt, /정직한 호기심 간극/);
+    assert.match(discoveryPrompt, /호기심 간극을 적극적으로/);
     assert.match(searchPrompt, /메인 키워드 또는 대상 식별 단서/);
     assert.match(searchPrompt, /검색 질문의 답 전체를 제목에 적기보다/);
-    assert.match(discoveryPrompt, /무엇에 관한 글인지조차 알 수 없게 전부 감추지는 마세요/);
-    assert.match(discoveryPrompt, /다음 내용을 확인해야 의미가 완성되는 열린 고리/);
+    assert.match(discoveryPrompt, /대상을 `이것`, `이런 사람`, `이 습관`처럼 감추거나 범주만 남길 수 있습니다/);
+    assert.match(discoveryPrompt, /질문형·조건형·대조형·인용형·말줄임표 등을 활용해 다음 내용이 이어질 열린 문장/);
+    assert.match(discoveryPrompt, /`대상 감추기`, `문장 열어두기`, `답을 본문으로 미루기` 중 최소 두 가지/);
+    assert.match(discoveryPrompt, /가능하면 세 가지를 함께 적용/);
+    assert.match(discoveryPrompt, /같은 상투 표현을 모든 후보에 반복하지 마세요/);
+    assert.match(discoveryPrompt, /숨긴 대상이나 답이 제공 자료로 확인되지 않으면/);
+    assert.match(discoveryPrompt, /제목에서 감춘 대상이나 미완성 문장의 맥락을 도입에서 바로 이어받고/);
 });
 
 test('invalid strategies safely select the search prompt', () => {

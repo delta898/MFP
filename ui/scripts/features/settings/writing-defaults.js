@@ -26,7 +26,7 @@ function settingsNextWritingLabel(group, value, fallback = '') {
     tone: { calm: '차분하게', balanced: '균형 있게', vivid: '생동감 있게' },
     length: { short: '짧게', standard: '보통', long: '길게' },
     opening: { direct: '핵심부터', contextual: '공감 상황부터', scene: '장면·이야기부터' },
-    development: { explanatory: '설명형', problem_solution: '문제 해결형', experience_review: '경험·리뷰형', comparison: '비교·선택형' },
+    development: { explanatory: '설명형', problem_solution: '문제 해결형', experience_review: '경험·리뷰형', comparison: '비교·선택형', introduction: '소개·추천형' },
     ending: { summary: '핵심 요약', judgment: '개인적 판단', next_step: '다음 행동 제안' }
   };
   return labels[group]?.[value] || fallback || value;
