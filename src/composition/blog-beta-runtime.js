@@ -41,6 +41,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Logger });
     const wordpressPublishedAssetSettings = createWordPressPublishedAssetSettings({ config: CONFIG, fs, logger: Logger });
     const fetchReferenceContent = createBlogReferenceContentFetcher({ config: CONFIG, logger: Logger, axios: options.axios });
+    const referenceSearchGateway = createReferenceSearchGateway({ config: CONFIG, License: options.License });
     const withHeartbeat = (label, fn) => runWithHeartbeat(label, fn, { logger: Logger });
     const relatedPostsService = createRelatedPostsService({
         config: CONFIG,
@@ -169,7 +170,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         path,
         blogWritingApplication: blogWritingSystem.application,
         resolvePlatformWorkspaceDir,
-        referenceSearchGateway: createReferenceSearchGateway({ config: CONFIG, License: options.License })
+        referenceSearchGateway
     });
     const blogPublishingApplication = createBlogPublishingApplication({
         imageOptimizationService,
@@ -194,6 +195,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         shoppingGenerationApplication,
         relatedPostsService,
         fetchReferenceContent,
+        referenceSearchGateway,
         blogPostingApplication,
         blogPublishingApplication
     });
