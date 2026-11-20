@@ -5,7 +5,7 @@
 - 브랜치: `feature/writing-introduction-style`
 - 시작일: 2026-11-12
 - 부모 브랜치: `dev`
-- 상태: 구현 및 집중 검증 완료, 사용자 요청으로 feature 브랜치 커밋
+- 상태: 구현 및 통합 검증 완료, 사용자 요청으로 `dev` 통합
 
 ## 사용자 요구와 목표
 
@@ -93,3 +93,17 @@
 - `git diff --check` 통과.
 - 전체 단위 테스트는 실행하지 않았다. 브라우저/시각적 수용은 사용자 확인이 남아 있다.
 - 2026-11-14: 사용자가 현재 feature 브랜치 커밋을 요청했다. Codex Security 로컬 점검은 별도의 `dev` 기반 feature 브랜치에서 수행한다.
+
+## 2026-11-20 dev 통합 검증
+
+- 두 브랜치를 통합하기 전 전체 변경을 검토했다. UI 계약 테스트는 제거된 기본값 버튼 대신 Auto 체크박스를 확인하도록 갱신했고, 외부 참고 구조 계약은 자동 실행과 글 생성에서 공유 검색을 사용하는지 확인하도록 갱신했다.
+- 두 브랜치의 추적 파일로 구성한 후보에서 단위 테스트 2,630개가 통과했다. 기존 조건부 skip 2개가 있었다.
+- 로컬 바인딩 `EPERM`으로 재실행에서 제외한 아래 6개는 루프백 연결을 허용한 별도 실행에서 모두 통과했다.
+  - `createServer leaves health public and protects data endpoints with the configured token`
+  - `ingest rejects a collector from another Trends environment before database access`
+  - `Astro runtime installs locked site dependencies, builds, and serves dist on loopback`
+  - `Astro runtime builds a site before starting preview when no output exists`
+  - `Astro runtime builds and serves a draft preview without recording a persistent Site build`
+  - `real axios enforces decompressed size limit on local fixture`
+- 로컬 브라우저 모의 서버에서 Auto 선택 시 네 구성 필드가 잠기고 수동 구성값이 유지되며, Auto 해제 시 다시 편집할 수 있음을 확인했다.
+- npm의 단위 테스트 선행 audit는 네트워크 제한과 외부 레지스트리 전송에 대한 자동 승인 거절로 실행하지 못했다. 단위 테스트는 테스트 러너로 실행했다. 실제 AI 생성 결과와 화면의 최종 수용 확인은 남아 있다.

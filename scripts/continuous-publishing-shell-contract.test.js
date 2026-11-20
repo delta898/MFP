@@ -218,10 +218,9 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     for (const field of ['length', 'opening', 'development', 'ending']) {
         assert.match(html, new RegExp(`id="blog-next-writing-${field}"`));
     }
-    assert.match(html, /id="blog-next-writing-settings-open"/);
+    assert.match(html, /id="blog-next-writing-auto"[^>]*type="checkbox"/);
     assert.match(queueScript, /writingOverrides:\s*readBlogNextWritingOverrides\(\)/);
     assert.match(queueScript, /if \(!editing\) rememberBlogNextTopicDefaults\(\)/);
-    assert.match(queueScript, /navigateTo\('settings-next', 'writing'\)/);
     assert.doesNotMatch(html, /기본값 사용|최근 선택 사용/);
     assert.doesNotMatch(queueScript, /applyBlogNextWritingIntent\(/);
     assert.match(discoveryScript, /blogNext: Object\.freeze/);
