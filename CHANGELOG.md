@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
-## [0.7.3-dev1] - 2026-11-20
+## [0.7.3] - 2026-11-21
 
 ### Added
 - **최신 AI 모델 선택**: Gemini 4 Hydrogen·Neon과 GPT-6.2 Sol·Astra를 글쓰기 모델로 선택할 수 있습니다. Claude Fable 5.2가 추가되고 Anthropic 모델 목록 순서도 정리했습니다.
