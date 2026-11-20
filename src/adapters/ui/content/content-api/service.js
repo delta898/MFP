@@ -40,6 +40,7 @@ function createContentApiService(deps = {}) {
     const {
         relatedPostsService,
         fetchReferenceContent,
+        referenceSearchGateway,
         findImageByPrefix,
         GoogleSheets,
         fs,
@@ -378,6 +379,7 @@ function createContentApiService(deps = {}) {
         const { referenceContext } = await collectBlogReferenceContext({
             convertNaverBlogUrl: convertToMobileNaverBlogUrl,
             fetchReferenceContent,
+            referenceSearchGateway,
             Logger,
             signal: operation?.signal,
             jobData: {

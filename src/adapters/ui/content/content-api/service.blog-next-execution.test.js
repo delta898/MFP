@@ -489,7 +489,7 @@ test('direct AI manuscript generation stays local until the user publishes and i
     });
 });
 
-test('text-only manuscript generation uses AI Gateway Plugin independently of the publish target', async () => {
+test('text-only manuscript generation includes automatically collected references in the writing prompt', async () => {
     const coordinator = createBlogExecutionCoordinator();
     const calls = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
@@ -498,10 +498,19 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
         License: {
             async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; }
         },
+        referenceSearchGateway: {
+            async searchLatestReferences(input) {
+                calls.push(['search', input]);
+                return [{ title: '산책 참고글', link: 'https://example.com/walk' }];
+            }
+        },
+        async fetchReferenceContent(url) {
+            calls.push(['fetch', url]);
+            return '참고 본문에 나온 산책로의 길이는 3km입니다.';
+        },
         Logger: { info(message) { calls.push(['log', message]); } },
         Utils: {
             parseStructuredJsonResponse(value) { return JSON.parse(value); },
-            async fetchReferenceContent() { return ''; },
             async sleep() {}
         },
         blogWritingApplication: {
@@ -520,13 +529,16 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
     });
 
     const result = await service.createAiManuscriptDraft({
-        subject: '제주 산책', keywords: ['제주'], imageMode: 'none', targets: ['naver']
+        subject: '제주 산책', keywords: ['제주'], imageMode: 'none', targets: ['naver'], externalReference: true
     });
 
     assert.deepEqual(result, { draftId: 'draft-wp-plugin', revision: 1 });
     const generation = calls.find(([type]) => type === 'generate');
     const draft = calls.find(([type]) => type === 'draft')[1];
+    assert.deepEqual(calls.find(([type]) => type === 'search'), ['search', { topic: '제주' }]);
+    assert.deepEqual(calls.find(([type]) => type === 'fetch'), ['fetch', 'https://example.com/walk']);
     assert.match(generation[1], /제주 산책/);
+    assert.match(generation[1], /산책로의 길이는 3km/);
     assert.equal(generation[2].signal, undefined);
     assert.equal(draft.imageMode, 'none');
     assert.deepEqual(draft.targets, ['naver']);

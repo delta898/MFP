@@ -338,7 +338,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     path,
     getAiModelCatalog
 });
-const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, relatedPostsService, fetchReferenceContent, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, relatedPostsService, fetchReferenceContent, referenceSearchGateway, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 ShoppingManager.relatedPostsService = relatedPostsService;
 const keywordResearchApplication = createBlogKeywordResearchRuntime({
     CONFIG,
@@ -978,6 +978,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     Updater,
     relatedPostsService,
     fetchReferenceContent,
+    referenceSearchGateway,
     findImageByPrefix,
     GoogleSheets,
     blogNextExecutionCoordinator,

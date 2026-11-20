@@ -137,6 +137,7 @@ function createProductApiRouteHandler(deps = {}) {
     const contentApiService = createContentApiService({
         relatedPostsService: deps.relatedPostsService,
         fetchReferenceContent: deps.fetchReferenceContent,
+        referenceSearchGateway: deps.referenceSearchGateway,
         findImageByPrefix: deps.findImageByPrefix,
         fs: deps.fs,
         path: deps.path,
