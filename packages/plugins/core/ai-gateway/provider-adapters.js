@@ -198,7 +198,7 @@ function buildTextRequest(route, modelId, messages, options = {}) {
             stream: false
         };
         if (system) body.system = system;
-        if (options.temperature !== undefined) body.temperature = options.temperature;
+        if (options.temperature !== undefined && !/^gpt-6\.2-/.test(modelId)) body.temperature = options.temperature;
         return { method: 'POST', path: '/claude/v1/messages', body };
     }
     if (route.transport === 'gemini_generate_content') {
@@ -213,9 +213,9 @@ function buildTextRequest(route, modelId, messages, options = {}) {
         if (options.maxOutputTokens) generationConfig.maxOutputTokens = options.maxOutputTokens;
         if (options.temperature !== undefined) generationConfig.temperature = options.temperature;
         if (options.responseFormat === 'json') generationConfig.responseMimeType = 'application/json';
-        if (options.reasoningEffort && /^gemini-3(?:\.|-)/.test(modelId)) {
+        if (options.reasoningEffort && /^gemini-(?:3(?:\.|-)|4-)/.test(modelId)) {
             const thinkingLevel = options.reasoningEffort === 'none' ? 'minimal' : options.reasoningEffort;
-            if (['minimal', 'low', 'medium', 'high'].includes(thinkingLevel)) {
+            if (['minimal', 'low', 'medium', 'high', 'xhigh'].includes(thinkingLevel)) {
                 generationConfig.thinkingConfig = { thinkingLevel };
             }
         }
@@ -256,7 +256,7 @@ function buildTextRequest(route, modelId, messages, options = {}) {
     if (options.maxOutputTokens) {
         body[route.provider === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = options.maxOutputTokens;
     }
-    if (options.temperature !== undefined) body.temperature = options.temperature;
+    if (options.temperature !== undefined && !(route.provider === 'openai' && /^gpt-6\.2-/.test(modelId))) body.temperature = options.temperature;
     if (options.reasoningEffort && route.provider === 'openai') body.reasoning_effort = options.reasoningEffort;
     if (options.responseFormat === 'json') body.response_format = { type: 'json_object' };
     const path = route.provider === 'direct'

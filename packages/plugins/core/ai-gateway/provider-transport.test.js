@@ -3,6 +3,30 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createProviderTransport, isAllowedRoute, isPrivateAddress, parseResponseEventStream, sanitizeProviderDiagnostic } = require('./provider-transport');
+const { buildTextRequest } = require('./provider-adapters');
+
+test('Gemini 4 thinking levels are sent through generationConfig', () => {
+    const request = buildTextRequest(
+        { provider: 'google', transport: 'gemini_generate_content' },
+        'gemini-4-neon',
+        [{ role: 'user', content: '안녕하세요' }],
+        { reasoningEffort: 'xhigh', temperature: 0.7 }
+    );
+    assert.deepEqual(request.body.generationConfig.thinkingConfig, { thinkingLevel: 'xhigh' });
+    assert.equal(request.body.generationConfig.temperature, 0.7);
+});
+
+test('GPT 6.2 chat requests omit unsupported sampling parameters', () => {
+    const request = buildTextRequest(
+        { provider: 'openai', transport: 'openai_chat_completions' },
+        'gpt-6.2-sol',
+        [{ role: 'user', content: '안녕하세요' }],
+        { temperature: 0.7, reasoningEffort: 'medium', maxOutputTokens: 1200 }
+    );
+    assert.equal(Object.hasOwn(request.body, 'temperature'), false);
+    assert.equal(request.body.reasoning_effort, 'medium');
+    assert.equal(request.body.max_completion_tokens, 1200);
+});
 
 test('Gateway transport resolves the configured key internally and restricts provider routes', async () => {
     const calls = [];
